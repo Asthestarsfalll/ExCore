@@ -1,7 +1,7 @@
 from prepare import MODELS
 
-from core import Registry, config
-from core.logger import logger
+from excore import Registry, config
+from excore.logger import logger
 
 logger.info(MODELS.module_table())
 logger.info(Registry.children_table())

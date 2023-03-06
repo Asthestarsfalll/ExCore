@@ -1,4 +1,4 @@
-from core import Registry
+from excore import Registry
 
 MODELS = Registry("Model")
 DATAS = Registry("Data")
