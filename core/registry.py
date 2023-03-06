@@ -20,7 +20,7 @@ def _check_name(name: str):
         )
 
 
-class Registry(Dict):
+class Registry(dict):
     children: Dict[str, "Registry"] = dict()
 
     def __new__(cls, name: str) -> "Registry":
