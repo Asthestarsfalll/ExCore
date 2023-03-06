@@ -1,0 +1,6 @@
+[Optimizer.AdamW]
+weight_decay=0.01
+
+[Loss.CrossEntropyLoss]
+[Loss.OHEM]
+[Loss.BoundaryLoss]

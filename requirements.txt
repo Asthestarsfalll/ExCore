@@ -1,0 +1,7 @@
+loguru
+toml
+tempfile
+urllib
+zipfile
+requests
+tabulate
