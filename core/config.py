@@ -21,7 +21,7 @@ def load(filename: str):
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
-    if ext in [".yml", ".ymal"]:
+    if ext in [".yml", ".yaml"]:
         with open(filename) as f:
             CONF.update(yaml.load(f, yaml.Loader))
     elif ext in [".toml"]:
