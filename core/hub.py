@@ -407,8 +407,7 @@ class pretrained:  # noqa
 
                 cached_file = os.path.join(_cache_dir, filename)
                 download_from_url(self.url, cached_file)
-                weight = self.load_func(cached_file)
-                model.load_state_dict(weight)
+                self.load_func(cached_file, model)
             return model
 
         return pretrained_model_func
