@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "excore"
+version = "0.1.1"
+description = "Build your own development toolkit efficiently."
+authors = ["Asthestarsfalll <1186454801@qq.com>"]
+license = "MIT"
+# readme = "README.md"
+repository = "https://github.com/Asthestarsfalll/excore"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
