@@ -1,25 +1,25 @@
 from excore import Registry
 
-MODELS = Registry("Model")
+MODELS = Registry("Model", extra_field=["is_pretrained", "is_backbone"])
 DATAS = Registry("Data")
 TRANSFORMS = Registry("Transform")
 OPTIM = Registry("Optimizer")
 LOSSES = Registry("Loss")
 
 
-@MODELS.register()
+@MODELS.register(is_pretrained=True, is_backbone=True)
 class ResNet:
     def __init__(self, **kwargs):
         pass
 
 
-@MODELS.register(name="SimpleHead")
+@MODELS.register(name="SimpleHead", is_pretrained=False, is_backbone=False)
 class Head:
     def __init__(self, **kwargs):
         pass
 
 
-@MODELS.register()
+@MODELS.register(is_pretrained=True)
 class FCN:
     def __init__(self, **kwargs):
         pass
