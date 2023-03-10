@@ -81,7 +81,7 @@ class Registry(dict):
         module: Callable,
         force: bool = False,
         name: Optional[str] = None,
-        extra_info: Optional[Dict[str, Any]] = None,
+        **extra_info,
     ) -> Callable:
         if not (inspect.isfunction(module) or inspect.isclass(module)):
             raise TypeError("Only support function or class, but got {}".format(type(module)))
@@ -108,7 +108,7 @@ class Registry(dict):
         return module
 
     def register(self, force: bool = False, name: Optional[str] = None, **extra_info) -> Callable:
-        return functools.partial(self._register, force=force, name=name, extra_info=extra_info)
+        return functools.partial(self._register, force=force, name=name, **extra_info)
 
     def register_all(
         self,
@@ -118,9 +118,9 @@ class Registry(dict):
         force: bool = False,
     ) -> None:
         _names = names if names else [None] * len(modules)
-        _info = extra_info if extra_info else [None] * len(modules)
+        _info = extra_info if extra_info else [{}] * len(modules)
         for module, name, info in zip(modules, _names, _info):
-            self._register(module, force=force, name=name, extra_info=info)
+            self._register(module, force=force, name=name, **info)
 
     def merge(
         self,
