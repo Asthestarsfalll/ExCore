@@ -1,10 +1,9 @@
 __base__ = [
   'datasets.toml',
   'models.toml',
-  'optimizer.toml'
+  'optimizer.toml',
+  'hook.toml'
 ]
-
-
 
 total_iters = 120000
 batch_size = 8

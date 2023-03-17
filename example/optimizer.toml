@@ -1,6 +1,11 @@
 [Optimizer.AdamW]
 weight_decay=0.01
 
+[LRSche.CosDecay]
+# 写在config hook里
+# !optimizer='AdamW'
+learning_rate=0.1
+
 [Loss.CrossEntropyLoss]
 [Loss.OHEM]
 [Loss.BoundaryLoss]

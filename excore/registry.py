@@ -4,6 +4,7 @@ import inspect
 import json
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from collections import OrderedDict
 
 from tabulate import tabulate
 
@@ -27,7 +28,15 @@ def _default_filter_func(values: Sequence[Any]) -> bool:
     return True
 
 
-class Registry(dict):
+def _default_match_func(m, base_module):
+    if not m.startswith("__"):
+        m = getattr(base_module, m)
+        if inspect.isfunction(m) or inspect.isclass(m):
+            return True
+    return False
+
+
+class Registry(OrderedDict):
     children: Dict[str, "Registry"] = dict()
 
     def __new__(cls, name: str, extra_field: Any = None) -> "Registry":
@@ -138,11 +147,11 @@ class Registry(dict):
 
     def filter(
         self,
-        filter_feild: Union[Sequence[str], str],
+        filter_field: Union[Sequence[str], str],
         filter_func: Callable = _default_filter_func,
     ) -> List[str]:
-        filter_feild = [filter_feild] if isinstance(filter_feild, str) else filter_feild
-        filter_idx = [i for i, name in enumerate(self.extra_field) if name in filter_feild]
+        filter_field = [filter_field] if isinstance(filter_field, str) else filter_field
+        filter_idx = [i for i, name in enumerate(self.extra_field) if name in filter_field]
         out = []
         for name in self.keys():
             info = self.extra_info[name]
@@ -151,6 +160,14 @@ class Registry(dict):
                 out.append(name)
         out = list(sorted(out))
         return out
+
+    def fuzzy_match(self, base_module, match_func=_default_match_func):
+        matched_modules = [
+            getattr(base_module, name)
+            for name in base_module.__dict__.keys()
+            if match_func(name, base_module)
+        ]
+        self.register_all(matched_modules)
 
     def module_table(
         self,
@@ -182,7 +199,10 @@ class Registry(dict):
 
         table_headers = ["\033[36m{}\033[0m".format(item) for item in [self.name, *select_info]]
 
-        select_idx = [idx for idx, name in enumerate(self.extra_field) if name in select_info]
+        if select_info:
+            select_idx = [idx for idx, name in enumerate(self.extra_field) if name in select_info]
+        else:
+            select_idx = []
 
         table = tabulate(
             [(i, *[self.extra_info[i][idx] for idx in select_idx]) for i in modules],

@@ -1,0 +1,2 @@
+[ConfigHook]
+Hook=['AddModelParams', 'AddOptimizer']

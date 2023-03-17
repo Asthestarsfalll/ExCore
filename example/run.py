@@ -25,7 +25,7 @@ logger.info(Registry.children_table())
 
 cfg = config.load("./run.toml")
 
-target_module = ["Model", "Optimizer", "Loss", "TrainData"]
+target_module = ["Model", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
 modules_dict, cfg_dict = config.build_all(cfg, target_module)
 logger.debug(modules_dict)
 logger.debug(cfg_dict)

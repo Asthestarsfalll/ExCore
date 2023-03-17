@@ -23,20 +23,28 @@ class InvalidProtocol(BaseException):
 
 
 class HTTPDownloadError(BaseException):
-    r"""The class that represents http request error."""
+    r""""""
 
 
 class CoreConfigSupportError(BaseException):
-    r"""The class that represents http request error."""
+    r""""""
 
 
 class CoreConfigReadError(BaseException):
-    r"""The class that represents http request error."""
+    r""""""
 
 
 class CoreConfigBuildError(BaseException):
-    r"""The class that represents http request error."""
+    r""""""
 
 
 class ModuleBuildError(BaseException):
-    r"""The class that represents http request error."""
+    r""""""
+
+
+class HookManagerBuildError(BaseException):
+    r""""""
+
+
+class HookBuildError(BaseException):
+    r""""""
