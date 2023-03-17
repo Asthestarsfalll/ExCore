@@ -1,6 +1,6 @@
 from collections import defaultdict
 from typing import Sequence, Protocol, Any, Callable
-from .exceptions import HookBuildError, HookManagerBuildError
+from ._exceptions import HookBuildError, HookManagerBuildError
 
 __all__ = ["HookManager", "ConfigHookManager", "Hook"]
 
@@ -36,15 +36,21 @@ class HookManager(metaclass=MetaHookManager):
         for h in hooks:
             if not hasattr(h, "__HookType__") or h.__HookType__ not in self.stages:
                 raise HookBuildError(
-                    __error_msg.format(h.__class__.__name__, "__HookType__", h.__HookType__)
+                    __error_msg.format(
+                        h.__class__.__name__, "__HookType__", h.__HookType__
+                    )
                 )
             if not hasattr(h, "__LifeSpan__") or h.__LifeSpan__ <= 0:
                 raise HookBuildError(
-                    __error_msg.format(h.__class__.__name__, "__LifeSpan__", h.__LifeSpan__)
+                    __error_msg.format(
+                        h.__class__.__name__, "__LifeSpan__", h.__LifeSpan__
+                    )
                 )
             if not hasattr(h, "__CallInter__") or h.__CallInter__ <= 0:
                 raise HookBuildError(
-                    __error_msg.format(h.__class__.__name__, "__CallInter__", h.__CallInter__)
+                    __error_msg.format(
+                        h.__class__.__name__, "__CallInter__", h.__CallInter__
+                    )
                 )
         self.hooks = defaultdict(list)
         self.calls = defaultdict(int)
@@ -60,10 +66,10 @@ class HookManager(metaclass=MetaHookManager):
         return self.hooks[stage] != []
 
     def pre_call(self):
-        pass
+        return
 
     def after_call(self):
-        pass
+        return
 
     def __call__(self, stage, *inps):
         dead_hook_idx = []

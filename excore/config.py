@@ -4,10 +4,9 @@ from collections import OrderedDict
 from typing import Dict, List, Optional, Tuple
 
 import toml
-import yaml
 from toml.decoder import _groupname_re
 
-from .exceptions import CoreConfigBuildError, CoreConfigSupportError, ModuleBuildError
+from ._exceptions import CoreConfigBuildError, CoreConfigSupportError, ModuleBuildError
 from .logger import logger
 from .registry import Registry as Reg
 from .hook import ConfigHookManager
@@ -17,18 +16,16 @@ _groupname_re = re.compile(r"^[A-Za-z0-9_-]+$")  # noqa
 CONF = Reg("__configs")
 
 
-@logger.catch
 def load(filename: str):
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
-    if ext in [".yml", ".yaml"]:
-        with open(filename) as f:
-            CONF.update(yaml.load(f, yaml.Loader))
-    elif ext in [".toml"]:
+    if ext in [".toml"]:
         CONF.update(toml.load(filename, OrderedDict))
     else:
-        raise CoreConfigSupportError("Only support `yaml` or `toml` files, but got {}".format(ext))
+        raise CoreConfigSupportError(
+            "Only support `toml` files for now, but got {}".format(ext)
+        )
     base_cfgs = [load(os.path.join(path, i)) for i in CONF.pop("__base__", [])]
     [CONF.update(c) for c in base_cfgs]
     return CONF
@@ -90,6 +87,7 @@ def build_all(  # noqa
 
     if hooks:
         key = list(hooks.keys())[0]
+        # TODO: make this pythonic
         base_name = key[1:] if _is_tag(key) else key
         hooks = [_build(v, cfg.get(v, None), base_name) for v in hooks[key]]
         config_hooks = ConfigHookManager(hooks)

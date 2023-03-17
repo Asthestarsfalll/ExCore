@@ -2,7 +2,7 @@ import sys
 
 from loguru import logger
 
-__all__ = ["logger", "get_logger", "remove_logger"]
+__all__ = ["logger", "add_logger", "remove_logger"]
 
 LOGGERS = {}
 
@@ -13,30 +13,33 @@ FORMAT = (
 )
 
 
-def get_logger(
-    name, sink, *, level, format, filter, colorize, serialize, backtrace, diagnose, enqueue
-):
-    id = logger.add(
-        sink,
-        level=level,
-        format=format,
-        filter=filter,
-        colorize=colorize,
-        serialize=serialize,
-        backtrace=backtrace,
-        diagnose=diagnose,
-        enqueue=enqueue,
-    )
+def add_logger(
+    name,
+    sink,
+    *,
+    level=None,
+    format=None,
+    filter=None,
+    colorize=None,
+    serialize=None,
+    backtrace=None,
+    diagnose=None,
+    enqueue=None,
+) -> None:
+    params = {k: v for k, v in locals().items() if v is not None}
+    params.pop("sink")
+    params.pop("name")
+    id = logger.add(sink, **params)
     LOGGERS[name] = id
 
 
-def remove_logger(name):
+def remove_logger(name: str) -> None:
     id = LOGGERS.pop(name, None)
     if id:
         logger.remove(id)
-        logger.success("Remove logger whose id is {}".format(id))
+        logger.success("Remove logger whose name is {}".format(name))
     else:
-        logger.warning("Cannot find logger with id {}".format(id))
+        logger.warning("Cannot find logger with name {}".format(name))
 
 
 def log_to_file_only(file_name: str, *args, **kwargs) -> None:
@@ -45,12 +48,16 @@ def log_to_file_only(file_name: str, *args, **kwargs) -> None:
     logger.success("Log to file {} only".format(file_name))
 
 
-def debug_only(*args, **kwargs):
+def debug_only(*args, **kwargs) -> None:
     def _debug_only(record):
         return record["level"].name == "DEBUG"
 
     logger.remove(None)
+    filter = kwargs.pop("filter", None)
+    if filter:
+        logger.warning("Override filter")
     logger.add(sys.stderr, *args, filter=_debug_only, **kwargs)
+    logger.debug("DEBUG ONLY!!!")
 
 
 def init_logger():

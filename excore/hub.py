@@ -20,8 +20,8 @@ from zipfile import ZipFile
 import requests
 from tqdm import tqdm
 
-from .constants import __version__, _cache_dir
-from .exceptions import (
+from ._constants import __version__, _cache_dir
+from ._exceptions import (
     GitCheckoutError,
     GitPullError,
     HTTPDownloadError,
@@ -130,10 +130,12 @@ class GitSSHFetcher(RepoFetcherBase):
 
         repo_owner, repo_name, branch_info = cls._parse_repo_info(repo_info)
         normalized_branch_info = branch_info.replace("/", "_")
-        repo_dir_raw = "{}_{}_{}".format(repo_owner, repo_name, normalized_branch_info) + (
-            "_{}".format(commit) if commit else ""
+        repo_dir_raw = "{}_{}_{}".format(
+            repo_owner, repo_name, normalized_branch_info
+        ) + ("_{}".format(commit) if commit else "")
+        repo_dir = (
+            "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
         )
-        repo_dir = "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
         git_url = "git@{}:{}/{}.git".format(git_host, repo_owner, repo_name)
 
         if use_cache and os.path.exists(repo_dir):  # use cache
@@ -188,7 +190,9 @@ class GitSSHFetcher(RepoFetcherBase):
     def _check_clone_pipe(cls, p):
         _, err = p.communicate()
         if p.returncode:
-            raise GitPullError("Repo pull error, please check repo info.\n" + err.decode())
+            raise GitPullError(
+                "Repo pull error, please check repo info.\n" + err.decode()
+            )
 
 
 class GitHTTPSFetcher(RepoFetcherBase):
@@ -208,10 +212,12 @@ class GitHTTPSFetcher(RepoFetcherBase):
 
         repo_owner, repo_name, branch_info = cls._parse_repo_info(repo_info)
         normalized_branch_info = branch_info.replace("/", "_")
-        repo_dir_raw = "{}_{}_{}".format(repo_owner, repo_name, normalized_branch_info) + (
-            "_{}".format(commit) if commit else ""
+        repo_dir_raw = "{}_{}_{}".format(
+            repo_owner, repo_name, normalized_branch_info
+        ) + ("_{}".format(commit) if commit else "")
+        repo_dir = (
+            "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
         )
-        repo_dir = "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
         archive_url = "https://{}/{}/{}/archive/{}.zip".format(
             git_host, repo_owner, repo_name, commit or branch_info
         )
@@ -231,7 +237,9 @@ class GitHTTPSFetcher(RepoFetcherBase):
     def _download_zip_and_extract(cls, url, target_dir):
         resp = requests.get(url, timeout=cls.HTTP_TIMEOUT, stream=True)
         if resp.status_code != 200:
-            raise HTTPDownloadError("An error occurred when downloading from {}".format(url))
+            raise HTTPDownloadError(
+                "An error occurred when downloading from {}".format(url)
+            )
 
         total_size = int(resp.headers.get("Content-Length", 0))
         _bar = tqdm(total=total_size, unit="iB", unit_scale=True)
@@ -282,7 +290,9 @@ def _get_repo(
 ) -> str:
     if protocol not in PROTOCOLS:
         raise InvalidProtocol(
-            "Invalid protocol, the value should be one of {}.".format(", ".join(PROTOCOLS.keys()))
+            "Invalid protocol, the value should be one of {}.".format(
+                ", ".join(PROTOCOLS.keys())
+            )
         )
     cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
     with cd(cache_dir):
@@ -344,7 +354,11 @@ def list(
     protocol: str = DEFAULT_PROTOCOL,
 ) -> List[str]:
     hubmodule = _init_hub(repo_info, git_host, entry, use_cache, commit, protocol)
-    return [_ for _ in dir(hubmodule) if not _.startswith("__") and callable(getattr(hubmodule, _))]
+    return [
+        _
+        for _ in dir(hubmodule)
+        if not _.startswith("__") and callable(getattr(hubmodule, _))
+    ]
 
 
 def load(

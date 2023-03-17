@@ -4,7 +4,6 @@ import inspect
 import json
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
-from collections import OrderedDict
 
 from tabulate import tabulate
 
@@ -36,7 +35,7 @@ def _default_match_func(m, base_module):
     return False
 
 
-class Registry(OrderedDict):
+class Registry(dict):
     children: Dict[str, "Registry"] = dict()
 
     def __new__(cls, name: str, extra_field: Any = None) -> "Registry":
@@ -54,7 +53,9 @@ class Registry(OrderedDict):
         super().__init__()
         self.name = name
         if extra_field:
-            self.extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
+            self.extra_field = (
+                [extra_field] if isinstance(extra_field, str) else extra_field
+            )
             self.extra_info = dict()
 
     @classmethod
@@ -80,7 +81,9 @@ class Registry(OrderedDict):
         super().__setitem__(k, v)
 
     def __repr__(self) -> str:
-        s = json.dumps(self, indent=4, ensure_ascii=False, sort_keys=False, separators=(",", ":"))
+        s = json.dumps(
+            self, indent=4, ensure_ascii=False, sort_keys=False, separators=(",", ":")
+        )
         return "\n" + s
 
     __str__ = __repr__
@@ -93,7 +96,9 @@ class Registry(OrderedDict):
         **extra_info,
     ) -> Callable:
         if not (inspect.isfunction(module) or inspect.isclass(module)):
-            raise TypeError("Only support function or class, but got {}".format(type(module)))
+            raise TypeError(
+                "Only support function or class, but got {}".format(type(module))
+            )
 
         name = name or module.__name__
         if not force and name in self.keys():
@@ -101,7 +106,9 @@ class Registry(OrderedDict):
 
         if extra_info:
             if not hasattr(self, "extra_field"):
-                raise ValueError("Registry `{}` does not have `extra_field`.".format(self.name))
+                raise ValueError(
+                    "Registry `{}` does not have `extra_field`.".format(self.name)
+                )
             for k in extra_info.keys():
                 if k not in self.extra_field:
                     raise ValueError(
@@ -116,7 +123,9 @@ class Registry(OrderedDict):
         self[name] = module
         return module
 
-    def register(self, force: bool = False, name: Optional[str] = None, **extra_info) -> Callable:
+    def register(
+        self, force: bool = False, name: Optional[str] = None, **extra_info
+    ) -> Callable:
         return functools.partial(self._register, force=force, name=name, **extra_info)
 
     def register_all(
@@ -151,7 +160,9 @@ class Registry(OrderedDict):
         filter_func: Callable = _default_filter_func,
     ) -> List[str]:
         filter_field = [filter_field] if isinstance(filter_field, str) else filter_field
-        filter_idx = [i for i, name in enumerate(self.extra_field) if name in filter_field]
+        filter_idx = [
+            i for i, name in enumerate(self.extra_field) if name in filter_field
+        ]
         out = []
         for name in self.keys():
             info = self.extra_info[name]
@@ -197,10 +208,13 @@ class Registry(OrderedDict):
 
         modules = list(sorted(modules))
 
-        table_headers = ["\033[36m{}\033[0m".format(item) for item in [self.name, *select_info]]
+        # TODO: make colorful and suit for logging to file.
+        table_headers = ["{}".format(item) for item in [self.name, *select_info]]
 
         if select_info:
-            select_idx = [idx for idx, name in enumerate(self.extra_field) if name in select_info]
+            select_idx = [
+                idx for idx, name in enumerate(self.extra_field) if name in select_info
+            ]
         else:
             select_idx = []
 
@@ -215,7 +229,7 @@ class Registry(OrderedDict):
 
     @classmethod
     def children_table(cls, **table_kwargs) -> Any:
-        table_headers = ["\033[36m{}\033[0m".format("COMPONMENTS")]
+        table_headers = ["{}".format("COMPONMENTS")]
         table = tabulate(
             list(sorted([[i] for i in cls.children.keys()])),
             headers=table_headers,

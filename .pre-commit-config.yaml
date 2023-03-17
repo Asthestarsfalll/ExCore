@@ -20,12 +20,12 @@ repos:
   rev: 23.1.0
   hooks:
   - id: black
-    args: [-l, '100', --target-version, py35]
+    args: [-l, '90', --target-version, py35]
 - repo: https://github.com/pycqa/flake8
   rev: 6.0.0
   hooks:
   - id: flake8
-    args: [--exclude, '*/__init__.py', --max-line-length, '100', --ignore, E722]
+    args: [--exclude, '*/__init__.py', --max-line-length, '100', --ignore, E722, --ignore, N813]
     additional_dependencies:
     - flake8-bugbear==23.1.20
     - pep8-naming==0.13.3

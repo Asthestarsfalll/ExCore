@@ -1,7 +1,7 @@
 from . import hub
 from .config import build_all, load
-from .constants import __author__, __version__, _cache_dir
-from .logger import get_logger, logger, remove_logger
+from ._constants import __author__, __version__, _cache_dir
+from .logger import add_logger, logger, remove_logger
 from .registry import Registry
 
 
