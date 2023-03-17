@@ -138,4 +138,5 @@ log
 # test files
 __test_files__
 
-poery.lock
+*.lock
+*.log
