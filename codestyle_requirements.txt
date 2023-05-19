@@ -1,0 +1,5 @@
+flake8==6.0.0
+black==22.1.0
+isort==5.12.0
+autoflake==2.0.2
+click==8.0.4

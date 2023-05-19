@@ -1,14 +1,13 @@
-from typing import List
 from enum import Enum
-from pynvml import nvmlInit, nvmlShutdown
-from pynvml import (
-    nvmlDeviceGetName as get_device_name,
-    nvmlDeviceGetHandleByIndex as get_device_handle,
-    nvmlDeviceGetMemoryInfo as _get_memory_info,
-    nvmlDeviceGetTemperature as _get_device_temperature,
-    nvmlDeviceGetPowerState as _get_device_powerstate,
-)
+from typing import List
+
 from pynvml import nvmlDeviceGetCount  # noqa
+from pynvml import nvmlDeviceGetHandleByIndex as get_device_handle
+from pynvml import nvmlDeviceGetMemoryInfo as _get_memory_info
+from pynvml import nvmlDeviceGetName as get_device_name
+from pynvml import nvmlDeviceGetPowerState as _get_device_powerstate
+from pynvml import nvmlDeviceGetTemperature as _get_device_temperature
+from pynvml import nvmlInit, nvmlShutdown
 
 __all__ = [
     "get_device_handle",
@@ -26,7 +25,7 @@ IS_INIT = False
 
 
 def _init_nvml(func):
-    global IS_INIT
+    global IS_INIT  # pylint: disable=global-statement
     if not IS_INIT:
         nvmlInit()
         IS_INIT = True

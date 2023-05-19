@@ -1,8 +1,8 @@
 import sys
 
-from loguru import logger
+from loguru import logger as _logger
 
-__all__ = ["logger", "add_logger", "remove_logger"]
+__all__ = ["logger", "add_logger", "remove_logger", "debug_only", "log_to_file_only"]
 
 LOGGERS = {}
 
@@ -13,18 +13,28 @@ FORMAT = (
 )
 
 
+def _trace_patcher(log_record):
+    if log_record["name"] == "__main__":
+        log_record["name"] = log_record["file"].name
+    if log_record["function"] == "<module>":
+        log_record["function"] = "\b"
+
+
+logger = _logger.patch(_trace_patcher)
+
+
 def add_logger(
     name,
     sink,
     *,
-    level=None,
-    format=None,
-    filter=None,
-    colorize=None,
-    serialize=None,
-    backtrace=None,
-    diagnose=None,
-    enqueue=None,
+    level=None,  # pylint: disable=unused-argument
+    format=None,  # pylint: disable=unused-argument
+    filter=None,  # pylint: disable=unused-argument
+    colorize=None,  # pylint: disable=unused-argument
+    serialize=None,  # pylint: disable=unused-argument
+    backtrace=None,  # pylint: disable=unused-argument
+    diagnose=None,  # pylint: disable=unused-argument
+    enqueue=None,  # pylint: disable=unused-argument
 ) -> None:
     params = {k: v for k, v in locals().items() if v is not None}
     params.pop("sink")
@@ -52,10 +62,10 @@ def debug_only(*args, **kwargs) -> None:
     def _debug_only(record):
         return record["level"].name == "DEBUG"
 
-    logger.remove(None)
     filter = kwargs.pop("filter", None)
     if filter:
         logger.warning("Override filter")
+    logger.remove(None)
     logger.add(sys.stderr, *args, filter=_debug_only, **kwargs)
     logger.debug("DEBUG ONLY!!!")
 

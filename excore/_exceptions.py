@@ -23,28 +23,28 @@ class InvalidProtocol(BaseException):
 
 
 class HTTPDownloadError(BaseException):
-    r""""""
+    pass
 
 
 class CoreConfigSupportError(BaseException):
-    r""""""
+    pass
 
 
 class CoreConfigReadError(BaseException):
-    r""""""
+    pass
 
 
 class CoreConfigBuildError(BaseException):
-    r""""""
+    pass
 
 
 class ModuleBuildError(BaseException):
-    r""""""
+    pass
 
 
 class HookManagerBuildError(BaseException):
-    r""""""
+    pass
 
 
 class HookBuildError(BaseException):
-    r""""""
+    pass

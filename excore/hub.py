@@ -21,14 +21,8 @@ import requests
 from tqdm import tqdm
 
 from ._constants import __version__, _cache_dir
-from ._exceptions import (
-    GitCheckoutError,
-    GitPullError,
-    HTTPDownloadError,
-    InvalidGitHost,
-    InvalidProtocol,
-    InvalidRepo,
-)
+from ._exceptions import (GitCheckoutError, GitPullError, HTTPDownloadError,
+                          InvalidGitHost, InvalidProtocol, InvalidRepo)
 from .logger import logger
 
 __all__ = [
@@ -89,8 +83,8 @@ class RepoFetcherBase:
                 prefix_info = repo_info
             repo_owner, repo_name = prefix_info.split("/")
             return repo_owner, repo_name, branch_info
-        except ValueError:
-            raise InvalidRepo("repo_info: '{}' is invalid.".format(repo_info))
+        except ValueError as exc:
+            raise InvalidRepo("repo_info: '{}' is invalid.".format(repo_info)) from exc
 
     @classmethod
     def _check_git_host(cls, git_host):
@@ -151,7 +145,9 @@ class GitSSHFetcher(RepoFetcherBase):
             repo_dir,
         )
 
-        kwargs = {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
+        kwargs = (
+            {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
+        )
         if commit is None:
             # shallow clone repo by branch/tag
             p = subprocess.Popen(
@@ -169,17 +165,22 @@ class GitSSHFetcher(RepoFetcherBase):
             cls._check_clone_pipe(p)
         else:
             # clone repo and checkout to commit_id
-            p = subprocess.Popen(["git", "clone", git_url, repo_dir], **kwargs)
+            p = subprocess.Popen(  # pylint: disable=consider-using-with
+                ["git", "clone", git_url, repo_dir], **kwargs
+            )
             cls._check_clone_pipe(p)
 
             with cd(repo_dir):
                 logger.debug("git checkout to {}", commit)
-                p = subprocess.Popen(["git", "checkout", commit], **kwargs)
+                p = subprocess.Popen(  # pylint: disable=consider-using-with
+                    ["git", "checkout", commit], **kwargs
+                )
                 _, err = p.communicate()
                 if p.returncode:
                     shutil.rmtree(repo_dir, ignore_errors=True)
                     raise GitCheckoutError(
-                        "Git checkout error, please check the commit id.\n" + err.decode()
+                        "Git checkout error, please check the commit id.\n"
+                        + err.decode()
                     )
         with cd(repo_dir):
             shutil.rmtree(".git")
@@ -267,7 +268,9 @@ PROTOCOLS = {
 def download_from_url(url: str, dst: str):
     resp = requests.get(url, timeout=120, stream=True)
     if resp.status_code != 200:
-        raise HTTPDownloadError("An error occurred when downloading from {}".format(url))
+        raise HTTPDownloadError(
+            "An error occurred when downloading from {}".format(url)
+        )
 
     total_size = int(resp.headers.get("Content-Length", 0))
     _bar = tqdm(total=total_size, unit="iB", unit_scale=True)
@@ -372,7 +375,9 @@ def load(
     protocol: str = DEFAULT_PROTOCOL,
     **kwargs
 ) -> Any:
-    hubmodule = _init_hub(repo_info, git_host, hubconf_entry, use_cache, commit, protocol)
+    hubmodule = _init_hub(
+        repo_info, git_host, hubconf_entry, use_cache, commit, protocol
+    )
 
     if not hasattr(hubmodule, entry) or not callable(getattr(hubmodule, entry)):
         raise RuntimeError("Cannot find callable {} in hubconf.py".format(entry))
@@ -392,7 +397,9 @@ def help(
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
 ) -> str:
-    hubmodule = _init_hub(repo_info, git_host, hubconf_entry, use_cache, commit, protocol)
+    hubmodule = _init_hub(
+        repo_info, git_host, hubconf_entry, use_cache, commit, protocol
+    )
 
     if not hasattr(hubmodule, entry) or not callable(getattr(hubmodule, entry)):
         raise RuntimeError("Cannot find callable {} in hubconf.py".format(entry))
@@ -401,7 +408,7 @@ def help(
     return doc
 
 
-class pretrained:  # noqa
+class pretrained:  # noqa pylint: disable=redefined-outer-name
     def __init__(self, url, load_func):
         self.url = url
         self.load_func = load_func
