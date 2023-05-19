@@ -7,10 +7,15 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from tabulate import tabulate
 
+from .logger import logger
+
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
+_private_flag: str = "__"
+
+__all__ = ["Registry"]
 
 
-def _check_name(name: str):
+def _is_pure_ascii(name: str):
     if not _name_re.match(name):
         raise ValueError(
             """Unexpected name, only support ASCII letters, ASCII digits,
@@ -35,17 +40,54 @@ def _default_match_func(m, base_module):
     return False
 
 
-class Registry(dict):
-    children: Dict[str, "Registry"] = dict()
+class RegistryMeta(type):
+    _registry_pool: Dict[str, "Registry"] = dict()
+    """Metaclass that governs the creation of instances of its subclasses, which are
+    `Registry` objects.
 
-    def __new__(cls, name: str, extra_field: Any = None) -> "Registry":
-        _check_name(name)
-        if name in Registry.children:
-            return Registry.children[name]
-        instance = dict.__new__(cls)
-        if not name.startswith("__"):
-            Registry.children[name] = instance
+    Attributes:
+        _registry_pool (dict): A dictionary that maps registry names to `Registry`
+            instances.
+
+    Methods:
+        __call__(name, **kwargs) -> Registry:
+            Creates an instance of `Registry` with the given `name`. If an instance with
+            the same name already exists, returns that instance instead. If additional
+            keyword arguments are provided and the instance already exists, a warning
+            message is logged indicating that the extra arguments will be ignored.
+    """
+
+    def __call__(cls, name, **kwargs) -> "Registry":
+        r"""Assert only call `__init__` once"""
+        _is_pure_ascii(name)
+        if name in cls._registry_pool:
+            if kwargs:
+                logger.warning(
+                    f"{cls.__name__}: `{name}` has already existed,"
+                    " extra arguments will be ignored"
+                )
+            return cls._registry_pool[name]
+        instance = super().__call__(name, **kwargs)
+        if not name.startswith(_private_flag):
+            cls._registry_pool[name] = instance
         return instance
+
+
+class Registry(dict, metaclass=RegistryMeta):
+    _globals: Optional["Registry"] = None
+    """A registry that stores functions and classes by name.
+
+    Attributes:
+        name (str): The name of the registry.
+        extra_field (Optional[Union[str, Sequence[str]]]): A field or fields that can be
+            used to store additional information about each function or class in the
+            registry.
+        extra_info (Dict[str, List[Any]]): A dictionary that maps each registered name
+            to a list of extra values associated with that name (if any).
+        _globals (Optional[Registry]): A static variable that stores a global registry
+            containing all functions and classes registered using Registry.
+
+    """
 
     def __init__(
         self, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
@@ -59,25 +101,41 @@ class Registry(dict):
             self.extra_info = dict()
 
     @classmethod
-    def get_child(cls, name: str, default: Any = None) -> Any:
-        return Registry.children.get(name, default)
+    def get_registry(cls, name: str, default: Any = None) -> Any:
+        """
+        Returns the `Registry` instance with the given name, or `default` if no such
+        registry exists.
+        """
+        return Registry._registry_pool.get(name, default)
 
     @classmethod
     def find(cls, name: str) -> Any:
-        for registried_name, child in Registry.children.items():
-            if name in child:
-                return (child[name], registried_name)
+        """
+        Searches all registries for an element with the given name. If found,
+        returns a tuple containing the element and the name of the registry where it
+        was found; otherwise, returns `(None, None)`.
+        """
+        for registried_name, registry in Registry._registry_pool.items():
+            if name in registry:
+                return (registry[name], registried_name)
         return (None, None)
 
     @classmethod
     def make_global(cls):
-        cls.GLOBAL = cls("__global")
-        for member in Registry.children.values():
-            cls.GLOBAL.merge(member, force=False)
-        return cls.GLOBAL
+        """
+        Creates a global `Registry` instance that contains all elements from all
+        other registries. If the global registry already exists, returns it instead
+        of creating a new one.
+        """
+        if cls._globals is not None:
+            return cls._globals
+        cls._globals = cls("__global")
+        for member in Registry._registry_pool.values():
+            cls._globals.merge(member, force=False)
+        return cls._globals
 
     def __setitem__(self, k, v) -> None:
-        _check_name(k)
+        _is_pure_ascii(k)
         super().__setitem__(k, v)
 
     def __repr__(self) -> str:
@@ -101,15 +159,16 @@ class Registry(dict):
             )
 
         name = name or module.__name__
-        if not force and name in self.keys():
-            raise ValueError("The name {} exists".format(name))
+        if not force and name in self:
+            if not self[name] == module:
+                raise ValueError("The name {} exists".format(name))
 
         if extra_info:
             if not hasattr(self, "extra_field"):
                 raise ValueError(
                     "Registry `{}` does not have `extra_field`.".format(self.name)
                 )
-            for k in extra_info.keys():
+            for k in extra_info:
                 if k not in self.extra_field:
                     raise ValueError(
                         "Registry `{}`: 'extra_info' does not has expected key {}.".format(
@@ -121,11 +180,22 @@ class Registry(dict):
             self.extra_info[name] = [None] * len(self.extra_field)
 
         self[name] = module
+
+        # update to globals
+        if Registry._globals is not None and name.startswith(_private_flag):
+            Registry._globals._register(module, force, name, **extra_info)
+
         return module
 
     def register(
         self, force: bool = False, name: Optional[str] = None, **extra_info
     ) -> Callable:
+        """
+        Decorator that registers a function or class with the current `Registry`.
+        Any keyword arguments provided are added to the `extra_info` list for the
+        registered element. If `force` is True, overwrites any existing element with
+        the same name.
+        """
         return functools.partial(self._register, force=force, name=name, **extra_info)
 
     def register_all(
@@ -135,6 +205,12 @@ class Registry(dict):
         extra_info: Optional[Sequence[Dict[str, Any]]] = None,
         force: bool = False,
     ) -> None:
+        """
+        Registers multiple functions or classes with the current `Registry`. Each
+        element in `modules` is associated with a name from `names` (if provided) and
+        extra information from the corresponding dict in `extra_info` (if provided).
+        If `force` is True, overwrites any existing elements with the same names.
+        """
         _names = names if names else [None] * len(modules)
         _info = extra_info if extra_info else [{}] * len(modules)
         for module, name, info in zip(modules, _names, _info):
@@ -145,10 +221,16 @@ class Registry(dict):
         others: Union["Registry", List["Registry"]],
         force: bool = False,
     ) -> None:
+        """
+        Merge the contents of one or more other registries into the current one.
+        If `force` is True, overwrites any existing elements with the same names.
+        """
         if not isinstance(others, list):
             others = [others]
         if not isinstance(others[0], Registry):
-            raise TypeError("Expect `Registry` type, but got {}".format(type(others[0])))
+            raise TypeError(
+                "Expect `Registry` type, but got {}".format(type(others[0]))
+            )
         for other in others:
             modules = list(other.values())
             names = list(other.keys())
@@ -159,6 +241,11 @@ class Registry(dict):
         filter_field: Union[Sequence[str], str],
         filter_func: Callable = _default_filter_func,
     ) -> List[str]:
+        """
+        Returns a sorted list of all names in the registry for which the values of
+        the given extra field(s) pass a filtering function.
+        """
+
         filter_field = [filter_field] if isinstance(filter_field, str) else filter_field
         filter_idx = [
             i for i, name in enumerate(self.extra_field) if name in filter_field
@@ -172,7 +259,11 @@ class Registry(dict):
         out = list(sorted(out))
         return out
 
-    def fuzzy_match(self, base_module, match_func=_default_match_func):
+    def match(self, base_module, match_func=_default_match_func):
+        """
+        Registers all functions or classes from the given module that pass a matching
+        function. If `match_func` is not provided, uses `_default_match_func`.
+        """
         matched_modules = [
             getattr(base_module, name)
             for name in base_module.__dict__.keys()
@@ -187,6 +278,12 @@ class Registry(dict):
         module_list: Optional[Sequence[str]] = None,
         **table_kwargs,
     ) -> Any:
+        """
+        Returns a table containing information about each registered function or
+        class, filtered by name and/or extra info fields. `select_info` specifies
+        which extra info fields to include in the table, while `module_list`
+        specifies which modules to include (by default, includes all modules).
+        """
         if select_info is not None:
             select_info = [select_info] if isinstance(select_info, str) else select_info
             for info_key in select_info:
@@ -208,8 +305,8 @@ class Registry(dict):
 
         modules = list(sorted(modules))
 
-        # TODO: make colorful and suit for logging to file.
-        table_headers = ["{}".format(item) for item in [self.name, *select_info]]
+        # TODO(Asthestarsfalll): make this colorful and suit for logging to file.
+        table_headers = [f"{item}" for item in [self.name, *select_info]]
 
         if select_info:
             select_idx = [
@@ -228,10 +325,13 @@ class Registry(dict):
         return table
 
     @classmethod
-    def children_table(cls, **table_kwargs) -> Any:
-        table_headers = ["{}".format("COMPONMENTS")]
+    def registry_table(cls, **table_kwargs) -> Any:
+        """
+        Returns a table containing the names of all available registries.
+        """
+        table_headers = ["COMPONMENTS"]
         table = tabulate(
-            list(sorted([[i] for i in cls.children.keys()])),
+            list(sorted([[i] for i in cls._registry_pool])),
             headers=table_headers,
             tablefmt="fancy_grid",
             **table_kwargs,
