@@ -1,0 +1,16 @@
+[Model.FCN]
+@backbone = 'ResNet'
+!head1 = 'SimpleHead'
+@head2 = 'SimpleHead'
+
+[Model.SimpleHead]
+in_channel = 256
+num_classes = 80
+
+[Backbone.ResNet]
+in_channel = 3
+depth = 50
+
+[SimpleHead]
+in_channel = 256
+num_classes = 19
