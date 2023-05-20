@@ -7,3 +7,7 @@ __base__ = [
 
 total_iters = 120000
 batch_size = 8
+
+[run.info]
+mode='train'
+save_iter=10

@@ -27,11 +27,15 @@ filtered_module_name = MODELS.filter("is_pretrained", _check_func)
 logger.info(
     MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name)
 )
-logger.info(Registry.children_table())
+logger.info(Registry.registry_table())
 
-cfg = config.load("./run.toml")
-
-target_module = ["Model", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
-modules_dict, cfg_dict = config.build_all(cfg, target_module)
+target_module = ["Model", "Backbone", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
+config.set_target_modules(target_module)
+# config.silent()
+cfg = config.load("./configs/run.toml", target_module)
+# 判断是否是相同的实例
+assert cfg.Optimizer == cfg.LRSche.CosDecay['optimizer']
+assert cfg.Model.FCN['backbone'] == cfg.Backbone
+modules_dict, cfg_dict = config.build_all(cfg)
 logger.debug(modules_dict)
 logger.debug(cfg_dict)
