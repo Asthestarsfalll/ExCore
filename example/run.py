@@ -27,11 +27,12 @@ filtered_module_name = MODELS.filter("is_pretrained", _check_func)
 logger.info(
     MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name)
 )
-logger.info(Registry.children_table())
-
-cfg = config.load("./run.toml")
+logger.info(Registry.registry_table())
 
 target_module = ["Model", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
-modules_dict, cfg_dict = config.build_all(cfg, target_module)
+config.set_target_modules(target_module)
+cfg = config.load("./example/run.toml", target_module)
+print(cfg)
+modules_dict, cfg_dict = config.build_all(cfg)
 logger.debug(modules_dict)
 logger.debug(cfg_dict)

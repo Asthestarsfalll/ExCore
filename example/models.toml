@@ -2,7 +2,7 @@
 !backbone = 'ResNet'
 !head = 'SimpleHead'
 
-[ResNet]
+[Model.ResNet]
 in_channel = 3
 depth = 50
 
