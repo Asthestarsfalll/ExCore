@@ -1,25 +1,28 @@
-import json
 import os
-import pprint
+import time
 from dataclasses import dataclass
 from sys import exc_info
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 import toml
 
-from ._exceptions import (CoreConfigBuildError, CoreConfigSupportError,
-                          ModuleBuildError)
+from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
+                          CoreConfigSupportError, ModuleBuildError)
 from .hook import ConfigHookManager
 from .logger import logger
 from .registry import Registry
 from .utils import CacheOut
 
-__all__ = ["load"]
+__all__ = ["load", "silent"]
 
 # TODO(Asthestarsfalll): Prune and decoupling. low priority.
+# TODO(Asthestarsfalll): Improve error messages. high priority.
 
-REUSE_FLAG = '!'
-INTER_FLAG = '@'
+REUSE_FLAG = "@"
+INTER_FLAG = "!"
+LOG_BUILD_MESSAGE = True
+BASE_CONFIG_KEY = "__base__"
+
 
 def _is_special(k: str) -> Tuple[str, str]:
     """
@@ -55,18 +58,26 @@ def _attr2module(v, base, k_type=""):
         raise RuntimeError()
 
 
+def _convert_module(m, k_type):
+    if not isinstance(m, ModuleNode):
+        return m
+    ModuleType = _dispatch_module_node[k_type]
+    return ModuleType(m.name, m.base).update(m)
+
+
 def _dict2list(v, return_list=False):
     """
     Converts a dictionary to a list of its values.
 
     Args:
         v (dict): The dictionary to be converted.
+        return_list (bool): Enforce to return list.
 
     Returns:
-        list: A list of the values in the input dictionary. 
+        list: A list of the values in the input dictionary.
             If the input is not a dictionary or is an empty dictionary,
-            the original input is returned. 
-            If the input dictionary has only one value, 
+            the original input is returned.
+            If the input dictionary has only one value and return_list is False,
             the value itself is returned.
     """
     if v:
@@ -91,6 +102,13 @@ class ModuleNode(dict):
             super(ModuleNode, v).__setitem__(k_type, _v)
         super().__setitem__(k, v)
 
+    def add(self, **kwargs):
+        self.update(kwargs)
+
+    def _set_base(self, base) -> None:
+        assert base
+        self.base = base
+
     def update(self, others: dict) -> "ModuleNode":
         """
         Override native `update` method to make it use the overrode
@@ -101,42 +119,80 @@ class ModuleNode(dict):
             self[k] = v
         return self
 
-    def __call__(self):
-        cls = Registry.get_registry(self.base)[self.name]
+    def _get_params(self):
         params = {}
         for k, v in self.items():
             if isinstance(v, ModuleNode):
                 v = v()
             params[k] = v
+        return params
+
+    def __call__(self):
         try:
+            cls = Registry.get_registry(self.base)[self.name]
+            params = self._get_params()
             module = cls(**params)
-        except:
+        except Exception as exc:
             logger.critical(exc_info())
             raise ModuleBuildError(
-                "Build Error with module {} and arguments {}".format(cls, params)
+                f"Build Error with module {cls} and arguments {params}"
+            ) from exc
+        if LOG_BUILD_MESSAGE:
+            logger.success(
+                f"Successfully build module: {self.name}, with arguments {params}"
             )
         return module
 
 
 @dataclass
 class InterNode(ModuleNode):
-    pass
+    @property
+    def target_module(self):
+        assert self.base in [REUSE_FLAG, INTER_FLAG]
+        return self.pop(self.base)
 
 
 @dataclass
-class ReuseNode(ModuleNode):
+class ReuseNode(InterNode):
     @CacheOut()
     def __call__(self):
-        return super()()
+        return super().__call__()
 
 
 _dispatch_module_node = {"": ModuleNode, REUSE_FLAG: ReuseNode, INTER_FLAG: InterNode}
 
 
+class ModuleList(list):
+    def __init__(self, modules: List[ModuleNode]):
+        super().__init__()
+        assert isinstance(modules, list)
+        self.extend(modules)
+        self.names = [m.name for m in modules]
+
+    def __contain__(self, __name: str) -> bool:
+        return __name in self.names
+
+    def __getattr__(self, __name: str) -> Any:
+        for idx, name in enumerate(self.names):
+            if name == __name:
+                return self[idx]
+        raise KeyError()
+
+    def __call__(self):
+        return [m() for m in self]
+
+    def pop(self, __name: str):
+        for idx, name in enumerate(self.names):
+            if name == __name:
+                return super().pop(idx)
+        raise IndexError()
+
+    def __repr__(self) -> str:
+        return f"ModuleList{super().__repr__()}"
+
+
 class AttrNode(dict):
     target_modules: List
-    # remainder_modules: List
-    # union_modules: List
     registered_modules: List
 
     def __new__(cls):
@@ -154,35 +210,18 @@ class AttrNode(dict):
     def set_key_fields(cls, target_modules):
         """
         Sets the `target_modules` attribute to the specified list of module names,
-            and calculates the `remainder_modules`, `union_modules`, and `registered_modules`
-            attributes based on the current state of the `Registry` object.
+            and `registered_modules` attributes based on the current state
+            of the `Registry` object.
 
         Note that `set_key_fields` must be called before `config.load`.
 
-        Attributes:       
+        Attributes:
             target_modules (List[str]): Target module names that need to be built.
             registered_modules (List[str]): A list of all module names that have been registered.
-            union_modules (List[str]): A list of module names that belong to both the `target_modules`
-                and `registered_modules` lists.
-            remainder_modules (List[str]): The complementary set of union_modules.
         """
         cls.target_modules = target_modules
         registered_modules = Registry._registry_pool.keys()
         cls.registered_modules = list(registered_modules)
-        # cls.union_modules = [k for k in registered_modules if k in target_modules]
-        # cls.remainder_modules = [k for k in target_modules if k not in cls.union_modules]
-        # cls.remainder_modules.extend(
-        #     [k for k in registered_modules if k not in cls.union_modules]
-        # )
-
-    # def isolated_items(self):
-    #     """
-    #         Returns an iterator over the key-value pairs in the dictionary that do not belong
-    #             to the `target_modules` list. 
-    #     """
-    #     for k, v in self.items():
-    #         if k not in self.target_modules:
-    #             yield k, v
 
     def isolated_keys(self):
         keys = list(self.keys())
@@ -190,139 +229,167 @@ class AttrNode(dict):
             if k not in self.target_modules:
                 yield k
 
-    def __setitem__(self, k, v) -> None:
-        """
-        In toml file loading stage, `AttrNode` will convert those which are in 
-            `target_modules` to `ModuleNode`.
-        If element of target module is special(begin with `REUSE_FLAG` or `INTER_FLAG`),
-            it will be converted to ReuseNode/InterNode as a placeholder.
-
-        Example:
-            target_modules = ['Model', 'Loss']
-            Config:
-                [Model.FCN]
-                !backbone = 'ResNet'
-                !head = 'SimpleHead'
-
-                [Model.ResNet]
-                in_channel = 3
-                depth = 50
-
-                [SimpleHead]
-                in_channel = 256
-                num_classes = 19
-
-                [Loss.CrossEntropyLoss]
-
-                ...
-
-        Result:
-            {
-                'Model': [ModuleNode(name='FCN', base='Model'), 
-                          ModuleNode(name='ResNet', base='Model'],
-                'Loss': ModuleNode(name='BoundaryLoss', base='Loss'),
-                'SimpleHead': {'in_channel': 256, 'num_classes': 19},
-            }
-
-        """
-        if k in self.target_modules:
-            if not isinstance(v, dict):
-                raise RuntimeError()
-            v = _attr2module(v, k)
+    def _parse_target_modules(self):
+        for name in self.target_modules:
+            if name in self.registered_modules:
+                base = name
+            else:
+                m = next(iter(self[name].keys()))
+                _, base = Registry.find(m)
+                if base is None:
+                    raise CoreConfigParseError(f"Unregistered module `{name}`")
+            v = _attr2module(self.pop(name), base)
             v = _dict2list(v)
-        super().__setitem__(k, v)
+            if isinstance(v, list):
+                v = ModuleList(v)
+            self[name] = v
 
-    def update(self, others: dict) -> None:
-        for k, v in others.items():
-            self[k] = v
+    def _parse_isolated_registerd_module(self, name):
+        v = _attr2module(self.pop(name), name)
+        v = _dict2list(v, True)
+        for i in v:
+            assert i.base == name
+            self[i.name] = i
+            _, _ = Registry.find(i.name)
+            if _ is None:
+                raise CoreConfigParseError(f"Unregistered module `{i.name}`")
 
-    def normalize(self):
+    def _parse_implicit_module(self, name, module_type=ModuleNode):
+        _, base = Registry.find(name)
+        if base:
+            self[name] = module_type(name, base)
+
+    def _parse_isolated_obj(self):
         for name in self.isolated_keys():
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_modules:
-                    v = _attr2module(self.pop(name), name)
-                    v = _dict2list(v, True)
-                    for i in v:
-                        assert i.base == name
-                        self[i.name] = i
+                    self._parse_isolated_registerd_module(name)
                 else:
-                    _, base = Registry.find(name)
-                    if base:
-                        self[name] = ModuleNode(name, base)
+                    self._parse_implicit_module(name)
+
+    def _contain_module(self, name):
+
+        for k in self.target_modules:
+            v = self[k]
+            if not isinstance(v, ModuleList):
+                v = [v]
+            for i in v:
+                if i.name == name:
+                    self.__route__ = k
+                    return True
+        return False
+
+    def _parse_single_param(self, name, params):
+        if name in self:
+            converted = _convert_module(self[name], params.base)
+            # for shared modules
+            self[name] = converted
+        elif self._contain_module(name):
+            # once the hiddn module was added to config
+            # this branch is unreachable.
+            wrapper = self[self.__route__]
+            if isinstance(wrapper, ModuleList):
+                wrapper = getattr(wrapper, name)
+            converted = _convert_module(wrapper, params.base)
+            self[name] = converted
+            if self.__route__ not in self.target_modules:
+                self[self.__route__].pop(name)
+                if len(self[self.__route__]) == 1:
+                    self[self.__route__] = self.pop(self.__route__)[0]
+            else:
+                self[self.__route__] = converted
+        else:
+            # once the implicit module was added to config
+            # this branch is unreachable.
+            self._parse_implicit_module(name, InterNode)
+            converted = self.get(name, False)
+            if converted:
+                raise CoreConfigParseError(f"Unregistered module `{name}`")
+        return converted
+
+    def _parse_module_node(self, node):
+        to_pop = []
+        param_names = list(node.keys())
+        for param_name in param_names:
+            params = node[param_name]
+            if isinstance(params, InterNode):
+                target_module_names = params.target_module
+                if not isinstance(target_module_names, list):
+                    target_module_names = [target_module_names]
+                converted_modules = [
+                    self._parse_single_param(name, params)
+                    for name in target_module_names
+                ]
+                to_pop.extend(target_module_names)
+                if len(converted_modules) == 1:
+                    converted_modules = converted_modules[0]
+                else:
+                    converted_modules = ModuleList(converted_modules)
+                node[param_name] = converted_modules
+        if hasattr(self, "__route__"):
+            delattr(self, "__route__")
+        return to_pop
+
+    def _parse_module_list(self, lis):
+        to_pop = []
+        for m in lis:
+            to_pop.extend(self._parse_module_node(m))
+        return to_pop
+
+    def _parse_single_inter_module(self, module: ModuleList) -> List:
+        to_pop = []
+        if isinstance(module, ModuleNode):
+            to_pop.extend(self._parse_module_node(module))
+        elif isinstance(module, ModuleList):
+            to_pop.extend(self._parse_module_list(module))
+        return to_pop
+
+    def _parse_inter_modules(self):
+        to_pop = []
+        for name in list(self.keys()):
+            to_pop.extend(self._parse_single_inter_module(self[name]))
+        self._clean(to_pop)
+
+    def _clean(self, to_pop):
+        to_pop = set(to_pop)
+        for i in to_pop:
+            self.pop(i)
+
+    def parse(self):
+        self._parse_target_modules()
+        self._parse_isolated_obj()
+        self._parse_inter_modules()
 
     # TODO(Asthestarsfalll): enhance print. low priority.
-    def print(self):
-        print(json.dumps(self, indent=4))
 
 
-class ModuleList:
-    def __init__(self, modules: List[ModuleNode]):
-        self.modules = modules
-        self.names = [m.name for m in modules]
-
-    def __contain__(self, __name:str) -> bool:
-        return __name in self.names
-
-    def __getattr__(self, __name: str) -> Any:
-        for idx, name in enumerate(self.names):
-            if name == __name:
-                return self.modules[idx]
-        raise KeyError()
-        # return super().__getattribute__(__name)
-
-    def __call__(self):
-        return [m() for m in self.modules]
-
-    def __repr__(self) -> str:
-        return str(self.modules)
-
-
-
-# TODO(Asthestarsfalll): automatically generate pyi file 
+# TODO(Asthestarsfalll): automatically generate pyi file
 #   according to config files for type hinting. high priority.
 class LazyConfig:
     globals: Registry
     hook_key = "ConfigHook"
 
-    # def __new__(cls, config):
-    #     class LazyConfigImpl(LazyConfig):
-    #         pass
-    #     return super().__new__(LazyConfigImpl)
-
     def __init__(self, config: AttrNode) -> None:
-        LazyConfig.globals = Registry.make_global()
-        # buffer reuse_names modules
-        self.reuse_modules = {}
         self.modules_dict, self.isolated_dict = {}, {}
-        self._config = self.parse_config(config)
+        self.target_modules = config.target_modules
+        self.parse_config(config)
+        self._config = config
 
-    def parse_config(self, config: AttrNode) -> Dict:
+    def parse_config(self, config: AttrNode):
+        config.parse()
         self.build_config_hooks(config)
-        self.parse_target_modules(config)
-        _config = {**config}
-        for k, v in config.isolated_items():
-            if isinstance(v, AttrNode):
-                _, base = Registry.find(k)
-                if base:
-                    _config[k] = ModuleNode(k, base).update(v)
-        return _config
-    
-    @staticmethod
-    def parse_target_modules(config: AttrNode) -> None:
-        for name in config.target_modules:
-            modules = config[name]
-            if isinstance(modules, dict):
-                pass
 
     def build_config_hooks(self, config):
-        self.hooks = config.pop(LazyConfig.hook_key, [])
-        # self.config_hooks = [LazyConfig.globals[h]() for ]
+        hooks = config.pop(LazyConfig.hook_key, [])
+        if hooks:
+            _, base = Registry.find(hooks[0])
+            hooks = [InterNode(h, base)() for h in hooks]
+        self.hooks = ConfigHookManager(hooks)
 
     def __getattr__(self, __name: str) -> Any:
-        if __name in self.target_modules:
+        if __name in self._config:
             return self._config[__name]
-        # return super().__getattribute__(__name)
         raise KeyError()
 
     def build_all(self) -> Tuple[Dict, Dict]:
@@ -330,7 +397,19 @@ class LazyConfig:
             raise CoreConfigBuildError(
                 "`target_modules` can't be None when calling `LazyConfig.build_all`"
             )
-        raise NotImplementedError()
+        module_dict, isolated_dict = {}, {}
+        self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
+        for name in self.target_modules:
+            self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
+            module_dict[name] = self._config[name]()
+        for name in self._config.isolated_keys():
+            self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
+            module = self._config[name]
+            if isinstance(module, ModuleNode):
+                module = module()
+            isolated_dict[name] = module
+        self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
+        return module_dict, isolated_dict
 
     def __str__(self):
         return str(self._config)
@@ -361,99 +440,20 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
 
 
 def load(
-    filename: str, target_modules: List[str], base_key: str = "__base__"
+    filename: str, target_modules: List[str], base_key: str = BASE_CONFIG_KEY
 ) -> LazyConfig:
+    st = time.time()
     AttrNode.set_key_fields(target_modules)
     config = load_config(filename, base_key)
-    config.normalize()
-    pprint.pprint(config)
-    config.print()
-    breakpoint()
-
     lazy_config = LazyConfig(config)
-    print()
-    for k, v in lazy_config._config.items():
-        print(k, "\n\t", v)
+    logger.success("Config loading and parsing cost {}s!", time.time() - st)
     return lazy_config
 
 
+def silent():
+    global LOG_BUILD_MESSAGE
+    LOG_BUILD_MESSAGE = False
+
+
 def build_all(cfg: LazyConfig) -> Tuple[dict, dict]:
-    raise NotImplemented
     return cfg.build_all()
-
-
-# def build_all(  # noqa  pylint: disable=too-many-statements
-#     cfg,
-#     registried_keys: Optional[List[str]] = None,
-# ) -> Tuple[Dict, Dict]:
-#     logger.info("Begin to build modules!")
-#     logger.info(cfg)
-
-#     hooks = cfg.pop("ConfigHook", None)
-
-#     all_keys = list(cfg.keys())
-#     registried_keys = registried_keys or list(Reg._registry_pool.keys())
-#     global_dict = Reg.make_global()
-#     isolated_keys = [k for k in all_keys if k not in registried_keys]
-#     config_hooks = None
-
-#     def _build(cls_name: str, kwargs: Dict, base: str = ""):
-#         if cls_name in isolated_keys:
-#             isolated_keys.remove(cls_name)
-#         if kwargs is None:
-#             name = global_dict.find(cls_name)[1]
-#             kwargs = cfg.get(name, {}).get(cls_name, {})
-#             if name in isolated_keys and kwargs:
-#                 cfg[name].pop(cls_name)
-
-#         cls = Reg.get_registry(base, {}).get(cls_name, None)
-#         if cls is None:
-#             cls = global_dict.get(cls_name, None)
-#         if not cls or kwargs is None:
-#             raise CoreConfigBuildError("No such module named {}".format(cls_name))
-
-#         clean_kwargs = {}
-#         for k, v in kwargs.items():
-#             if _is_tag(k):
-#                 k = k[1:]
-#                 if isinstance(v, list):
-#                     v = [_build(i, cfg.get(i, None)) for i in v]
-#                 else:
-#                     v = _build(v, cfg.get(v, None))
-#             clean_kwargs[k] = v
-#         try:
-#             module = cls(**clean_kwargs)
-#         except BaseException as exc:
-#             logger.critical(exc_info())
-#             raise ModuleBuildError(
-#                 "Build Error with module {} and augments {}".format(cls, clean_kwargs)
-#             ) from exc
-#         logger.success("Build module {} with augments: {}", cls_name, clean_kwargs)
-#         return module
-
-#     modules_dict = dict()
-
-#     if hooks:
-#         key = list(hooks.keys())[0]
-#         # TODO: make this pythonic
-#         base_name = key[1:] if _is_tag(key) else key
-#         hooks = [_build(v, cfg.get(v, None), base_name) for v in hooks[key]]
-#         config_hooks = ConfigHookManager(hooks)
-#         if config_hooks.exist("pre_build"):
-#             config_hooks.call_hooks("pre_build", cfg, modules_dict)
-
-#     for k in registried_keys:
-#         kwargs = cfg[k]
-#         modules = [_build(n, kwargs[n], base=k) for n in kwargs.keys()]
-#         modules_dict[k] = modules[0] if len(modules) == 1 else modules
-#         if config_hooks and config_hooks.exist("every_build"):
-#             config_hooks.call_hooks("every_build", cfg, modules_dict)
-
-#     if config_hooks and config_hooks.exist("after_build"):
-#         config_hooks.call_hooks("after_build", cfg, modules_dict)
-
-#     isolated_dict = {k: cfg[k] for k in isolated_keys if cfg[k] != {}}
-
-#     logger.success("All modules have been built successfully!")
-
-#     return modules_dict, isolated_dict

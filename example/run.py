@@ -29,10 +29,11 @@ logger.info(
 )
 logger.info(Registry.registry_table())
 
-target_module = ["Model", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
+target_module = ["Model", "Backbone", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
 config.set_target_modules(target_module)
-cfg = config.load("./example/run.toml", target_module)
-print(cfg)
+cfg = config.load("./example/configs/run.toml", target_module)
+assert id(cfg.Optimizer) == id(cfg.LRSche['optimizer'])
+assert id(cfg.Model.FCN['backbone']) == id(cfg.Backbone)
 modules_dict, cfg_dict = config.build_all(cfg)
 logger.debug(modules_dict)
 logger.debug(cfg_dict)

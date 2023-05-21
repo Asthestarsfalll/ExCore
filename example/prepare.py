@@ -16,32 +16,13 @@ class AddModelParams:
     __LifeSpan__ = 1
     __CallInter__ = 1
 
-    def __call__(self, cfg, module_dict):
+    def __call__(self, cfg, module_dict, isolate_dict):
         if "Model" in module_dict:
+            assert 'Optimizer' not in module_dict
             model = module_dict["Model"]
-            k = list(cfg["Optimizer"].keys())[0]
-            cfg["Optimizer"][k]["params"] = model.pramameters()
+            cfg.Optimizer['params'] = model[0].pramameters()
             logger.info("AddModelParams: add model params to optimizer")
-            logger.info(cfg["Optimizer"][k])
-            return True
-        return False
-
-
-@HOOKS.register()
-class AddOptimizer:
-    __HookType__ = "every_build"
-    __LifeSpan__ = 1
-    __CallInter__ = 1
-
-    def __call__(self, cfg, module_dict):
-        if "LRSche" in module_dict:
-            raise RuntimeError
-        if "Optimizer" in module_dict:
-            optim = module_dict["Optimizer"]
-            k = list(cfg["LRSche"].keys())[0]
-            cfg["LRSche"][k]["optimizer"] = optim
-            logger.info("AddOptimizer: add optimizer to lr_scheduler")
-            logger.info(cfg["LRSche"][k])
+            logger.info(cfg.Optimizer['params'])
             return True
         return False
 
@@ -93,6 +74,11 @@ class Normalize:
 
 @TRANSFORMS.register()
 class RandomFlip:
+    def __init__(self, **kwargs):
+        pass
+
+@TRANSFORMS.register()
+class Pad:
     def __init__(self, **kwargs):
         pass
 

@@ -30,7 +30,7 @@ class CoreConfigSupportError(BaseException):
     pass
 
 
-class CoreConfigReadError(BaseException):
+class CoreConfigParseError(BaseException):
     pass
 
 
