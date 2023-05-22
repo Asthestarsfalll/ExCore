@@ -17,6 +17,7 @@ __all__ = ["load", "silent"]
 
 # TODO(Asthestarsfalll): Prune and decoupling. low priority.
 # TODO(Asthestarsfalll): Improve error messages. high priority.
+# TODO(Asthestarsfalll): Support multiple same module parse.
 
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
@@ -59,7 +60,10 @@ def _attr2module(v, base, k_type=""):
 
 
 def _convert_module(m, k_type):
-    if not isinstance(m, ModuleNode) or isinstance(m, ModuleWrapper):
+    if isinstance(m, ModuleWrapper):
+        assert len(m) == 1
+        m = m[0]
+    if not isinstance(m, ModuleNode):
         return m
     ModuleType = _dispatch_module_node[k_type]
     return ModuleWrapper(ModuleType(m.name, m.base).update(m))
@@ -122,7 +126,7 @@ class ModuleNode(dict):
     def _get_params(self):
         params = {}
         for k, v in self.items():
-            if isinstance(v, ModuleNode):
+            if isinstance(v, ModuleWrapper):
                 v = v()
             params[k] = v
         return params
@@ -130,22 +134,22 @@ class ModuleNode(dict):
     def __call__(self):
         try:
             cls = Registry.get_registry(self.base)[self.name]
-            params = self._get_params()
         except Exception as exc:
             logger.critical(exc_info())
             raise ModuleBuildError(
                 f"Failed to find the registered module {self.name} with base registry {self.base}"
             ) from exc
+        params = self._get_params()
         try:
             module = cls(**params)
         except Exception as exc:
             logger.critical(exc_info())
             raise ModuleBuildError(
-                f"Build Error with module {cls} and arguments {params}"
+                f"Build Error with module {cls} and arguments {dict(**params)}"
             ) from exc
         if LOG_BUILD_MESSAGE:
             logger.success(
-                f"Successfully build module: {self.name}, with arguments {params}"
+                f"Successfully build module: {self.name}, with arguments {dict(**params)}"
             )
         return module
 
@@ -268,8 +272,8 @@ class AttrNode(dict):
             if name in self.registered_modules:
                 base = name
             else:
-                m = next(iter(self[name].keys()))
-                _, base = Registry.find(m)
+                # m = next(iter(self[name].keys()))
+                _, base = Registry.find(list(self[name].keys())[0])
                 if base is None:
                     raise CoreConfigParseError(f"Unregistered module `{name}`")
             v = _attr2module(self.pop(name), base)
@@ -291,6 +295,11 @@ class AttrNode(dict):
         if base:
             self[name] = ModuleWrapper(module_type(name, base))
 
+    def _parse_isolated_module(self, name, module_type=ModuleNode):
+        _, base = Registry.find(name)
+        if base:
+            self[name] = ModuleWrapper(module_type(name, base).update(self[name]))
+
     def _parse_isolated_obj(self):
         for name in self.isolated_keys():
             modules = self[name]
@@ -298,10 +307,9 @@ class AttrNode(dict):
                 if name in self.registered_modules:
                     self._parse_isolated_registerd_module(name)
                 else:
-                    self._parse_implicit_module(name)
+                    self._parse_isolated_module(name)
 
     def _contain_module(self, name):
-
         for k in self.target_modules:
             v = self[k]
             if not isinstance(v, ModuleWrapper):
@@ -312,7 +320,9 @@ class AttrNode(dict):
                     return True
         return False
 
+    # FIXME(Asthestarsfalll): ReuseNode should firstly search in hidden modules
     def _parse_single_param(self, name, params):
+        ModuleType = _dispatch_module_node[params.base]
         if name in self:
             converted = _convert_module(self[name], params.base)
             # for shared modules
@@ -336,7 +346,13 @@ class AttrNode(dict):
             converted = self.get(name, False)
             if not converted:
                 raise CoreConfigParseError(f"Unregistered module `{name}`")
-        return converted[0]
+        converted = converted[0]
+        # FIXME(Asthestarsfalll): fix this
+        if not isinstance(converted, ModuleType):
+            raise CoreConfigParseError(
+                f"Error when parse params {params.name}, target_type is {ModuleType}, but got {type(converted)}"
+            )
+        return converted
 
     def _parse_module_node(self, node):
         to_pop = []
