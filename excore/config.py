@@ -2,7 +2,7 @@ import os
 import time
 from dataclasses import dataclass
 from sys import exc_info
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 import toml
 
@@ -59,10 +59,10 @@ def _attr2module(v, base, k_type=""):
 
 
 def _convert_module(m, k_type):
-    if not isinstance(m, ModuleNode):
+    if not isinstance(m, ModuleNode) or isinstance(m, ModuleWrapper):
         return m
     ModuleType = _dispatch_module_node[k_type]
-    return ModuleType(m.name, m.base).update(m)
+    return ModuleWrapper(ModuleType(m.name, m.base).update(m))
 
 
 def _dict2list(v, return_list=False):
@@ -102,7 +102,7 @@ class ModuleNode(dict):
             super(ModuleNode, v).__setitem__(k_type, _v)
         super().__setitem__(k, v)
 
-    def add(self, **kwargs):
+    def add_params(self, **kwargs):
         self.update(kwargs)
 
     def _set_base(self, base) -> None:
@@ -131,6 +131,12 @@ class ModuleNode(dict):
         try:
             cls = Registry.get_registry(self.base)[self.name]
             params = self._get_params()
+        except Exception as exc:
+            logger.critical(exc_info())
+            raise ModuleBuildError(
+                f"Failed to find the registered module {self.name} with base registry {self.base}"
+            ) from exc
+        try:
             module = cls(**params)
         except Exception as exc:
             logger.critical(exc_info())
@@ -162,12 +168,32 @@ class ReuseNode(InterNode):
 _dispatch_module_node = {"": ModuleNode, REUSE_FLAG: ReuseNode, INTER_FLAG: InterNode}
 
 
-class ModuleList(list):
-    def __init__(self, modules: List[ModuleNode]):
+class ModuleWrapper(list):
+    def __init__(self, modules: Union[List[ModuleNode], ModuleNode]):
         super().__init__()
-        assert isinstance(modules, list)
-        self.extend(modules)
-        self.names = [m.name for m in modules]
+        if isinstance(modules, list):
+            self.extend(modules)
+        elif isinstance(modules, ModuleNode):
+            self.append(modules)
+        else:
+            raise TypeError(
+                f"Expect modules to be `list` or `ModuleNode`, but got {type(modules)}"
+            )
+        self.names = [m.name for m in self]
+
+    def add_params(self, **kwargs):
+        if len(self) == 1:
+            self[0].add_params(**kwargs)
+        else:
+            raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
+
+    def get(self, __name, __default=None):
+        if len(self) == 1:
+            if __default is not None:
+                return self[0].get(__name, __default)
+            return self[0].get(__name)
+        else:
+            raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 
     def __contain__(self, __name: str) -> bool:
         return __name in self.names
@@ -188,7 +214,15 @@ class ModuleList(list):
         raise IndexError()
 
     def __repr__(self) -> str:
-        return f"ModuleList{super().__repr__()}"
+        return f"ModuleWrapper{super().__repr__()}"
+
+    def __eq__(self, others: "ModuleWrapper") -> bool:
+        if len(self) != len(others):
+            raise RuntimeError(f"Expect has same length, but got {others}")
+        for m1, m2 in zip(self, others):
+            if id(m1) != id(m2):
+                return False
+        return True
 
 
 class AttrNode(dict):
@@ -240,16 +274,14 @@ class AttrNode(dict):
                     raise CoreConfigParseError(f"Unregistered module `{name}`")
             v = _attr2module(self.pop(name), base)
             v = _dict2list(v)
-            if isinstance(v, list):
-                v = ModuleList(v)
-            self[name] = v
+            self[name] = ModuleWrapper(v)
 
     def _parse_isolated_registerd_module(self, name):
         v = _attr2module(self.pop(name), name)
         v = _dict2list(v, True)
         for i in v:
             assert i.base == name
-            self[i.name] = i
+            self[i.name] = ModuleWrapper(i)
             _, _ = Registry.find(i.name)
             if _ is None:
                 raise CoreConfigParseError(f"Unregistered module `{i.name}`")
@@ -257,7 +289,7 @@ class AttrNode(dict):
     def _parse_implicit_module(self, name, module_type=ModuleNode):
         _, base = Registry.find(name)
         if base:
-            self[name] = module_type(name, base)
+            self[name] = ModuleWrapper(module_type(name, base))
 
     def _parse_isolated_obj(self):
         for name in self.isolated_keys():
@@ -272,7 +304,7 @@ class AttrNode(dict):
 
         for k in self.target_modules:
             v = self[k]
-            if not isinstance(v, ModuleList):
+            if not isinstance(v, ModuleWrapper):
                 v = [v]
             for i in v:
                 if i.name == name:
@@ -289,9 +321,7 @@ class AttrNode(dict):
             # once the hiddn module was added to config
             # this branch is unreachable.
             wrapper = self[self.__route__]
-            if isinstance(wrapper, ModuleList):
-                wrapper = getattr(wrapper, name)
-            converted = _convert_module(wrapper, params.base)
+            converted = _convert_module(getattr(wrapper, name), params.base)
             self[name] = converted
             if self.__route__ not in self.target_modules:
                 self[self.__route__].pop(name)
@@ -304,9 +334,9 @@ class AttrNode(dict):
             # this branch is unreachable.
             self._parse_implicit_module(name, InterNode)
             converted = self.get(name, False)
-            if converted:
+            if not converted:
                 raise CoreConfigParseError(f"Unregistered module `{name}`")
-        return converted
+        return converted[0]
 
     def _parse_module_node(self, node):
         to_pop = []
@@ -322,33 +352,23 @@ class AttrNode(dict):
                     for name in target_module_names
                 ]
                 to_pop.extend(target_module_names)
-                if len(converted_modules) == 1:
-                    converted_modules = converted_modules[0]
-                else:
-                    converted_modules = ModuleList(converted_modules)
-                node[param_name] = converted_modules
+                node[param_name] = ModuleWrapper(converted_modules)
         if hasattr(self, "__route__"):
             delattr(self, "__route__")
         return to_pop
 
-    def _parse_module_list(self, lis):
+    def _parse_module_wrapper(self, wrapper):
         to_pop = []
-        for m in lis:
+        for m in wrapper:
             to_pop.extend(self._parse_module_node(m))
-        return to_pop
-
-    def _parse_single_inter_module(self, module: ModuleList) -> List:
-        to_pop = []
-        if isinstance(module, ModuleNode):
-            to_pop.extend(self._parse_module_node(module))
-        elif isinstance(module, ModuleList):
-            to_pop.extend(self._parse_module_list(module))
         return to_pop
 
     def _parse_inter_modules(self):
         to_pop = []
         for name in list(self.keys()):
-            to_pop.extend(self._parse_single_inter_module(self[name]))
+            module = self[name]
+            if isinstance(module, ModuleWrapper):
+                to_pop.extend(self._parse_module_wrapper(module))
         self._clean(to_pop)
 
     def _clean(self, to_pop):
@@ -377,14 +397,16 @@ class LazyConfig:
         self._config = config
 
     def parse_config(self, config: AttrNode):
-        config.parse()
         self.build_config_hooks(config)
+        config.parse()
 
-    def build_config_hooks(self, config):
+    def build_config_hooks(self, config: AttrNode):
         hooks = config.pop(LazyConfig.hook_key, [])
         if hooks:
-            _, base = Registry.find(hooks[0])
-            hooks = [InterNode(h, base)() for h in hooks]
+            _, base = Registry.find(list(hooks.keys())[0])
+            hooks = [
+                InterNode(name, base).update(params)() for name, params in hooks.items()
+            ]
         self.hooks = ConfigHookManager(hooks)
 
     def __getattr__(self, __name: str) -> Any:
@@ -392,6 +414,7 @@ class LazyConfig:
             return self._config[__name]
         raise KeyError()
 
+    # TODO(Asthestarsfalll): refine output
     def build_all(self) -> Tuple[Dict, Dict]:
         if self.target_modules is None:
             raise CoreConfigBuildError(
@@ -451,7 +474,7 @@ def load(
 
 
 def silent():
-    global LOG_BUILD_MESSAGE
+    global LOG_BUILD_MESSAGE  # pylint: disable=global-statement
     LOG_BUILD_MESSAGE = False
 
 

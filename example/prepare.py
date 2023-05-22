@@ -20,9 +20,9 @@ class AddModelParams:
         if "Model" in module_dict:
             assert 'Optimizer' not in module_dict
             model = module_dict["Model"]
-            cfg.Optimizer['params'] = model[0].pramameters()
+            cfg.Optimizer.add_params(params=model[0].parameters())
             logger.info("AddModelParams: add model params to optimizer")
-            logger.info(cfg.Optimizer['params'])
+            logger.info(cfg.Optimizer.get('params'))
             return True
         return False
 
@@ -44,8 +44,8 @@ class FCN:
     def __init__(self, **kwargs):
         pass
 
-    def pramameters(self):
-        return 1
+    def parameters(self):
+        return "parameters of FCN"
 
 
 @OPTIM.register()
