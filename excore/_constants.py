@@ -3,8 +3,12 @@ import os
 __author__ = "Asthestarsfalll"
 __version__ = "0.1.3"
 
-_cache_dir = os.path.expanduser("~/.cache/core/")
+_cache_dir = os.path.expanduser("~/.cache/excore/")
+# TODO(Asthestarsfalll): add worskspace
 _workspace_cache_dir = None
+_registry_cache_file = "registry_cache.pkl"
+
+os.makedirs(_cache_dir, exist_ok=True)
 
 LOGOS = [
     r"""

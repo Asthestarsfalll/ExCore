@@ -1,7 +1,8 @@
-from prepare import MODELS
-
 from excore import Registry, config
-from excore.logger import logger, add_logger
+from excore.logger import add_logger, logger
+
+Registry.load()
+MODELS = Registry.get_registry("Model")
 
 
 def _check_func(values):
@@ -13,9 +14,9 @@ def _check_func(values):
 
 add_logger("file_log", "./run.log")
 
-# 打印 所有注册的 module 和 is_pretrained 的信息
+# 打印 动态导入的 module 和 is_pretrained 的信息
 logger.info(MODELS.module_table(select_info=["is_pretrained"]))
-# 打印 所有注册的 module 和 is_backbone 的信息
+# 打印 动态导入的 module 和 is_backbone 的信息
 logger.info(MODELS.module_table(select_info=["is_backbone"]))
 # 打印 is_pretrained 为 true 的 module 和 is_backbone 的信息
 filtered_module_name = MODELS.filter("is_pretrained")
@@ -29,13 +30,21 @@ logger.info(
 )
 logger.info(Registry.registry_table())
 
-target_module = ["Model", "Backbone", "Optimizer", "Loss", "TrainData", "LRSche", "TestData"]
+target_module = [
+    "Model",
+    "Backbone",
+    "Optimizer",
+    "Loss",
+    "TrainData",
+    "LRSche",
+    "TestData",
+]
 config.set_target_modules(target_module)
 # config.silent()
 cfg = config.load("./configs/run.toml", target_module)
 # 判断是否是相同的实例
-assert cfg.Optimizer == cfg.LRSche.CosDecay['optimizer']
-assert cfg.Model.FCN['backbone'] == cfg.Backbone
+assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
+assert cfg.Model.FCN["backbone"] == cfg.Backbone
 modules_dict, cfg_dict = config.build_all(cfg)
 logger.debug(modules_dict)
 logger.debug(cfg_dict)
