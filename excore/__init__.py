@@ -2,7 +2,7 @@ from . import hub
 from ._constants import __author__, __version__, _cache_dir
 from .config import build_all, load_config
 from .logger import add_logger, logger, remove_logger
-from .registry import Registry
+from .registry import Registry, auto_register
 
 
 @logger.catch

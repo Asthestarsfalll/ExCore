@@ -1,18 +1,25 @@
 import fnmatch
 import functools
+import importlib
 import inspect
 import json
+import os
 import re
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from tabulate import tabulate
 
+from ._constants import _cache_dir, _registry_cache_file
 from .logger import logger
+from .utils import FileLock
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
 
-__all__ = ["Registry"]
+__all__ = ["Registry", "auto_register"]
+
+
+# TODO(Asthestarsfalll): Maybe some methods need to be cleared.
 
 
 def _is_pure_ascii(name: str):
@@ -73,8 +80,12 @@ class RegistryMeta(type):
         return instance
 
 
+# Maybe someday we can get rid of Registry?
 class Registry(dict, metaclass=RegistryMeta):
     _globals: Optional["Registry"] = None
+    _registry_dir = "registry"
+    # just a workaround for twice registry
+    _prevent_register = False
     """A registry that stores functions and classes by name.
 
     Attributes:
@@ -99,6 +110,38 @@ class Registry(dict, metaclass=RegistryMeta):
                 [extra_field] if isinstance(extra_field, str) else extra_field
             )
             self.extra_info = dict()
+
+    @classmethod
+    def dump(cls):
+        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
+        os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
+        import pickle  # pylint: disable=import-outside-toplevel
+
+        with FileLock(file_path):
+            with open(file_path, "wb") as f:
+                pickle.dump(cls._registry_pool.items(), f)
+
+    @classmethod
+    def load(cls):
+        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
+        if not os.path.exists(file_path):
+            # shall we need to be silent? Or raise error?
+            logger.warning("Registry cache file do not exist!")
+            return
+        import pickle  # pylint: disable=import-outside-toplevel
+
+        with FileLock(file_path):
+            with open(file_path, "rb") as f:
+                data = pickle.load(f)
+        cls._registry_pool.update(data)
+
+    @classmethod
+    def lock_register(cls):
+        cls._prevent_register = True
+
+    @classmethod
+    def unlock_register(cls):
+        cls._prevent_register = False
 
     @classmethod
     def get_registry(cls, name: str, default: Any = None) -> Any:
@@ -153,12 +196,14 @@ class Registry(dict, metaclass=RegistryMeta):
         name: Optional[str] = None,
         **extra_info,
     ) -> Callable:
+        if Registry._prevent_register:
+            return module
         if not (inspect.isfunction(module) or inspect.isclass(module)):
             raise TypeError(
                 "Only support function or class, but got {}".format(type(module))
             )
 
-        name = name or module.__name__
+        name = name or module.__qualname__
         if not force and name in self:
             if not self[name] == module:
                 raise ValueError("The name {} exists".format(name))
@@ -179,7 +224,8 @@ class Registry(dict, metaclass=RegistryMeta):
         elif hasattr(self, "extra_field"):
             self.extra_info[name] = [None] * len(self.extra_field)
 
-        self[name] = module
+        # NOTE(Asthestarsfalll): this methods only suit for local files
+        self[name] = ".".join([module.__module__, module.__qualname__])
 
         # update to globals
         if Registry._globals is not None and name.startswith(_private_flag):
@@ -338,3 +384,27 @@ class Registry(dict, metaclass=RegistryMeta):
         )
         table = "\n" + table
         return table
+
+
+def _get_default_module_name(target_dir):
+    assert os.path.isdir(target_dir)
+    full_path = os.path.abspath(target_dir)
+    return full_path.split(os.sep)[-1]
+
+
+def _auto_register(target_dir, module_name):
+    for file_name in os.listdir(target_dir):
+        full_path = os.path.join(target_dir, file_name)
+        if os.path.isdir(full_path):
+            _auto_register(full_path, module_name + "." + file_name)
+        elif file_name.endswith(".py") and file_name != "__init__.py":
+            import_name = module_name + "." + file_name[:-3]
+            print(import_name)
+            importlib.import_module(import_name)
+
+
+def auto_register(target_dir, module_name=None):
+    if module_name is None:
+        module_name = _get_default_module_name(target_dir)
+    _auto_register(target_dir, module_name)
+    Registry.dump()

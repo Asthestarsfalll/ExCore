@@ -1,7 +1,8 @@
+import importlib
 import os
 import time
 from dataclasses import dataclass
-from sys import exc_info
+from sys import exc_info, exit
 from typing import Any, Dict, List, Tuple, Union
 
 import toml
@@ -28,8 +29,8 @@ BASE_CONFIG_KEY = "__base__"
 def _is_special(k: str) -> Tuple[str, str]:
     """
     Determine if the given string begin with target special character.
-        `!` denotes reuse module, which will only be built once and cache out.
-        `@` denotes intermediate module, which will be built from scratch if need.
+        `@` denotes reuse module, which will only be built once and cache out.
+        `!` denotes intermediate module, which will be built from scratch if need.
 
     Args:
         k (str): The input string to check.
@@ -91,6 +92,19 @@ def _dict2list(v, return_list=False):
     return v
 
 
+# FIXME(Asthestarsfalll): need to handle more situations.
+def _str_to_target(module_name):
+    module_name = module_name.split(".")
+    target_name = module_name.pop(-1)
+    try:
+        module = importlib.import_module(".".join(module_name))
+        module = getattr(module, target_name)
+    except ModuleNotFoundError:
+        logger.critical(f"Can not import such module: {module_name}")
+        exit(0)
+    return module
+
+
 @dataclass
 class ModuleNode(dict):
     name: str
@@ -133,12 +147,13 @@ class ModuleNode(dict):
 
     def __call__(self):
         try:
-            cls = Registry.get_registry(self.base)[self.name]
+            cls_name = Registry.get_registry(self.base)[self.name]
         except Exception as exc:
             logger.critical(exc_info())
             raise ModuleBuildError(
                 f"Failed to find the registered module {self.name} with base registry {self.base}"
             ) from exc
+        cls = _str_to_target(cls_name)
         params = self._get_params()
         try:
             module = cls(**params)
@@ -280,7 +295,7 @@ class AttrNode(dict):
             v = _dict2list(v)
             self[name] = ModuleWrapper(v)
 
-    def _parse_isolated_registerd_module(self, name):
+    def _parse_isolated_registered_module(self, name):
         v = _attr2module(self.pop(name), name)
         v = _dict2list(v, True)
         for i in v:
@@ -305,7 +320,7 @@ class AttrNode(dict):
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_modules:
-                    self._parse_isolated_registerd_module(name)
+                    self._parse_isolated_registered_module(name)
                 else:
                     self._parse_isolated_module(name)
 
@@ -320,7 +335,7 @@ class AttrNode(dict):
                     return True
         return False
 
-    # FIXME(Asthestarsfalll): ReuseNode should firstly search in hidden modules
+    # FIXME(Asthestarsfalll): Maybe reuseNode should firstly search in hidden modules?
     def _parse_single_param(self, name, params):
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
@@ -350,7 +365,8 @@ class AttrNode(dict):
         # FIXME(Asthestarsfalll): fix this
         if not isinstance(converted, ModuleType):
             raise CoreConfigParseError(
-                f"Error when parse params {params.name}, target_type is {ModuleType}, but got {type(converted)}"
+                f"Error when parse params {params.name}, \
+                  target_type is {ModuleType}, but got {type(converted)}"
             )
         return converted
 
@@ -402,6 +418,7 @@ class AttrNode(dict):
 
 # TODO(Asthestarsfalll): automatically generate pyi file
 #   according to config files for type hinting. high priority.
+# TODO(Asthestarsfalll): Add dump method to generate toml config files.
 class LazyConfig:
     globals: Registry
     hook_key = "ConfigHook"
@@ -481,6 +498,15 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
 def load(
     filename: str, target_modules: List[str], base_key: str = BASE_CONFIG_KEY
 ) -> LazyConfig:
+    Registry.load()
+    # We'd better to lock register to prevent
+    # the inconsistency between the twice registration.
+    Registry.lock_register()
+    if not Registry._registry_pool:
+        raise RuntimeError(
+            "No module has been registered, \
+                           you may need to call `excore.registry.auto_registry` first"
+        )
     st = time.time()
     AttrNode.set_key_fields(target_modules)
     config = load_config(filename, base_key)
