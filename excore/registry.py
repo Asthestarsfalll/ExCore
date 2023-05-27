@@ -11,6 +11,7 @@ from tabulate import tabulate
 
 from ._constants import _cache_dir, _registry_cache_file
 from .logger import logger
+from .utils import FileLock
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
@@ -116,8 +117,9 @@ class Registry(dict, metaclass=RegistryMeta):
         os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with open(file_path, "wb") as f:
-            pickle.dump(cls._registry_pool.items(), f)
+        with FileLock(file_path):
+            with open(file_path, "wb") as f:
+                pickle.dump(cls._registry_pool.items(), f)
 
     @classmethod
     def load(cls):
@@ -128,8 +130,9 @@ class Registry(dict, metaclass=RegistryMeta):
             return
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with open(file_path, "rb") as f:
-            data = pickle.load(f)
+        with FileLock(file_path):
+            with open(file_path, "rb") as f:
+                data = pickle.load(f)
         cls._registry_pool.update(data)
 
     @classmethod

@@ -1,7 +1,7 @@
-from . import DATAS
+from . import DATA
 
 
-@DATAS.register()
+@DATA.register()
 class CityScapes:
     def __init__(self, **kwargs):
         pass
