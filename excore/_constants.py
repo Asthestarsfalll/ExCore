@@ -7,6 +7,7 @@ _cache_dir = os.path.expanduser("~/.cache/excore/")
 # TODO(Asthestarsfalll): add worskspace
 _workspace_cache_dir = None
 _registry_cache_file = "registry_cache.pkl"
+_json_schema_file = "excore_schema.json"
 
 os.makedirs(_cache_dir, exist_ok=True)
 

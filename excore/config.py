@@ -7,11 +7,15 @@ from typing import Any, Dict, List, Tuple, Union
 
 import toml
 
-from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
-                          CoreConfigSupportError, ModuleBuildError)
+from ._exceptions import (
+    CoreConfigBuildError,
+    CoreConfigParseError,
+    CoreConfigSupportError,
+    ModuleBuildError,
+)
 from .hook import ConfigHookManager
 from .logger import logger
-from .registry import Registry
+from .registry import Registry, load_registries
 from .utils import CacheOut
 
 __all__ = ["load", "silent"]
@@ -498,15 +502,7 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
 def load(
     filename: str, target_modules: List[str], base_key: str = BASE_CONFIG_KEY
 ) -> LazyConfig:
-    Registry.load()
-    # We'd better to lock register to prevent
-    # the inconsistency between the twice registration.
-    Registry.lock_register()
-    if not Registry._registry_pool:
-        raise RuntimeError(
-            "No module has been registered, \
-                           you may need to call `excore.registry.auto_registry` first"
-        )
+    load_registries()
     st = time.time()
     AttrNode.set_key_fields(target_modules)
     config = load_config(filename, base_key)
