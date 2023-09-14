@@ -21,14 +21,8 @@ import requests
 from tqdm import tqdm
 
 from ._constants import __version__, _cache_dir
-from ._exceptions import (
-    GitCheckoutError,
-    GitPullError,
-    HTTPDownloadError,
-    InvalidGitHost,
-    InvalidProtocol,
-    InvalidRepo,
-)
+from ._exceptions import (GitCheckoutError, GitPullError, HTTPDownloadError,
+                          InvalidGitHost, InvalidProtocol, InvalidRepo)
 from .logger import logger
 
 __all__ = [

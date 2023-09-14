@@ -1,6 +1,7 @@
 # Custom
 local_tests/
 .empty/
+.taplo.toml
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

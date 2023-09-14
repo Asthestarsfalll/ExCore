@@ -7,12 +7,8 @@ from typing import Any, Dict, List, Tuple, Union
 
 import toml
 
-from ._exceptions import (
-    CoreConfigBuildError,
-    CoreConfigParseError,
-    CoreConfigSupportError,
-    ModuleBuildError,
-)
+from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
+                          CoreConfigSupportError, ModuleBuildError)
 from .hook import ConfigHookManager
 from .logger import logger
 from .registry import Registry, load_registries
