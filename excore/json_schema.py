@@ -88,9 +88,9 @@ def parse_registry(reg: Registry):
         items = {}
         required = []
         for param_name, param_obj in params.items():
-            is_requiresd, item = parse_single_param(param_obj)
+            is_required, item = parse_single_param(param_obj)
             items[param_name] = item
-            if is_requiresd:
+            if is_required:
                 required.append(param_name)
         if items:
             param_props["properties"] = items
@@ -101,7 +101,7 @@ def parse_registry(reg: Registry):
 
 
 def parse_single_param(p: Parameter):
-    required = False
+    required = True
     prop = {}
     anno = p.annotation
     potential_type = None
@@ -112,9 +112,8 @@ def parse_single_param(p: Parameter):
     elif anno is not _empty:
         potential_type = get_type(anno)
     # determine type by default value
-    if p.default is not _empty:
-        if anno is not _empty:
-            potential_type = get_type(type(p.default))
+    elif p.default is not _empty:
+        potential_type = get_type(type(p.default))
         required = False
     if p.name in SPECIAL_KEYS:
         potential_type = SPECIAL_KEYS[p.name]

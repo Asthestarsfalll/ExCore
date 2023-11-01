@@ -2,6 +2,8 @@
 @backbone = 'ResNet'
 !head1 = 'SimpleHead'
 @head2 = 'SimpleHead'
+# It's formal to use quoted keys instead of a bare key, but whatever.
+# "!head1" = 'SimpleHead'
 
 [Model.SimpleHead]
 in_channel = 256
