@@ -15,10 +15,13 @@ class Hook(Protocol):
 
     - __HookType__: A sequence of event types that this hook can handle.
     - __LifeSpan__: The duration (in seconds) that this hook will remain active once registered.
-    - __CallInter__: The minimum time (in seconds) between consecutive calls to the callback function.
-    - __call__: The callback function that will be executed when an event of the specified type occurs.
+    - __CallInter__: The minimum time (in seconds) between consecutive calls to the callback
+        function.
+    - __call__: The callback function that will be executed when an event of the specified type
+        occurs.
 
-    Note: This class cannot be instantiated directly, but it can be used to define other classes or functions that implement its interface.
+    Note: This class cannot be instantiated directly, but it can be used to define other classes
+        or functions that implement its interface.
     """
 
     __HookType__: Sequence[Any]
@@ -58,7 +61,8 @@ class MetaHookManager(type):
             The new instance of the `HookManager` subclass.
 
         Raises:
-            HookManagerBuildError: If the `HookManager` subclass does not have a valid `stages` attribute.
+            HookManagerBuildError: If the `HookManager` subclass does not have
+                a valid `stages` attribute.
         """
         inst = type.__new__(cls, name, bases, attrs)
         stages = inst.stages
@@ -75,28 +79,34 @@ class HookManager(metaclass=MetaHookManager):
     """
     Manages a set of hooks that can be triggered by events that occur during program execution.
 
-    This class uses the `MetaHookManager` metaclass to validate its `stages` attribute, which must be defined as a tuple
-    of string values. Each string represents a distinct "stage" in the program execution where hooks can be triggered.
+    This class uses the `MetaHookManager` metaclass to validate its `stages` attribute,
+        which must be defined as a tuple of string values. Each string represents a distinct "stage"
+        in the program execution where hooks can be triggered.
 
     Args:
         hooks (Sequence[Hook]): A sequence of `Hook` objects to be registered with the manager.
 
     Attributes:
         hooks (defaultdict[list]): A dictionary mapping event stages to lists of `Hook` objects.
-        calls (defaultdict[int]): A dictionary tracking the number of times each event stage has been called.
+        calls (defaultdict[int]): A dictionary tracking the number of times each event stage
+            has been called.
 
     Methods:
-        check_life_span(hook: Hook) -> bool: Checks whether a given `Hook` object has exceeded its maximum lifespan.
-        exist(stage: str) -> bool: Determines whether any hooks are registered for a given event stage.
+        check_life_span(hook: Hook) -> bool: Checks whether a given `Hook` object has exceeded
+            its maximum lifespan.
+        exist(stage: str) -> bool: Determines whether any hooks are registered for
+            a given event stage.
         pre_call() -> None: Called before any hooks are executed during an event stage.
         after_call() -> None: Called after all hooks have been executed during an event stage.
         __call__(stage: str, *inps) -> None: Executes all hooks registered for a given event stage.
-        call_hooks(stage: str, *inps) -> None: Convenience method for calling all hooks at a given event stage.
+        call_hooks(stage: str, *inps) -> None: Convenience method for calling all hooks
+            at a given event stage.
 
     Raises:
         HookBuildError: If any `Hook` object passed to the constructor has invalid attributes.
 
-    Note: This class is meant to be subclassed to define more specific hook managers for different applications.
+    Note: This class is meant to be subclassed to define more specific hook managers
+        for different applications.
     """
 
     def __init__(self, hooks: Sequence[Hook]):
