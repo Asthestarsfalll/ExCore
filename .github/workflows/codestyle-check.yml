@@ -1,0 +1,30 @@
+name: CodeStyle Check
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  code-style-check:
+    runs-on: ubuntu-latest
+    name: CodeStyle Check (Python 3.8)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.8
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -r codestyle_requirements.txt
+          poetry install
+      - name: Run codestyle-check
+        run: |
+          chmod +x codestyle-format.sh
+          ./codestyle-format.sh all

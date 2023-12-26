@@ -204,9 +204,8 @@ class Registry(dict, metaclass=RegistryMeta):
             )
 
         name = name or module.__qualname__
-        if not force and name in self:
-            if not self[name] == module:
-                raise ValueError("The name {} exists".format(name))
+        if not force and name in self and not self[name] == module:
+            raise ValueError("The name {} exists".format(name))
 
         if extra_info:
             if not hasattr(self, "extra_field"):
