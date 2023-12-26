@@ -119,7 +119,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
         with FileLock(file_path):
             with open(file_path, "wb") as f:
-                pickle.dump(cls._registry_pool.items(), f)
+                pickle.dump(cls._registry_pool, f)
 
     @classmethod
     def load(cls):
@@ -408,3 +408,15 @@ def auto_register(target_dir, module_name=None):
         module_name = _get_default_module_name(target_dir)
     _auto_register(target_dir, module_name)
     Registry.dump()
+
+
+def load_registries():
+    Registry.load()
+    # We'd better to lock register to prevent
+    # the inconsistency between the twice registration.
+    Registry.lock_register()
+    if not Registry._registry_pool:
+        raise RuntimeError(
+            "No module has been registered, \
+                           you may need to call `excore.registry.auto_register` first"
+        )

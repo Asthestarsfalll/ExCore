@@ -38,7 +38,7 @@ format() {
 
 # check_only=${1:-false}
 # echo $check_only
-echo "format 'tests'"
-format "tests/" false
+# echo "format 'tests'"
+# format "tests/" false
 echo "format 'excore'"
 format "excore/" true 
