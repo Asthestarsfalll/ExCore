@@ -9,7 +9,7 @@ LOGGERS = {}
 FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
     "<level>{level: <8}</level> | "
-    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+    "<cyan>{name}:{function}:{line}</cyan> - <level>{message}</level>"
 )
 
 
@@ -74,6 +74,3 @@ def init_logger():
     logger.remove(None)
     logger.add(sys.stderr, format=FORMAT)
     logger.level("SUCCESS", color="<yellow>")
-
-
-init_logger()

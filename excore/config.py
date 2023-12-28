@@ -100,7 +100,7 @@ def _str_to_target(module_name):
         module = importlib.import_module(".".join(module_name))
         module = getattr(module, target_name)
     except ModuleNotFoundError:
-        logger.critical(f"Can not import such module: {module_name}")
+        logger.critical(f"Can not import such module: {'.'.join(module_name)}")
         exit(0)
     return module
 

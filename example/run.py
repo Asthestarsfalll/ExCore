@@ -3,6 +3,7 @@ from excore.logger import add_logger, logger
 
 Registry.load()
 MODELS = Registry.get_registry("Model")
+print(MODELS)
 
 
 def _check_func(values):
