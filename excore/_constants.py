@@ -32,10 +32,14 @@ else:
 
 _cache_dir = osp.join(_cache_base_dir, _base_name)
 
+# TODO(Asthestarsfalll): Use a data class to store this
 _workspace_cfg = dict(
+    name="",
+    src_dir="",
+    base_dir=os.getcwd(),
+    registries=[],
     target_fields=[],
     json_schema_fields=dict(),
-    isolated_fields=dict(),
     props=dict(),
 )
 

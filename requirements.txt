@@ -8,3 +8,4 @@ pynvml
 typer[all]
 PyYAML
 rich
+astor

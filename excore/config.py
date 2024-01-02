@@ -1,5 +1,6 @@
 import importlib
 import os
+import sys
 import time
 from dataclasses import dataclass
 from sys import exc_info, exit
@@ -16,9 +17,12 @@ from .utils import CacheOut
 
 __all__ = ["load", "silent"]
 
+
 # TODO(Asthestarsfalll): Prune and decoupling. low priority.
 # TODO(Asthestarsfalll): Improve error messages. high priority.
 # TODO(Asthestarsfalll): Support multiple same module parse.
+
+sys.path.append(os.getcwd())
 
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
@@ -245,14 +249,14 @@ class ModuleWrapper(list):
 
 
 class AttrNode(dict):
-    target_modules: List
+    target_fields: List
     registered_modules: List
 
     def __new__(cls):
-        if not hasattr(cls, "target_modules"):
-            raise RuntimeError("Call `set_key_fields` before `load`")
+        if not hasattr(cls, "target_fields"):
+            raise RuntimeError("Call `set_target_fields` before `load`")
 
-        # make key fields unique when multiple load.
+        # make target fields unique when multiple load.
         class AttrNodeImpl(AttrNode):
             pass
 
@@ -260,7 +264,7 @@ class AttrNode(dict):
         return inst
 
     @classmethod
-    def set_key_fields(cls, target_modules):
+    def set_target_fields(cls, target_fields):
         """
         Sets the `target_modules` attribute to the specified list of module names,
             and `registered_modules` attributes based on the current state
@@ -272,18 +276,18 @@ class AttrNode(dict):
             target_modules (List[str]): Target module names that need to be built.
             registered_modules (List[str]): A list of all module names that have been registered.
         """
-        cls.target_modules = target_modules
+        cls.target_fields = target_fields
         registered_modules = Registry._registry_pool.keys()
         cls.registered_modules = list(registered_modules)
 
     def isolated_keys(self):
         keys = list(self.keys())
         for k in keys:
-            if k not in self.target_modules:
+            if k not in self.target_fields:
                 yield k
 
     def _parse_target_modules(self):
-        for name in self.target_modules:
+        for name in self.target_fields:
             if name in self.registered_modules:
                 base = name
             else:
@@ -325,7 +329,7 @@ class AttrNode(dict):
                     self._parse_isolated_module(name)
 
     def _contain_module(self, name):
-        for k in self.target_modules:
+        for k in self.target_fields:
             v = self[k]
             if not isinstance(v, ModuleWrapper):
                 v = [v]
@@ -348,7 +352,7 @@ class AttrNode(dict):
             wrapper = self[self.__route__]
             converted = _convert_module(getattr(wrapper, name), params.base)
             self[name] = converted
-            if self.__route__ not in self.target_modules:
+            if self.__route__ not in self.target_fields:
                 self[self.__route__].pop(name)
                 if len(self[self.__route__]) == 1:
                     self[self.__route__] = self.pop(self.__route__)[0]
@@ -425,7 +429,7 @@ class LazyConfig:
 
     def __init__(self, config: AttrNode) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
-        self.target_modules = config.target_modules
+        self.target_modules = config.target_fields
         self.parse_config(config)
         self._config = config
 
@@ -471,8 +475,11 @@ class LazyConfig:
         return str(self._config)
 
 
-def set_target_modules(target_modules):
-    AttrNode.set_key_fields(target_modules)
+def set_target_fields(target_fields):
+    if hasattr(AttrNode, "target_fields"):
+        logger.info("`target_fields` will be set to {}", target_fields)
+    if target_fields:
+        AttrNode.set_target_fields(target_fields)
 
 
 def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
@@ -495,15 +502,12 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     return config
 
 
-def load(
-    filename: str, target_modules: List[str], base_key: str = BASE_CONFIG_KEY
-) -> LazyConfig:
+def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
     load_registries()
     st = time.time()
-    AttrNode.set_key_fields(target_modules)
     config = load_config(filename, base_key)
     lazy_config = LazyConfig(config)
-    logger.success("Config loading and parsing cost {}s!", time.time() - st)
+    logger.success("Config loading and parsing cost {:.4f}s!", time.time() - st)
     return lazy_config
 
 
@@ -513,4 +517,7 @@ def silent():
 
 
 def build_all(cfg: LazyConfig) -> Tuple[dict, dict]:
-    return cfg.build_all()
+    st = time.time()
+    modules = cfg.build_all()
+    logger.success("Modules building costs {:.4f}s!", time.time() - st)
+    return modules

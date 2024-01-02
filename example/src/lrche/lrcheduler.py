@@ -1,4 +1,4 @@
-from . import LRCHE
+from src import LRCHE
 
 
 @LRCHE.register()

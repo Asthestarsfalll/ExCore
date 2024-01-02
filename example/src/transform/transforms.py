@@ -1,25 +1,25 @@
-from . import TRANSFORMS
+from src import TRANSFORM
 
 
-@TRANSFORMS.register()
+@TRANSFORM.register()
 class RandomResize:
     def __init__(self, **kwargs):
         pass
 
 
-@TRANSFORMS.register()
+@TRANSFORM.register()
 class Normalize:
     def __init__(self, **kwargs):
         pass
 
 
-@TRANSFORMS.register()
+@TRANSFORM.register()
 class RandomFlip:
     def __init__(self, **kwargs):
         pass
 
 
-@TRANSFORMS.register()
+@TRANSFORM.register()
 class Pad:
     def __init__(self, **kwargs):
         pass

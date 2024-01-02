@@ -4,6 +4,7 @@ import inspect
 import json
 import os
 import re
+import sys
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from tabulate import tabulate
@@ -67,13 +68,20 @@ class RegistryMeta(type):
     def __call__(cls, name, **kwargs) -> "Registry":
         r"""Assert only call `__init__` once"""
         _is_pure_ascii(name)
+        extra_field = kwargs.get("extra_field", None)
         if name in cls._registry_pool:
-            if kwargs:
+            extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
+            target = cls._registry_pool[name]
+            if (
+                extra_field
+                and hasattr(target, "extra_field")
+                and extra_field != target.extra_field
+            ):
                 logger.warning(
                     f"{cls.__name__}: `{name}` has already existed,"
-                    " extra arguments will be ignored"
+                    " different arguments will be ignored"
                 )
-            return cls._registry_pool[name]
+            return target
         instance = super().__call__(name, **kwargs)
         if not name.startswith(_private_flag):
             cls._registry_pool[name] = instance
@@ -101,7 +109,7 @@ class Registry(dict, metaclass=RegistryMeta):
     """
 
     def __init__(
-        self, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
+        self, /, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
     ) -> None:
         super().__init__()
         self.name = name
@@ -109,7 +117,7 @@ class Registry(dict, metaclass=RegistryMeta):
             self.extra_field = (
                 [extra_field] if isinstance(extra_field, str) else extra_field
             )
-            self.extra_info = dict()
+        self.extra_info = dict()
 
     @classmethod
     def dump(cls):
@@ -129,8 +137,11 @@ class Registry(dict, metaclass=RegistryMeta):
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
-            logger.warning("Registry cache file do not exist!")
-            raise RuntimeError()
+            logger.critical(
+                "Registry cache file do not exist!"
+                " Please run `excore auto-register in your command line first`"
+            )
+            sys.exit(0)
         import pickle  # pylint: disable=import-outside-toplevel
 
         with FileLock(file_path):

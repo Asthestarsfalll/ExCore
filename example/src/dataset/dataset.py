@@ -1,4 +1,4 @@
-from . import DATA
+from src import DATA
 
 
 @DATA.register()

@@ -1,6 +1,7 @@
 import inspect
 import json
 import os
+import os.path as osp
 from inspect import Parameter, _empty
 from typing import Dict, Optional, _GenericAlias
 
@@ -129,7 +130,7 @@ def _json_schema_path():
 def _generate_taplo_config(path):
     cfg = dict(
         schema=dict(
-            path=os.path.expanduser(path),
+            path=osp.join(osp.expanduser(path), _json_schema_file),
             enabled=True,
         ),
         formatting=dict(align_entries=False),

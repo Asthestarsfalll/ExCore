@@ -17,6 +17,7 @@ def _trace_patcher(log_record):
     if log_record["name"] == "__main__":
         log_record["name"] = log_record["file"].name
     if log_record["function"] == "<module>":
+        # FIXME: This will cause log file some garbled characters.
         log_record["function"] = "\b"
 
 
@@ -64,7 +65,7 @@ def debug_only(*args, **kwargs) -> None:
 
     filter = kwargs.pop("filter", None)
     if filter:
-        logger.warning("Override filter")
+        logger.warning("Override filter!!!")
     logger.remove(None)
     logger.add(sys.stderr, *args, filter=_debug_only, **kwargs)
     logger.debug("DEBUG ONLY!!!")
@@ -74,3 +75,4 @@ def init_logger():
     logger.remove(None)
     logger.add(sys.stderr, format=FORMAT)
     logger.level("SUCCESS", color="<yellow>")
+    logger.level("WARNING", color="<red>")

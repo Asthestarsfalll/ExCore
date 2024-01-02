@@ -1,9 +1,9 @@
+from src import HOOK
+
 from excore.logger import logger
 
-from . import HOOKS
 
-
-@HOOKS.register()
+@HOOK.register()
 class AddModelParams:
     __HookType__ = "every_build"
     __LifeSpan__ = 1

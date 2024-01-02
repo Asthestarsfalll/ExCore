@@ -1,7 +1,7 @@
-from . import MODELS
+from src import MODEL
 
 
-@MODELS.register(is_pretrained=True)
+@MODEL.register(is_pretrained=True)
 class FCN:
     def __init__(self, **kwargs):
         pass

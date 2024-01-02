@@ -1,10 +1,14 @@
+import ast
 import importlib
 import os
 import os.path as osp
+import sys
 
+import astor
 import toml
 import typer
 from loguru import logger
+from tabulate import tabulate
 from typer import Option as COp
 from typing_extensions import Annotated
 
@@ -16,11 +20,9 @@ from .registry import Registry
 app = typer.Typer(rich_markup_mode="rich")
 
 
-def _dump_workspace_config(name, src_dir):
-    _workspace_cfg["name"] = name
-    _workspace_cfg["src_dir"] = src_dir
-    _workspace_cfg["base_dir"] = os.getcwd()
-    _workspace_cfg["fields"] = dict()
+def _dump_workspace_config():
+    logger.info("Dump config to {}", _workspace_config_file)
+    # TODO: Add props which can be used in config ?
     _workspace_cfg["props"] = dict()
     with open(_workspace_config_file, "w", encoding="UTF-8") as f:
         toml.dump(_workspace_cfg, f)
@@ -29,13 +31,156 @@ def _dump_workspace_config(name, src_dir):
 def _load_workspace_config():
     if osp.exists(_workspace_config_file):
         _workspace_cfg.update(toml.load(_workspace_config_file))
-        logger.success("load `.excore.toml`")
+        # logger.success("load `.excore.toml`")
     else:
         logger.warning("Please use `excore init` in your command line first")
 
 
+def _has_import_excore(node):
+    if isinstance(node, ast.Module):
+        for child in node.body:
+            f = _has_import_excore(child)
+            if f:
+                return f
+    elif isinstance(node, ast.ImportFrom) and node.module == "excore":
+        for name in node.names:
+            if name.name == "Registry":
+                break
+        else:
+            node.names.append(type(node.names[0])("Registry"))
+        return True
+    return False
+
+
+def _build_ast(name: str) -> ast.Assign:
+    targets = [ast.Name(name.upper(), ast.Store)]
+    func = ast.Name("Registry", ast.Load)
+    args = [ast.Constant(name)]
+    value = ast.Call(func, args, [])
+    return ast.Assign(targets, value)
+
+
+def _generate_registries():
+    if not _workspace_cfg["target_fields"]:
+        return
+    logger.info("Generating Registry definition code.")
+    target_file = osp.join(_workspace_cfg["src_dir"], "__init__.py")
+
+    with open(target_file, "r", encoding="UTF-8") as f:
+        source_code = ast.parse(f.read())
+    flag = _has_import_excore(source_code)
+    if flag == 1:
+        logger.info("Detect excore.Registry imported.")
+    else:
+        name = [ast.alias("Registry", None)]
+        source_code.body.insert(0, ast.ImportFrom("excore", name, 0))
+
+    for name in _get_registries(_workspace_cfg["registries"]):
+        if name.startswith("*"):
+            name = name[1:]
+        source_code.body.append(_build_ast(name))
+    source_code = astor.to_source(source_code)
+    with open(target_file, "w", encoding="UTF-8") as f:
+        f.write(source_code)
+    logger.success(
+        "Generate Registry definition in {} according to `target_fields`", target_file
+    )
+
+
+def _detect_assign(node, definition):
+    if isinstance(node, ast.Module):
+        for child in node.body:
+            _detect_assign(child, definition)
+    elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+        if hasattr(node.value.func, "id") and node.value.func.id == "Registry":
+            definition.append(node.value.args[0].value)
+
+
+def _detect_registy_difinition() -> bool:
+    target_file = osp.join(_workspace_cfg["src_dir"], "__init__.py")
+    logger.info("Detect Registry definition in {}", target_file)
+    definition = []
+    with open(target_file, "r", encoding="UTF-8") as f:
+        source_code = ast.parse(f.read())
+    _detect_assign(source_code, definition)
+    if len(definition) > 0:
+        logger.info("Find Registry definition: {}", definition)
+        _workspace_cfg["registries"] = definition
+        return True
+    return False
+
+
+def _format(reg_and_fields: str) -> str:
+    splits = reg_and_fields.split(":")
+    if len(splits) == 1:
+        return reg_and_fields.strip()
+    fields = [i.strip() for i in splits[1].split(",")]
+    return splits[0] + ": " + ", ".join(fields)
+
+
+def _get_target_fields(reg_and_fields):
+    fields = [i[1:].split(":") for i in reg_and_fields if i.startswith("*")]
+    targets = []
+    for i in fields:
+        if len(i) == 1:
+            targets.append(i[0])
+        else:
+            targets.extend([j.strip() for j in i[1].split(",")])
+    return targets
+
+
+def _get_registries(reg_and_fields):
+    return [i.split(":")[0] for i in reg_and_fields]
+
+
+def _update(is_init=True):
+    target_dir = osp.join(_cache_base_dir, _workspace_cfg["name"])
+    os.makedirs(target_dir, exist_ok=True)
+    _generate_taplo_config(target_dir)
+    logger.info("Generate `.taplo.toml`")
+    if is_init:
+        if not _detect_registy_difinition():
+            if typer.confirm("Do you want to define `Registry` and `fields`?"):
+                regs = []
+                while True:
+                    inp = input("Please input: ")
+                    if inp:
+                        regs.append(_format(inp))
+                    else:
+                        break
+                _workspace_cfg["registries"] = regs
+            else:
+                logger.info("You can define fields later.")
+            _workspace_cfg["target_fields"] = _get_target_fields(
+                _workspace_cfg["registries"]
+            )
+            _generate_registries()
+        else:
+            logger.warning(
+                "Please modify registries in .excore.toml and "
+                "run `excore update` to generate `target_fields`"
+            )
+    else:
+        _workspace_cfg["target_fields"] = _get_target_fields(
+            [_format(i) for i in _workspace_cfg["registries"]]
+        )
+        logger.success("Update target_fields")
+    _dump_workspace_config()
+
+
+@app.command()
+def update():
+    """
+    Update workspace config file.
+    """
+    _update(False)
+
+
 @app.command()
 def init(force: Annotated[bool, COp()] = False):
+    """
+    Initialize workspace and generate a config file.
+    """
     if osp.exists(_cache_dir) and not force:
         logger.warning("excore.toml already existed!")
         return
@@ -54,22 +199,11 @@ def init(force: Annotated[bool, COp()] = False):
 
     logger.opt(colors=True).info("Source Code Directory(relative path):")
     src_dir = typer.prompt("", prompt_suffix="")
-    os.makedirs(osp.join(_cache_base_dir, name), exist_ok=True)
-    _generate_taplo_config(osp.join(_cache_base_dir, _base_name))
 
-    if typer.confirm("Do you want to define fields?"):
-        fields = []
-        while True:
-            inp = input("Please input field:")
-            if inp:
-                fields.append(inp)
-            else:
-                break
-        _workspace_cfg["target_fields"] = fields
-    else:
-        logger.info("You can define fields later.")
+    _workspace_cfg["name"] = name
+    _workspace_cfg["src_dir"] = src_dir
 
-    _dump_workspace_config(name, src_dir)
+    _update()
 
     logger.success(
         "Welcome to ExCore. You can modify the `.excore.toml` file mannully."
@@ -88,6 +222,9 @@ def _clear_cache(cache_dir):
 
 @app.command()
 def clear_cache():
+    """
+    Remove the cache folder which belongs to current workspace.
+    """
     if not typer.confirm(f"Are you sure you want to clear cache of {_base_name}?"):
         return
 
@@ -97,28 +234,36 @@ def clear_cache():
 
 @app.command()
 def clear_all_cache():
+    """
+    Remove the whole cache folder.
+    """
     if not typer.confirm("Are you sure you want to clear all cache?"):
         return
     _clear_cache(_cache_base_dir)
 
 
-@app.command()
-def cache_list():
-    from tabulate import tabulate  # pylint: disable=import-outside-toplevel
-
-    caches = os.listdir(_cache_dir)
+def _build_table(header, _cache_dir):
     table = tabulate(
-        [(i,) for i in caches],
-        headers=["NAMES"],
+        [(i,) for i in _cache_dir],
+        headers=[header],
         tablefmt="fancy_grid",
     )
     logger.info("\n{}", table)
 
 
+@app.command()
+def cache_list():
+    """
+    Show cache folders.
+    """
+    _build_table("NAMES", os.listdir(_cache_base_dir))
+
+
 def _get_default_module_name(target_dir):
     assert os.path.isdir(target_dir)
     full_path = os.path.abspath(target_dir)
-    return ".".join(full_path.split(os.sep)[-2:])
+    # return ".".join(full_path.split(os.sep)[-2:])
+    return full_path.split(os.sep)[-1]
 
 
 def _auto_register(target_dir, module_name):
@@ -134,20 +279,51 @@ def _auto_register(target_dir, module_name):
 
 @app.command()
 def auto_register():
+    """
+    Automatically import all modules in `src_dir` and register all modules, then dump to files.
+    """
     if not os.path.exists(_workspace_config_file):
         logger.warning("Please run `excore init` in your command line first!")
-    target_dir = _workspace_cfg["src_dir"]
+    target_dir = osp.abspath(_workspace_cfg["src_dir"])
     module_name = _get_default_module_name(target_dir)
-    _auto_register(osp.abspath(target_dir), module_name)
+    sys.path.append(os.getcwd())
+    _auto_register(target_dir, module_name)
     Registry.dump()
 
 
 @app.command()
 def config_completion():
+    """
+    Generate json_schema for config completion.
+    """
     if not _workspace_cfg["json_schema_fields"]:
         logger.warning("You should set json_schema_fields first")
         return
     _generate_json_shcema(_workspace_cfg["json_schema_fields"])
+
+
+@app.command()
+def target_fields():
+    """
+    Show target_fields.
+    """
+    _build_table("FIELDS", _get_target_fields(_workspace_cfg["registries"]))
+
+
+@app.command()
+def registries():
+    """
+    Show registries.
+    """
+    _build_table("Registry", [_format(i) for i in _workspace_cfg["registries"]])
+
+
+@app.command()
+def generate_registries():
+    """
+    Generate registries definition code according to workspace config.
+    """
+    _generate_registries()
 
 
 if __name__ == "__main__":
