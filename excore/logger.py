@@ -5,11 +5,12 @@ from loguru import logger as _logger
 __all__ = ["logger", "add_logger", "remove_logger", "debug_only", "log_to_file_only"]
 
 LOGGERS = {}
+IMPORTANCE_TAG = "IMPORT"
 
 FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
     "<level>{level: <8}</level> | "
-    "<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
+    "<cyan>{name}:{function}:{line}</cyan> - <level>{message}</level>"
 )
 
 
@@ -17,6 +18,7 @@ def _trace_patcher(log_record):
     if log_record["name"] == "__main__":
         log_record["name"] = log_record["file"].name
     if log_record["function"] == "<module>":
+        # FIXME: This will cause log file some garbled characters.
         log_record["function"] = "\b"
 
 
@@ -64,16 +66,20 @@ def debug_only(*args, **kwargs) -> None:
 
     filter = kwargs.pop("filter", None)
     if filter:
-        logger.warning("Override filter")
+        logger.warning("Override filter!!!")
     logger.remove(None)
     logger.add(sys.stderr, *args, filter=_debug_only, **kwargs)
     logger.debug("DEBUG ONLY!!!")
+
+
+def _call_importance(__message: str, *args, **kwargs):
+    logger.log(IMPORTANCE_TAG, __message, *args, **kwargs)
 
 
 def init_logger():
     logger.remove(None)
     logger.add(sys.stderr, format=FORMAT)
     logger.level("SUCCESS", color="<yellow>")
-
-
-init_logger()
+    logger.level("WARNING", color="<red>")
+    logger.level(IMPORTANCE_TAG, no=45, color="<YELLOW><red><bold>")
+    logger.imp = _call_importance

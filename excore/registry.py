@@ -1,22 +1,23 @@
 import fnmatch
 import functools
-import importlib
 import inspect
 import json
 import os
 import re
+import sys
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from tabulate import tabulate
 
-from ._constants import _cache_dir, _registry_cache_file
+from ._constants import (_cache_dir, _registry_cache_file,
+                         _workspace_config_file)
 from .logger import logger
 from .utils import FileLock
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
 
-__all__ = ["Registry", "auto_register"]
+__all__ = ["Registry"]
 
 
 # TODO(Asthestarsfalll): Maybe some methods need to be cleared.
@@ -30,6 +31,10 @@ def _is_pure_ascii(name: str):
                 name
             )
         )
+
+
+def _is_function_or_class(module):
+    return inspect.isfunction(module) or inspect.isclass(module)
 
 
 def _default_filter_func(values: Sequence[Any]) -> bool:
@@ -67,13 +72,20 @@ class RegistryMeta(type):
     def __call__(cls, name, **kwargs) -> "Registry":
         r"""Assert only call `__init__` once"""
         _is_pure_ascii(name)
+        extra_field = kwargs.get("extra_field", None)
         if name in cls._registry_pool:
-            if kwargs:
+            extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
+            target = cls._registry_pool[name]
+            if (
+                extra_field
+                and hasattr(target, "extra_field")
+                and extra_field != target.extra_field
+            ):
                 logger.warning(
                     f"{cls.__name__}: `{name}` has already existed,"
-                    " extra arguments will be ignored"
+                    " different arguments will be ignored"
                 )
-            return cls._registry_pool[name]
+            return target
         instance = super().__call__(name, **kwargs)
         if not name.startswith(_private_flag):
             cls._registry_pool[name] = instance
@@ -101,7 +113,7 @@ class Registry(dict, metaclass=RegistryMeta):
     """
 
     def __init__(
-        self, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
+        self, /, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
     ) -> None:
         super().__init__()
         self.name = name
@@ -109,7 +121,7 @@ class Registry(dict, metaclass=RegistryMeta):
             self.extra_field = (
                 [extra_field] if isinstance(extra_field, str) else extra_field
             )
-            self.extra_info = dict()
+        self.extra_info = dict()
 
     @classmethod
     def dump(cls):
@@ -123,11 +135,17 @@ class Registry(dict, metaclass=RegistryMeta):
 
     @classmethod
     def load(cls):
+        if not os.path.exists(_workspace_config_file):
+            logger.warning("Please run `excore init` in your command line first!")
+            raise RuntimeError()
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
-            logger.warning("Registry cache file do not exist!")
-            return
+            logger.critical(
+                "Registry cache file do not exist!"
+                " Please run `excore auto-register in your command line first`"
+            )
+            sys.exit(0)
         import pickle  # pylint: disable=import-outside-toplevel
 
         with FileLock(file_path):
@@ -198,7 +216,7 @@ class Registry(dict, metaclass=RegistryMeta):
     ) -> Callable:
         if Registry._prevent_register:
             return module
-        if not (inspect.isfunction(module) or inspect.isclass(module)):
+        if not _is_function_or_class(module):
             raise TypeError(
                 "Only support function or class, but got {}".format(type(module))
             )
@@ -314,6 +332,8 @@ class Registry(dict, metaclass=RegistryMeta):
             for name in base_module.__dict__.keys()
             if match_func(name, base_module)
         ]
+        matched_modules = list(filter(_is_function_or_class, matched_modules))
+        logger.info("matched modules:{}", [i.__name__ for i in matched_modules])
         self.register_all(matched_modules)
 
     def module_table(
@@ -385,31 +405,9 @@ class Registry(dict, metaclass=RegistryMeta):
         return table
 
 
-def _get_default_module_name(target_dir):
-    assert os.path.isdir(target_dir)
-    full_path = os.path.abspath(target_dir)
-    return full_path.split(os.sep)[-1]
-
-
-def _auto_register(target_dir, module_name):
-    for file_name in os.listdir(target_dir):
-        full_path = os.path.join(target_dir, file_name)
-        if os.path.isdir(full_path):
-            _auto_register(full_path, module_name + "." + file_name)
-        elif file_name.endswith(".py") and file_name != "__init__.py":
-            import_name = module_name + "." + file_name[:-3]
-            print(import_name)
-            importlib.import_module(import_name)
-
-
-def auto_register(target_dir, module_name=None):
-    if module_name is None:
-        module_name = _get_default_module_name(target_dir)
-    _auto_register(target_dir, module_name)
-    Registry.dump()
-
-
 def load_registries():
+    if not os.path.exists(_workspace_config_file):
+        logger.warning("Please run `excore init` in your command line first!")
     Registry.load()
     # We'd better to lock register to prevent
     # the inconsistency between the twice registration.

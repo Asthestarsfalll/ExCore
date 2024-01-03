@@ -3,6 +3,7 @@ from excore.logger import add_logger, logger
 
 Registry.load()
 MODELS = Registry.get_registry("Model")
+print(MODELS)
 
 
 def _check_func(values):
@@ -30,18 +31,9 @@ logger.info(
 )
 logger.info(Registry.registry_table())
 
-target_module = [
-    "Model",
-    "Backbone",
-    "Optimizer",
-    "Loss",
-    "TrainData",
-    "LRSche",
-    "TestData",
-]
-config.set_target_modules(target_module)
-# config.silent()
-cfg = config.load("./configs/run.toml", target_module)
+config.set_target_fields(config.AttrNode.target_fields + ["Backbone"])
+config.silent()
+cfg = config.load("./configs/run.toml")
 # 判断是否是相同的实例
 assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone

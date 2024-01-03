@@ -1,7 +1,7 @@
-from .. import MODELS
+from src import MODEL
 
 
-@MODELS.register(name="SimpleHead", is_pretrained=False, is_backbone=False)
+@MODEL.register(name="SimpleHead", is_pretrained=False, is_backbone=False)
 class Head:
     def __init__(self, **kwargs):
         pass

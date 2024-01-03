@@ -4,11 +4,14 @@ version = "0.1.1"
 description = "Build your own development toolkit efficiently."
 authors = ["Asthestarsfalll <1186454801@qq.com>"]
 license = "MIT"
-# readme = "README.md"
+readme = "README.md"
 repository = "https://github.com/Asthestarsfalll/excore"
 
 [tool.poetry.dependencies]
 python = "^3.6"
+
+[tool.poetry.scripts]
+excore = 'excore.cli:app'
 
 [build-system]
 requires = ["poetry-core"]

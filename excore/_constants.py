@@ -1,33 +1,60 @@
 import os
+import os.path as osp
+
+from .logger import logger
 
 __author__ = "Asthestarsfalll"
 __version__ = "0.1.3"
 
-_cache_dir = os.path.expanduser("~/.cache/excore/")
-# TODO(Asthestarsfalll): add worskspace
-_workspace_cache_dir = None
+_cache_base_dir = osp.expanduser("~/.cache/excore/")
+_workspace_config_file = "./.excore.toml"
 _registry_cache_file = "registry_cache.pkl"
 _json_schema_file = "excore_schema.json"
 
-os.makedirs(_cache_dir, exist_ok=True)
 
-LOGOS = [
-    r"""
-                                           _..._       .-'''-.
-                                        .-'_..._''.   '   _    \
-       __.....__                      .' .'      '.\/   /` '.   \               __.....__
-   .-''         '.                   / .'          .   |     \  '           .-''         '.
-  /     .-''"'-.  `.                . '            |   '      |  '.-,.--.  /     .-''"'-.  `.
- /     /________\   \ ____     _____| |            \    \     / / |  .-. |/     /________\   \
- |                  |`.   \  .'    /| |             `.   ` ..' /  | |  | ||                  |
- \    .-------------'  `.  `'    .' . '                '-...-'`   | |  | |\    .-------------'
-  \    '-.____...---.    '.    .'    \ '.          .              | |  '-  \    '-.____...---.
-   `.             .'     .'     `.    '. `._____.-'/              | |       `.             .'
-     `''-...... -'     .'  .'`.   `.    `-.______ /               | |         `''-...... -'
-                     .'   /    `.   `.           `                |_|
-                    '----'       '----'
-""",
-    r"""
+def _load_workspace_config():
+    if osp.exists(_workspace_config_file):
+        _workspace_cfg.update(toml.load(_workspace_config_file))
+        # logger.success("load `.excore.toml`")
+    else:
+        logger.warning("Please use `excore init` in your command line first")
+
+
+def _update_name(base_name):
+    name = base_name
+
+    suffix = 1
+    while osp.exists(osp.join(_cache_base_dir, name)):
+        name = f"{_base_name}_{suffix}"
+        suffix += 1
+
+    return name
+
+
+if not osp.exists(_workspace_config_file):
+    _base_name = osp.basename(osp.normpath(os.getcwd()))
+    _base_name = _update_name(_base_name)
+else:
+    import toml  # pylint: disable=import-outside-toplevel
+
+    cfg = toml.load(_workspace_config_file)
+    _base_name = cfg["name"]
+
+_cache_dir = osp.join(_cache_base_dir, _base_name)
+
+# TODO(Asthestarsfalll): Use a data class to store this
+_workspace_cfg = dict(
+    name="",
+    src_dir="",
+    base_dir=os.getcwd(),
+    registries=[],
+    target_fields=[],
+    json_schema_fields=dict(),
+    props=dict(),
+)
+
+
+LOGO = r"""
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████
 ▓█   ▀ ▒▒ █ █ ▒░▒██▀ ▀█  ▒██▒  ██▒▓██ ▒ ██▒▓█   ▀
 ▒███   ░░  █   ░▒▓█    ▄ ▒██░  ██▒▓██ ░▄█ ▒▒███
@@ -38,18 +65,4 @@ LOGOS = [
    ░    ░    ░  ░        ░ ░ ░ ▒    ░░   ░    ░
    ░  ░ ░    ░  ░ ░          ░ ░     ░        ░  ░
                 ░
-""",
-    r"""
- ▄▄▄▄▄▄▄▄▄▄▄  ▄       ▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄  ▄▄▄▄▄▄▄▄▄▄▄
-▐░░░░░░░░░░░▌▐░▌     ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀  ▐░▌   ▐░▌ ▐░█▀▀▀▀▀▀▀▀▀ ▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀█░▌▐░█▀▀▀▀▀▀▀▀▀
-▐░▌            ▐░▌ ▐░▌  ▐░▌          ▐░▌       ▐░▌▐░▌       ▐░▌▐░▌
-▐░█▄▄▄▄▄▄▄▄▄    ▐░▐░▌   ▐░▌          ▐░▌       ▐░▌▐░█▄▄▄▄▄▄▄█░▌▐░█▄▄▄▄▄▄▄▄▄
-▐░░░░░░░░░░░▌    ▐░▌    ▐░▌          ▐░▌       ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌
-▐░█▀▀▀▀▀▀▀▀▀    ▐░▌░▌   ▐░▌          ▐░▌       ▐░▌▐░█▀▀▀▀█░█▀▀ ▐░█▀▀▀▀▀▀▀▀▀
-▐░▌            ▐░▌ ▐░▌  ▐░▌          ▐░▌       ▐░▌▐░▌     ▐░▌  ▐░▌
-▐░█▄▄▄▄▄▄▄▄▄  ▐░▌   ▐░▌ ▐░█▄▄▄▄▄▄▄▄▄ ▐░█▄▄▄▄▄▄▄█░▌▐░▌      ▐░▌ ▐░█▄▄▄▄▄▄▄▄▄
-▐░░░░░░░░░░░▌▐░▌     ▐░▌▐░░░░░░░░░░░▌▐░░░░░░░░░░░▌▐░▌       ▐░▌▐░░░░░░░░░░░▌
- ▀▀▀▀▀▀▀▀▀▀▀  ▀       ▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀▀▀▀▀▀▀▀▀▀▀  ▀         ▀  ▀▀▀▀▀▀▀▀▀▀▀
-""",
-]
+"""

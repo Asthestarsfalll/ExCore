@@ -1,19 +1,19 @@
-from . import LOSSES
+from src import LOSS
 
 
-@LOSSES.register()
+@LOSS.register()
 class OHEM:
     def __init__(self, **kwargs):
         pass
 
 
-@LOSSES.register()
+@LOSS.register()
 class CrossEntropyLoss:
     def __init__(self, **kwargs):
         pass
 
 
-@LOSSES.register()
+@LOSS.register()
 class BoundaryLoss:
     def __init__(self, **kwargs):
         pass
