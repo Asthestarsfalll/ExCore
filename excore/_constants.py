@@ -1,6 +1,8 @@
 import os
 import os.path as osp
 
+from .logger import logger
+
 __author__ = "Asthestarsfalll"
 __version__ = "0.1.3"
 
@@ -8,6 +10,14 @@ _cache_base_dir = osp.expanduser("~/.cache/excore/")
 _workspace_config_file = "./.excore.toml"
 _registry_cache_file = "registry_cache.pkl"
 _json_schema_file = "excore_schema.json"
+
+
+def _load_workspace_config():
+    if osp.exists(_workspace_config_file):
+        _workspace_cfg.update(toml.load(_workspace_config_file))
+        # logger.success("load `.excore.toml`")
+    else:
+        logger.warning("Please use `excore init` in your command line first")
 
 
 def _update_name(base_name):

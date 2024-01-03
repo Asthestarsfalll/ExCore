@@ -5,6 +5,7 @@ from loguru import logger as _logger
 __all__ = ["logger", "add_logger", "remove_logger", "debug_only", "log_to_file_only"]
 
 LOGGERS = {}
+IMPORTANCE_TAG = "IMPORT"
 
 FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
@@ -71,8 +72,14 @@ def debug_only(*args, **kwargs) -> None:
     logger.debug("DEBUG ONLY!!!")
 
 
+def _call_importance(__message: str, *args, **kwargs):
+    logger.log(IMPORTANCE_TAG, __message, *args, **kwargs)
+
+
 def init_logger():
     logger.remove(None)
     logger.add(sys.stderr, format=FORMAT)
     logger.level("SUCCESS", color="<yellow>")
     logger.level("WARNING", color="<red>")
+    logger.level(IMPORTANCE_TAG, no=45, color="<YELLOW><red><bold>")
+    logger.imp = _call_importance

@@ -33,6 +33,10 @@ def _is_pure_ascii(name: str):
         )
 
 
+def _is_function_or_class(module):
+    return inspect.isfunction(module) or inspect.isclass(module)
+
+
 def _default_filter_func(values: Sequence[Any]) -> bool:
     for v in values:
         if not v:
@@ -212,7 +216,7 @@ class Registry(dict, metaclass=RegistryMeta):
     ) -> Callable:
         if Registry._prevent_register:
             return module
-        if not (inspect.isfunction(module) or inspect.isclass(module)):
+        if not _is_function_or_class(module):
             raise TypeError(
                 "Only support function or class, but got {}".format(type(module))
             )
@@ -328,6 +332,8 @@ class Registry(dict, metaclass=RegistryMeta):
             for name in base_module.__dict__.keys()
             if match_func(name, base_module)
         ]
+        matched_modules = list(filter(_is_function_or_class, matched_modules))
+        logger.info("matched modules:{}", [i.__name__ for i in matched_modules])
         self.register_all(matched_modules)
 
     def module_table(

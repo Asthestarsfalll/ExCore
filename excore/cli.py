@@ -7,14 +7,15 @@ import sys
 import astor
 import toml
 import typer
-from loguru import logger
 from tabulate import tabulate
+from typer import Argument as CArg
 from typer import Option as COp
 from typing_extensions import Annotated
 
 from ._constants import (LOGO, _base_name, _cache_base_dir, _cache_dir,
                          _workspace_cfg, _workspace_config_file)
 from ._json_schema import _generate_json_shcema, _generate_taplo_config
+from .logger import logger
 from .registry import Registry
 
 app = typer.Typer(rich_markup_mode="rich")
@@ -26,14 +27,6 @@ def _dump_workspace_config():
     _workspace_cfg["props"] = dict()
     with open(_workspace_config_file, "w", encoding="UTF-8") as f:
         toml.dump(_workspace_cfg, f)
-
-
-def _load_workspace_config():
-    if osp.exists(_workspace_config_file):
-        _workspace_cfg.update(toml.load(_workspace_config_file))
-        # logger.success("load `.excore.toml`")
-    else:
-        logger.warning("Please use `excore init` in your command line first")
 
 
 def _has_import_excore(node):
@@ -60,11 +53,15 @@ def _build_ast(name: str) -> ast.Assign:
     return ast.Assign(targets, value)
 
 
-def _generate_registries():
+def _generate_registries(entry="__init__"):
     if not _workspace_cfg["target_fields"]:
         return
     logger.info("Generating Registry definition code.")
-    target_file = osp.join(_workspace_cfg["src_dir"], "__init__.py")
+    target_file = osp.join(_workspace_cfg["src_dir"], entry + ".py")
+
+    if not osp.exists(target_file):
+        with open(target_file, "w", encoding="UTF-8") as f:
+            f.write("")
 
     with open(target_file, "r", encoding="UTF-8") as f:
         source_code = ast.parse(f.read())
@@ -133,11 +130,11 @@ def _get_registries(reg_and_fields):
     return [i.split(":")[0] for i in reg_and_fields]
 
 
-def _update(is_init=True):
+def _update(is_init=True, entry="__init__"):
     target_dir = osp.join(_cache_base_dir, _workspace_cfg["name"])
     os.makedirs(target_dir, exist_ok=True)
     _generate_taplo_config(target_dir)
-    logger.info("Generate `.taplo.toml`")
+    logger.success("Generate `.taplo.toml`")
     if is_init:
         if not _detect_registy_difinition():
             if typer.confirm("Do you want to define `Registry` and `fields`?"):
@@ -150,13 +147,13 @@ def _update(is_init=True):
                         break
                 _workspace_cfg["registries"] = regs
             else:
-                logger.info("You can define fields later.")
+                logger.imp("You can define fields later.")
             _workspace_cfg["target_fields"] = _get_target_fields(
                 _workspace_cfg["registries"]
             )
-            _generate_registries()
+            _generate_registries(entry)
         else:
-            logger.warning(
+            logger.imp(
                 "Please modify registries in .excore.toml and "
                 "run `excore update` to generate `target_fields`"
             )
@@ -177,7 +174,12 @@ def update():
 
 
 @app.command()
-def init(force: Annotated[bool, COp()] = False):
+def init(
+    force: Annotated[bool, COp(help="Whther forcely initialize workspace")] = False,
+    entry: Annotated[
+        str, CArg(help="Used for detect or generate Registry definition code")
+    ] = "__init__",
+):
     """
     Initialize workspace and generate a config file.
     """
@@ -203,7 +205,7 @@ def init(force: Annotated[bool, COp()] = False):
     _workspace_cfg["name"] = name
     _workspace_cfg["src_dir"] = src_dir
 
-    _update()
+    _update(True, entry)
 
     logger.success(
         "Welcome to ExCore. You can modify the `.excore.toml` file mannully."
@@ -319,11 +321,15 @@ def registries():
 
 
 @app.command()
-def generate_registries():
+def generate_registries(
+    entry: Annotated[
+        str, CArg(help="Used for detect or generate Registry definition code")
+    ] = "__init__"
+):
     """
     Generate registries definition code according to workspace config.
     """
-    _generate_registries()
+    _generate_registries(entry)
 
 
 if __name__ == "__main__":
