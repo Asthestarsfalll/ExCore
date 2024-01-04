@@ -4,7 +4,7 @@ import sys
 import time
 from dataclasses import dataclass
 from sys import exc_info, exit
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import toml
 
@@ -18,14 +18,16 @@ from .utils import CacheOut
 __all__ = ["load", "silent"]
 
 
-# TODO(Asthestarsfalll): Prune and decoupling. low priority.
-# TODO(Asthestarsfalll): Improve error messages. high priority.
-# TODO(Asthestarsfalll): Support multiple same module parse.
+# TODO: Prune and decoupling. low priority.
+# TODO: Improve error messages. high priority.
+# TODO: Support multiple same module parse.
+# TODO: Add UnitTests. high priority.
 
 sys.path.append(os.getcwd())
 
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
+CLASS_FLAG = "$"
 LOG_BUILD_MESSAGE = True
 BASE_CONFIG_KEY = "__base__"
 
@@ -35,6 +37,7 @@ def _is_special(k: str) -> Tuple[str, str]:
     Determine if the given string begin with target special character.
         `@` denotes reuse module, which will only be built once and cache out.
         `!` denotes intermediate module, which will be built from scratch if need.
+        `*` denotes use module class itself, instead of its instance
 
     Args:
         k (str): The input string to check.
@@ -42,10 +45,12 @@ def _is_special(k: str) -> Tuple[str, str]:
     Returns:
         Tuple[str, str]: A tuple containing the modified string and the special character.
     """
-    if REUSE_FLAG == k[0]:
+    if k.startswith(REUSE_FLAG):
         return k[1:], REUSE_FLAG
-    elif INTER_FLAG == k[0]:
+    if k.startswith(INTER_FLAG):
         return k[1:], INTER_FLAG
+    if k.startswith(CLASS_FLAG):
+        return k[1:], CLASS_FLAG
     return k, ""
 
 
@@ -64,7 +69,7 @@ def _attr2module(v, base, k_type=""):
         raise RuntimeError()
 
 
-def _convert_module(m, k_type):
+def _convert2module(m, k_type):
     if isinstance(m, ModuleWrapper):
         assert len(m) == 1
         m = m[0]
@@ -109,13 +114,24 @@ def _str_to_target(module_name):
     return module
 
 
+def _parse_param(name):
+    funcs = name.split(".")
+    funcs = [i for i in funcs if i]
+    name = funcs.pop(0)
+    return name, funcs
+
+
 @dataclass
 class ModuleNode(dict):
     name: str
     base: str
+    funcs: Optional[List[str]] = None
 
     def __setitem__(self, k, v) -> None:
         k, k_type = _is_special(k)
+        k, funcs = _parse_param(k)
+        if funcs:
+            self.funcs = funcs
         if k_type:
             _v = v
             v = _attr2module(k, k_type, k_type)
@@ -124,12 +140,11 @@ class ModuleNode(dict):
             super(ModuleNode, v).__setitem__(k_type, _v)
         super().__setitem__(k, v)
 
+    def set_funcs(self, funcs):
+        self.funcs = funcs
+
     def add_params(self, **kwargs):
         self.update(kwargs)
-
-    def _set_base(self, base) -> None:
-        assert base
-        self.base = base
 
     def update(self, others: dict) -> "ModuleNode":
         """
@@ -149,7 +164,7 @@ class ModuleNode(dict):
             params[k] = v
         return params
 
-    def __call__(self):
+    def _build(self):
         try:
             cls_name = Registry.get_registry(self.base)[self.name]
         except Exception as exc:
@@ -172,23 +187,49 @@ class ModuleNode(dict):
             )
         return module
 
+    def __call__(self):
+        target = self._build()
+        if self.funcs:
+            for func in self.funcs:
+                target = getattr(target, func)()
+        return target
+
 
 @dataclass
 class InterNode(ModuleNode):
     @property
     def target_module(self):
-        assert self.base in [REUSE_FLAG, INTER_FLAG]
+        assert self.base in [REUSE_FLAG, INTER_FLAG, CLASS_FLAG]
         return self.pop(self.base)
 
 
 @dataclass
 class ReuseNode(InterNode):
     @CacheOut()
-    def __call__(self):
-        return super().__call__()
+    def _build(self):
+        return super()._build()
 
 
-_dispatch_module_node = {"": ModuleNode, REUSE_FLAG: ReuseNode, INTER_FLAG: InterNode}
+@dataclass
+class ClassNode(InterNode):
+    def _build(self):
+        try:
+            cls_name = Registry.get_registry(self.base)[self.name]
+        except Exception as exc:
+            logger.critical(exc_info())
+            raise ModuleBuildError(
+                f"Failed to find the registered module {self.name} with base registry {self.base}"
+            ) from exc
+        cls = _str_to_target(cls_name)
+        return cls
+
+
+_dispatch_module_node = {
+    "": ModuleNode,
+    REUSE_FLAG: ReuseNode,
+    INTER_FLAG: InterNode,
+    CLASS_FLAG: ClassNode,
+}
 
 
 class ModuleWrapper(list):
@@ -228,7 +269,10 @@ class ModuleWrapper(list):
         raise KeyError()
 
     def __call__(self):
-        return [m() for m in self]
+        res = [m() for m in self]
+        if len(res) == 1:
+            return res[0]
+        return res
 
     def pop(self, __name: str):
         for idx, name in enumerate(self.names):
@@ -238,14 +282,6 @@ class ModuleWrapper(list):
 
     def __repr__(self) -> str:
         return f"ModuleWrapper{super().__repr__()}"
-
-    def __eq__(self, others: "ModuleWrapper") -> bool:
-        if len(self) != len(others):
-            raise RuntimeError(f"Expect has same length, but got {others}")
-        for m1, m2 in zip(self, others):
-            if id(m1) != id(m2):
-                return False
-        return True
 
 
 class AttrNode(dict):
@@ -258,7 +294,8 @@ class AttrNode(dict):
 
         # make target fields unique when multiple load.
         class AttrNodeImpl(AttrNode):
-            pass
+            # otherwise it will share the same class variable with father class.
+            target_fields = AttrNode.target_fields
 
         inst = super().__new__(AttrNodeImpl)
         return inst
@@ -335,29 +372,30 @@ class AttrNode(dict):
                 v = [v]
             for i in v:
                 if i.name == name:
-                    self.__route__ = k
+                    self.__idx__ = k
                     return True
         return False
 
-    # FIXME(Asthestarsfalll): Maybe reuseNode should firstly search in hidden modules?
+    # FIXME: Maybe reuseNode should firstly search in hidden modules?
     def _parse_single_param(self, name, params):
+        name, funcs = _parse_param(name)
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
-            converted = _convert_module(self[name], params.base)
+            converted = _convert2module(self[name], params.base)
             # for shared modules
             self[name] = converted
         elif self._contain_module(name):
             # once the hiddn module was added to config
             # this branch is unreachable.
-            wrapper = self[self.__route__]
-            converted = _convert_module(getattr(wrapper, name), params.base)
+            wrapper = self[self.__idx__]
+            converted = _convert2module(getattr(wrapper, name), params.base)
             self[name] = converted
-            if self.__route__ not in self.target_fields:
-                self[self.__route__].pop(name)
-                if len(self[self.__route__]) == 1:
-                    self[self.__route__] = self.pop(self.__route__)[0]
+            if self.__idx__ not in self.target_fields:
+                self[self.__idx__].pop(name)
+                if len(self[self.__idx__]) == 1:
+                    self[self.__idx__] = self.pop(self.__idx__)[0]
             else:
-                self[self.__route__] = converted
+                self[self.__idx__] = converted
         else:
             # once the implicit module was added to config
             # this branch is unreachable.
@@ -366,12 +404,14 @@ class AttrNode(dict):
             if not converted:
                 raise CoreConfigParseError(f"Unregistered module `{name}`")
         converted = converted[0]
-        # FIXME(Asthestarsfalll): fix this
+        # FIXME: fix this
         if not isinstance(converted, ModuleType):
             raise CoreConfigParseError(
                 f"Error when parse params {params.name}, \
                   target_type is {ModuleType}, but got {type(converted)}"
             )
+        if funcs:
+            converted.set_funcs(funcs)
         return converted
 
     def _parse_module_node(self, node):
@@ -408,9 +448,8 @@ class AttrNode(dict):
         self._clean(to_pop)
 
     def _clean(self, to_pop):
-        to_pop = set(to_pop)
         for i in to_pop:
-            self.pop(i)
+            self.pop(i, None)
 
     def parse(self):
         self._parse_target_modules()

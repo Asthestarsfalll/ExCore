@@ -14,4 +14,7 @@ class ResNet:
     def __init__(
         self, in_channel: int, depth: int, block: BasicBlock, layers: List[int]
     ):
-        pass
+        assert block == BasicBlock
+        self.in_channel = in_channel
+        self.depth = depth
+        self.layers = layers

@@ -10,15 +10,10 @@ in_channel = 256
 num_classes = 80
 
 [Backbone.ResNet]
-!block = "BasicBlock"
+$block = "BasicBlock"
 in_channel = 3
 depth = 50
 layers = [1, 2, 3, 4]
-
-[BasicBlock]
-in_chan = 3
-out_chan = 4
-
 
 [SimpleHead]
 in_channel = 256
