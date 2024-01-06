@@ -1,3 +1,7 @@
+import time
+
+from rich import print
+
 from excore import Registry, config
 from excore.logger import add_logger, logger
 
@@ -39,7 +43,11 @@ cfg = config.load("./configs/run.toml")
 assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone
 modules_dict, cfg_dict = config.build_all(cfg)
+assert id(modules_dict["Optimizer"]) == id(modules_dict["LRSche"].optimizer)
+assert id(modules_dict["Model"][0].backbone) == id(modules_dict["Backbone"])
+assert id(modules_dict["Model"][0].head) == id(modules_dict["Model"][1])
+assert modules_dict["Model"][0].head.timer == time
 
-logger.debug(modules_dict["Optimizer"].kwargs)
-logger.debug(modules_dict)
-logger.debug(cfg_dict)
+print(modules_dict["Optimizer"].kwargs)
+print(modules_dict)
+print(cfg_dict)

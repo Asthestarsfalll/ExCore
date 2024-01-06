@@ -4,7 +4,7 @@ import sys
 import time
 from dataclasses import dataclass
 from sys import exc_info, exit
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Sequence, Tuple, Union
 
 import toml
 
@@ -69,14 +69,16 @@ def _attr2module(v, base, k_type=""):
         raise RuntimeError()
 
 
-def _convert2module(m, k_type):
+def _convert2module(m, k_type, ModuleType=None, return_wrapper=True):
     if isinstance(m, ModuleWrapper):
         assert len(m) == 1
-        m = m[0]
+        m = m.first()
     if not isinstance(m, ModuleNode):
         return m
-    ModuleType = _dispatch_module_node[k_type]
-    return ModuleWrapper(ModuleType(m.name, m.base).update(m))
+    ModuleType = ModuleType or _dispatch_module_node[k_type]
+    if return_wrapper:
+        return ModuleWrapper(ModuleType(m.name, m.base).update(m))
+    return ModuleType(m.name, m.base)
 
 
 def _dict2list(v, return_list=False):
@@ -104,6 +106,8 @@ def _dict2list(v, return_list=False):
 # FIXME(Asthestarsfalll): need to handle more situations.
 def _str_to_target(module_name):
     module_name = module_name.split(".")
+    if len(module_name) == 1:
+        return importlib.import_module(module_name[0])
     target_name = module_name.pop(-1)
     try:
         module = importlib.import_module(".".join(module_name))
@@ -115,23 +119,19 @@ def _str_to_target(module_name):
 
 
 def _parse_param(name):
-    funcs = name.split(".")
-    funcs = [i for i in funcs if i]
-    name = funcs.pop(0)
-    return name, funcs
+    attrs = name.split(".")
+    attrs = [i for i in attrs if i]
+    name = attrs.pop(0)
+    return name, attrs
 
 
 @dataclass
 class ModuleNode(dict):
     name: str
     base: str
-    funcs: Optional[List[str]] = None
 
     def __setitem__(self, k, v) -> None:
         k, k_type = _is_special(k)
-        k, funcs = _parse_param(k)
-        if funcs:
-            self.funcs = funcs
         if k_type:
             _v = v
             v = _attr2module(k, k_type, k_type)
@@ -164,7 +164,7 @@ class ModuleNode(dict):
             params[k] = v
         return params
 
-    def _build(self):
+    def _get_cls(self):
         try:
             cls_name = Registry.get_registry(self.base)[self.name]
         except Exception as exc:
@@ -173,6 +173,10 @@ class ModuleNode(dict):
                 f"Failed to find the registered module {self.name} with base registry {self.base}"
             ) from exc
         cls = _str_to_target(cls_name)
+        return cls
+
+    def __call__(self):
+        cls = self._get_cls()
         params = self._get_params()
         try:
             module = cls(**params)
@@ -187,17 +191,7 @@ class ModuleNode(dict):
             )
         return module
 
-    def __call__(self):
-        target = self._build()
-        if self.funcs:
-            for func in self.funcs:
-                target = getattr(target, func)
-                if callable(target):
-                    target = target()
-        return target
 
-
-@dataclass
 class InterNode(ModuleNode):
     @property
     def target_module(self):
@@ -205,25 +199,33 @@ class InterNode(ModuleNode):
         return self.pop(self.base)
 
 
-@dataclass
 class ReuseNode(InterNode):
     @CacheOut()
-    def _build(self):
-        return super()._build()
+    def __call__(self):
+        return super().__call__()
+
+
+class ClassNode(InterNode):
+    def __call__(self):
+        return self._get_cls()
 
 
 @dataclass
-class ClassNode(InterNode):
-    def _build(self):
-        try:
-            cls_name = Registry.get_registry(self.base)[self.name]
-        except Exception as exc:
-            logger.critical(exc_info())
-            raise ModuleBuildError(
-                f"Failed to find the registered module {self.name} with base registry {self.base}"
-            ) from exc
-        cls = _str_to_target(cls_name)
-        return cls
+class ChainedInvocationWrapper:
+    node: ModuleNode
+    attrs: Sequence[str]
+
+    def __getattr__(self, __name):
+        return getattr(self.node, __name)
+
+    def __call__(self):
+        target = self.node()
+        if self.attrs:
+            for func in self.attrs:
+                target = getattr(target, func)
+                if callable(target):
+                    target = target()
+        return target
 
 
 _dispatch_module_node = {
@@ -234,56 +236,42 @@ _dispatch_module_node = {
 }
 
 
-class ModuleWrapper(list):
+class ModuleWrapper(dict):
     def __init__(self, modules: Union[List[ModuleNode], ModuleNode]):
         super().__init__()
-        if isinstance(modules, list):
-            self.extend(modules)
-        elif isinstance(modules, ModuleNode):
-            self.append(modules)
-        else:
+        if isinstance(modules, ModuleNode):
+            modules = [modules]
+        elif not isinstance(modules, list):
             raise TypeError(
                 f"Expect modules to be `list` or `ModuleNode`, but got {type(modules)}"
             )
-        self.names = [m.name for m in self]
+        for m in modules:
+            self[m.name] = m
 
     def add_params(self, **kwargs):
         if len(self) == 1:
-            self[0].add_params(**kwargs)
+            self[list(self.keys())].add_params(**kwargs)
         else:
             raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 
-    def get(self, __name, __default=None):
+    def first(self):
         if len(self) == 1:
-            if __default is not None:
-                return self[0].get(__name, __default)
-            return self[0].get(__name)
-        else:
-            raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
-
-    def __contain__(self, __name: str) -> bool:
-        return __name in self.names
+            return next(iter(self.values()))
+        return self
 
     def __getattr__(self, __name: str) -> Any:
-        for idx, name in enumerate(self.names):
-            if name == __name:
-                return self[idx]
-        raise KeyError()
+        if __name in self.keys():
+            return self[__name]
+        raise KeyError(__name)
 
     def __call__(self):
-        res = [m() for m in self]
+        res = [m() for m in self.values()]
         if len(res) == 1:
             return res[0]
         return res
 
-    def pop(self, __name: str):
-        for idx, name in enumerate(self.names):
-            if name == __name:
-                return super().pop(idx)
-        raise IndexError()
-
     def __repr__(self) -> str:
-        return f"ModuleWrapper{super().__repr__()}"
+        return f"ModuleWrapper{list(self.values())}"
 
 
 class AttrNode(dict):
@@ -369,51 +357,54 @@ class AttrNode(dict):
 
     def _contain_module(self, name):
         for k in self.target_fields:
-            v = self[k]
-            if not isinstance(v, ModuleWrapper):
-                v = [v]
-            for i in v:
+            wrapper = self[k]
+            if not isinstance(wrapper, ModuleWrapper):
+                wrapper = [wrapper]
+            for i in wrapper.values():
                 if i.name == name:
-                    self.__idx__ = k
+                    self.__base__ = k
                     return True
         return False
 
     # FIXME: Maybe reuseNode should firstly search in hidden modules?
     def _parse_single_param(self, name, params):
-        name, funcs = _parse_param(name)
+        name, attrs = _parse_param(name)
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
-            converted = _convert2module(self[name], params.base)
+            converted = _convert2module(self[name], params.base, ModuleType)
             # for shared modules
-            self[name] = converted
+            if ModuleType == ReuseNode:
+                self[name] = converted
         elif self._contain_module(name):
             # once the hiddn module was added to config
             # this branch is unreachable.
-            wrapper = self[self.__idx__]
-            converted = _convert2module(getattr(wrapper, name), params.base)
-            self[name] = converted
-            if self.__idx__ not in self.target_fields:
-                self[self.__idx__].pop(name)
-                if len(self[self.__idx__]) == 1:
-                    self[self.__idx__] = self.pop(self.__idx__)[0]
+            wrapper = self[self.__base__]
+            converted = _convert2module(getattr(wrapper, name), params.base, ModuleType)
+            if ModuleType == ReuseNode:
+                self[name] = converted
+            if self.__base__ not in self.target_fields:
+                wrapper.pop(name)
+                if len(wrapper) == 0:
+                    self.pop(self.__base__)
+                self[self.__base__] = wrapper.first()
             else:
-                self[self.__idx__] = converted
+                wrapper.update(converted)
         else:
             # once the implicit module was added to config
             # this branch is unreachable.
-            self._parse_implicit_module(name, InterNode)
+            self._parse_implicit_module(name, ModuleType)
             converted = self.get(name, False)
             if not converted:
                 raise CoreConfigParseError(f"Unregistered module `{name}`")
-        converted = converted[0]
-        # FIXME: fix this
+        converted = converted.first()
+
         if not isinstance(converted, ModuleType):
             raise CoreConfigParseError(
                 f"Error when parse params {params.name}, \
                   target_type is {ModuleType}, but got {type(converted)}"
             )
-        if funcs:
-            converted.set_funcs(funcs)
+        if attrs:
+            converted = ChainedInvocationWrapper(converted, attrs)
         return converted
 
     def _parse_module_node(self, node):
@@ -437,7 +428,7 @@ class AttrNode(dict):
 
     def _parse_module_wrapper(self, wrapper):
         to_pop = []
-        for m in wrapper:
+        for m in wrapper.values():
             to_pop.extend(self._parse_module_node(m))
         return to_pop
 

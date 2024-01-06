@@ -1,13 +1,8 @@
 [Model.FCN]
 @backbone = 'ResNet'
-!head1 = 'SimpleHead'
-@head2 = 'SimpleHead'
 # It's formal to use quoted keys instead of a bare key, but whatever.
-# "!head1" = 'SimpleHead'
-
-[Model.SimpleHead]
-in_channel = 256
-num_classes = 80
+# "@head" = 'SimpleHead'
+@head = 'SimpleHead'
 
 [Backbone.ResNet]
 $block = "BasicBlock"
@@ -15,6 +10,7 @@ in_channel = 3
 depth = 50
 layers = [1, 2, 3, 4]
 
-[SimpleHead]
+[Model.SimpleHead]
+$timer = "time"
 in_channel = 256
 num_classes = 19

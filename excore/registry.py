@@ -53,6 +53,10 @@ def _default_match_func(m, base_module):
     return False
 
 
+def _get_module_name(m):
+    return getattr(m, "__qualname__", m.__name__)
+
+
 class RegistryMeta(type):
     _registry_pool: Dict[str, "Registry"] = dict()
     """Metaclass that governs the creation of instances of its subclasses, which are
@@ -210,19 +214,19 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def _register(
         self,
-        module: Callable,
+        module: Union[Callable, ModuleType],
         force: bool = False,
         name: Optional[str] = None,
         **extra_info,
-    ) -> Callable:
+    ) -> Union[Callable, ModuleType]:
         if Registry._prevent_register:
             return module
         if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
             raise TypeError(
                 "Only support function or class, but got {}".format(type(module))
             )
-
-        name = name or module.__qualname__
+        true_name = _get_module_name(module)
+        name = name or true_name
         if not force and name in self and not self[name] == module:
             raise ValueError("The name {} exists".format(name))
 
@@ -242,8 +246,11 @@ class Registry(dict, metaclass=RegistryMeta):
         elif hasattr(self, "extra_field"):
             self.extra_info[name] = [None] * len(self.extra_field)
 
-        # NOTE(Asthestarsfalll): this methods only suit for local files
-        self[name] = ".".join([module.__module__, module.__qualname__])
+        self[name] = (
+            true_name
+            if isinstance(module, ModuleType)
+            else ".".join([module.__module__, module.__qualname__])
+        )
 
         # update to globals
         if Registry._globals is not None and name.startswith(_private_flag):

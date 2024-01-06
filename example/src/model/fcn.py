@@ -8,7 +8,8 @@ class FCN:
     def __init__(self, **kwargs):
         global IDX  # pylint: disable=global-statement
 
-        self.kwargs = kwargs
+        for k, v in kwargs.items():
+            setattr(self, k, v)
         IDX += 1
 
     def parameters(self):
