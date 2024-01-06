@@ -191,7 +191,9 @@ class ModuleNode(dict):
         target = self._build()
         if self.funcs:
             for func in self.funcs:
-                target = getattr(target, func)()
+                target = getattr(target, func)
+                if callable(target):
+                    target = target()
         return target
 
 

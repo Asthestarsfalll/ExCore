@@ -5,6 +5,7 @@ import json
 import os
 import re
 import sys
+from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
 from tabulate import tabulate
@@ -216,7 +217,7 @@ class Registry(dict, metaclass=RegistryMeta):
     ) -> Callable:
         if Registry._prevent_register:
             return module
-        if not _is_function_or_class(module):
+        if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
             raise TypeError(
                 "Only support function or class, but got {}".format(type(module))
             )
