@@ -2,8 +2,10 @@ import inspect
 import json
 import os
 import os.path as osp
+from collections.abc import Sequence
 from inspect import Parameter, _empty
-from typing import Dict, Optional, _GenericAlias
+from types import ModuleType
+from typing import Dict, Optional, Union, _GenericAlias
 
 import toml
 from loguru import logger
@@ -12,6 +14,8 @@ from ._constants import _cache_dir, _json_schema_file
 from .config import _str_to_target
 from .registry import Registry, load_registries
 
+NoneType = type(None)
+
 TYPE_MAPPER = {
     int: "integer",
     str: "string",
@@ -19,12 +23,17 @@ TYPE_MAPPER = {
     list: "array",
     tuple: "array",
     dict: "object",
+    bool: "boolean",
 }
 
 SPECIAL_KEYS = {"kwargs": "object", "args": "array"}
 
 
 def _get_type(t):
+    if isinstance(t, _GenericAlias):
+        if isinstance(t.__args__[0], _GenericAlias):
+            return None
+        return TYPE_MAPPER.get(t, None)
     potential_type = TYPE_MAPPER.get(t, None)
     if potential_type is None:
         return "string"
@@ -80,11 +89,13 @@ def parse_registry(reg: Registry):
     }
     for name, item_dir in reg.items():
         cls_or_func = _str_to_target(item_dir)
+        if isinstance(cls_or_func, ModuleType):
+            continue
         doc_string = cls_or_func.__doc__
         params = inspect.signature(cls_or_func).parameters
         param_props = {"type": "object", "properties": {}}
         if doc_string:
-            # TODO(Asthestarsfalll): parse doc string to each parameters
+            # TODO: parse doc string to each parameters
             param_props["description"] = doc_string
         items = {}
         required = []
@@ -101,26 +112,47 @@ def parse_registry(reg: Registry):
     return props
 
 
+def _clean(anno):
+    if not hasattr(anno, "__origin__"):
+        return anno
+    if anno.__origin__ == type or (
+        anno.__origin__ == Union and anno.__args__[1] == NoneType
+    ):
+        return _clean(anno.__args__[0])
+    return anno
+
+
 def parse_single_param(p: Parameter):
-    required = True
     prop = {}
     anno = p.annotation
     potential_type = None
+
+    anno = _clean(anno)
+
+    # if p.name == "activation":
+    #     breakpoint()
+
     if isinstance(anno, _GenericAlias):
-        potential_type = "array"
-        # Do not support like `List[ResNet]`.
-        prop["items"] = {"type": _get_type(anno.__args__[0])}
+        if anno.__origin__ in (Sequence, list, tuple):
+            potential_type = "array"
+            # Do not support like `List[ResNet]`.
+            inner_type = _get_type(anno.__args__[0])
+            if inner_type:
+                prop["items"] = {"type": inner_type}
+        elif anno.__origin__ == Union:
+            potential_type = None
+        else:
+            potential_type = _get_type(anno.__args__[0])
     elif anno is not _empty:
         potential_type = _get_type(anno)
     # determine type by default value
     elif p.default is not _empty:
         potential_type = _get_type(type(p.default))
-        required = False
     if p.name in SPECIAL_KEYS:
         potential_type = SPECIAL_KEYS[p.name]
     # Default to integer
     prop["type"] = potential_type if potential_type else "integer"
-    return required, prop
+    return p.default is _empty, prop
 
 
 def _json_schema_path():
