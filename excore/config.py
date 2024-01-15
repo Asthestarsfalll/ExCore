@@ -2,6 +2,7 @@ import importlib
 import os
 import sys
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from sys import exc_info, exit
 from typing import Any, Dict, List, Sequence, Tuple, Union
@@ -12,7 +13,7 @@ from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
                           CoreConfigSupportError, ModuleBuildError)
 from .hook import ConfigHookManager
 from .logger import logger
-from .registry import Registry, load_registries
+from .registry import Registry
 from .utils import CacheOut
 
 __all__ = ["load", "silent"]
@@ -28,6 +29,7 @@ sys.path.append(os.getcwd())
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
 CLASS_FLAG = "$"
+OTHER_FLAG = ""
 LOG_BUILD_MESSAGE = True
 BASE_CONFIG_KEY = "__base__"
 
@@ -194,7 +196,7 @@ class ModuleNode(dict):
 
 class InterNode(ModuleNode):
     @property
-    def target_module(self):
+    def target_feild(self):
         assert self.base in [REUSE_FLAG, INTER_FLAG, CLASS_FLAG]
         return self.pop(self.base)
 
@@ -221,15 +223,16 @@ class ChainedInvocationWrapper:
     def __call__(self):
         target = self.node()
         if self.attrs:
-            for func in self.attrs:
-                target = getattr(target, func)
-                if callable(target):
-                    target = target()
+            for attr in self.attrs:
+                if attr[-2:] == "()":
+                    target = getattr(target, attr[:-2])()
+                else:
+                    target = getattr(target, attr)
         return target
 
 
 _dispatch_module_node = {
-    "": ModuleNode,
+    OTHER_FLAG: ModuleNode,
     REUSE_FLAG: ReuseNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
@@ -250,7 +253,7 @@ class ModuleWrapper(dict):
 
     def add_params(self, **kwargs):
         if len(self) == 1:
-            self[list(self.keys())].add_params(**kwargs)
+            self[list(self.keys())[0]].add_params(**kwargs)
         else:
             raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 
@@ -276,7 +279,7 @@ class ModuleWrapper(dict):
 
 class AttrNode(dict):
     target_fields: List
-    registered_modules: List
+    registered_fields: List
 
     def __new__(cls):
         if not hasattr(cls, "target_fields"):
@@ -286,6 +289,7 @@ class AttrNode(dict):
         class AttrNodeImpl(AttrNode):
             # otherwise it will share the same class variable with father class.
             target_fields = AttrNode.target_fields
+            registered_fields = AttrNode.registered_fields
 
         inst = super().__new__(AttrNodeImpl)
         return inst
@@ -304,8 +308,7 @@ class AttrNode(dict):
             registered_modules (List[str]): A list of all module names that have been registered.
         """
         cls.target_fields = target_fields
-        registered_modules = Registry._registry_pool.keys()
-        cls.registered_modules = list(registered_modules)
+        cls.registered_fields = list(Registry._registry_pool.keys())
 
     def isolated_keys(self):
         keys = list(self.keys())
@@ -315,7 +318,9 @@ class AttrNode(dict):
 
     def _parse_target_modules(self):
         for name in self.target_fields:
-            if name in self.registered_modules:
+            if name not in self:
+                continue
+            if name in self.registered_fields:
                 base = name
             else:
                 # m = next(iter(self[name].keys()))
@@ -350,16 +355,18 @@ class AttrNode(dict):
         for name in self.isolated_keys():
             modules = self[name]
             if isinstance(modules, dict):
-                if name in self.registered_modules:
+                if name in self.registered_fields:
                     self._parse_isolated_registered_module(name)
                 else:
                     self._parse_isolated_module(name)
 
     def _contain_module(self, name):
         for k in self.target_fields:
+            if k not in self:
+                continue
             wrapper = self[k]
             if not isinstance(wrapper, ModuleWrapper):
-                wrapper = [wrapper]
+                wrapper = ModuleWrapper(wrapper)
             for i in wrapper.values():
                 if i.name == name:
                     self.__base__ = k
@@ -372,16 +379,13 @@ class AttrNode(dict):
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
             converted = _convert2module(self[name], params.base, ModuleType)
-            # for shared modules
-            if ModuleType == ReuseNode:
-                self[name] = converted
+            self[name] = converted
         elif self._contain_module(name):
             # once the hiddn module was added to config
             # this branch is unreachable.
             wrapper = self[self.__base__]
             converted = _convert2module(getattr(wrapper, name), params.base, ModuleType)
-            if ModuleType == ReuseNode:
-                self[name] = converted
+            self[name] = converted
             if self.__base__ not in self.target_fields:
                 wrapper.pop(name)
                 if len(wrapper) == 0:
@@ -413,7 +417,7 @@ class AttrNode(dict):
         for param_name in param_names:
             params = node[param_name]
             if isinstance(params, InterNode):
-                target_module_names = params.target_module
+                target_module_names = params.target_feild
                 if not isinstance(target_module_names, list):
                     target_module_names = [target_module_names]
                 converted_modules = [
@@ -462,15 +466,15 @@ class LazyConfig:
     def __init__(self, config: AttrNode) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
         self.target_modules = config.target_fields
-        self.parse_config(config)
-        self._config = config
+        self._config = deepcopy(config)
+        self.build_config_hooks()
+        self._config.parse()
 
-    def parse_config(self, config: AttrNode):
-        self.build_config_hooks(config)
-        config.parse()
+    def update(self, cfg: "LazyConfig"):
+        self._config.update(cfg._config)
 
-    def build_config_hooks(self, config: AttrNode):
-        hooks = config.pop(LazyConfig.hook_key, [])
+    def build_config_hooks(self):
+        hooks = self._config.pop(LazyConfig.hook_key, [])
         if hooks:
             _, base = Registry.find(list(hooks.keys())[0])
             hooks = [
@@ -480,8 +484,10 @@ class LazyConfig:
 
     def __getattr__(self, __name: str) -> Any:
         if __name in self._config:
+            if not self.hooks:
+                self.build_config_hooks()
             return self._config[__name]
-        raise KeyError()
+        raise KeyError(__name)
 
     # TODO(Asthestarsfalll): refine output
     def build_all(self) -> Tuple[Dict, Dict]:
@@ -492,6 +498,8 @@ class LazyConfig:
         module_dict, isolated_dict = {}, {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:
+            if name not in self._config:
+                continue
             self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
             module_dict[name] = self._config[name]()
         for name in self._config.isolated_keys():
@@ -535,7 +543,6 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
 
 
 def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
-    load_registries()
     st = time.time()
     config = load_config(filename, base_key)
     lazy_config = LazyConfig(config)

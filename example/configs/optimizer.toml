@@ -1,5 +1,5 @@
 [Optimizer.AdamW]
-@params = "FCN.parameters"
+@params = "FCN.parameters()"
 weight_decay = 0.01
 
 [LRSche.CosDecay]

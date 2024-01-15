@@ -414,8 +414,11 @@ class Registry(dict, metaclass=RegistryMeta):
 
 
 def load_registries():
-    if not os.path.exists(_workspace_config_file):
-        logger.warning("Please run `excore init` in your command line first!")
+    if not os.path.exists(
+        os.path.join(_cache_dir, Registry._registry_dir, _registry_cache_file)
+    ):
+        logger.warning("Please run `excore auto-register` in your command line first!")
+        return
     Registry.load()
     # We'd better to lock register to prevent
     # the inconsistency between the twice registration.
