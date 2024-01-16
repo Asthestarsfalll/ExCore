@@ -15,7 +15,7 @@ _json_schema_file = "excore_schema.json"
 def _load_workspace_config():
     if osp.exists(_workspace_config_file):
         _workspace_cfg.update(toml.load(_workspace_config_file))
-        # logger.success("load `.excore.toml`")
+        logger.ex("load `.excore.toml`")
     else:
         logger.warning("Please use `excore init` in your command line first")
 
@@ -42,7 +42,7 @@ else:
 
 _cache_dir = osp.join(_cache_base_dir, _base_name)
 
-# TODO(Asthestarsfalll): Use a data class to store this
+# TODO: Use a data class to store this
 _workspace_cfg = dict(
     name="",
     src_dir="",

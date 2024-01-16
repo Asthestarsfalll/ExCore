@@ -44,10 +44,9 @@ assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone
 modules_dict, cfg_dict = config.build_all(cfg)
 assert id(modules_dict["Optimizer"]) == id(modules_dict["LRSche"].optimizer)
-assert id(modules_dict["Model"][0].backbone) == id(modules_dict["Backbone"])
-assert id(modules_dict["Model"][0].head) == id(modules_dict["Model"][1])
-assert modules_dict["Model"][0].head.timer == time
+assert id(modules_dict["Model"].backbone) == id(modules_dict["Backbone"])
+assert modules_dict["Model"].head.timer == time
+assert modules_dict["Optimizer"].kwargs["params"] == modules_dict["Model"].parameters()
 
-print(modules_dict["Optimizer"].kwargs)
 print(modules_dict)
 print(cfg_dict)

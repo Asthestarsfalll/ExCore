@@ -10,7 +10,7 @@ in_channel = 3
 depth = 50
 layers = [1, 2, 3, 4]
 
-[Model.SimpleHead]
+[SimpleHead]
 $timer = "time"
 in_channel = 256
 num_classes = 19

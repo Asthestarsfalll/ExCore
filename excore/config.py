@@ -2,6 +2,7 @@ import importlib
 import os
 import sys
 import time
+from copy import deepcopy
 from dataclasses import dataclass
 from sys import exc_info, exit
 from typing import Any, Dict, List, Sequence, Tuple, Union
@@ -28,6 +29,7 @@ sys.path.append(os.getcwd())
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
 CLASS_FLAG = "$"
+OTHER_FLAG = ""
 LOG_BUILD_MESSAGE = True
 BASE_CONFIG_KEY = "__base__"
 
@@ -103,7 +105,7 @@ def _dict2list(v, return_list=False):
     return v
 
 
-# FIXME(Asthestarsfalll): need to handle more situations.
+# FIXME: need to handle more situations.
 def _str_to_target(module_name):
     module_name = module_name.split(".")
     if len(module_name) == 1:
@@ -194,20 +196,19 @@ class ModuleNode(dict):
 
 class InterNode(ModuleNode):
     @property
-    def target_module(self):
+    def target_feild(self):
         assert self.base in [REUSE_FLAG, INTER_FLAG, CLASS_FLAG]
         return self.pop(self.base)
 
 
-class ReuseNode(InterNode):
+class ReusedNode(InterNode):
     @CacheOut()
     def __call__(self):
         return super().__call__()
 
 
 class ClassNode(InterNode):
-    def __call__(self):
-        return self._get_cls()
+    __call__ = ModuleNode._get_cls
 
 
 @dataclass
@@ -221,16 +222,17 @@ class ChainedInvocationWrapper:
     def __call__(self):
         target = self.node()
         if self.attrs:
-            for func in self.attrs:
-                target = getattr(target, func)
-                if callable(target):
-                    target = target()
+            for attr in self.attrs:
+                if attr[-2:] == "()":
+                    target = getattr(target, attr[:-2])()
+                else:
+                    target = getattr(target, attr)
         return target
 
 
 _dispatch_module_node = {
-    "": ModuleNode,
-    REUSE_FLAG: ReuseNode,
+    OTHER_FLAG: ModuleNode,
+    REUSE_FLAG: ReusedNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
 }
@@ -250,7 +252,7 @@ class ModuleWrapper(dict):
 
     def add_params(self, **kwargs):
         if len(self) == 1:
-            self[list(self.keys())].add_params(**kwargs)
+            self[list(self.keys())[0]].add_params(**kwargs)
         else:
             raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 
@@ -276,7 +278,7 @@ class ModuleWrapper(dict):
 
 class AttrNode(dict):
     target_fields: List
-    registered_modules: List
+    registered_fields: List
 
     def __new__(cls):
         if not hasattr(cls, "target_fields"):
@@ -304,8 +306,6 @@ class AttrNode(dict):
             registered_modules (List[str]): A list of all module names that have been registered.
         """
         cls.target_fields = target_fields
-        registered_modules = Registry._registry_pool.keys()
-        cls.registered_modules = list(registered_modules)
 
     def isolated_keys(self):
         keys = list(self.keys())
@@ -315,7 +315,9 @@ class AttrNode(dict):
 
     def _parse_target_modules(self):
         for name in self.target_fields:
-            if name in self.registered_modules:
+            if name not in self:
+                continue
+            if name in self.registered_fields:
                 base = name
             else:
                 # m = next(iter(self[name].keys()))
@@ -336,10 +338,14 @@ class AttrNode(dict):
             if _ is None:
                 raise CoreConfigParseError(f"Unregistered module `{i.name}`")
 
-    def _parse_implicit_module(self, name, module_type=ModuleNode):
+    def _parse_implicit_module(self, name, module_type=ModuleNode) -> ModuleWrapper:
         _, base = Registry.find(name)
-        if base:
-            self[name] = ModuleWrapper(module_type(name, base))
+        converted = ModuleWrapper(module_type(name, base))
+        if not base:
+            raise CoreConfigParseError(f"Unregistered module `{name}`")
+        if module_type == ReusedNode:
+            self[name] = converted
+        return converted
 
     def _parse_isolated_module(self, name, module_type=ModuleNode):
         _, base = Registry.find(name)
@@ -350,38 +356,55 @@ class AttrNode(dict):
         for name in self.isolated_keys():
             modules = self[name]
             if isinstance(modules, dict):
-                if name in self.registered_modules:
+                if name in self.registered_fields:
                     self._parse_isolated_registered_module(name)
                 else:
                     self._parse_isolated_module(name)
 
     def _contain_module(self, name):
         for k in self.target_fields:
+            if k not in self:
+                continue
             wrapper = self[k]
             if not isinstance(wrapper, ModuleWrapper):
-                wrapper = [wrapper]
+                wrapper = ModuleWrapper(wrapper)
             for i in wrapper.values():
                 if i.name == name:
                     self.__base__ = k
                     return True
         return False
 
-    # FIXME: Maybe reuseNode should firstly search in hidden modules?
-    def _parse_single_param(self, name, params):
-        name, attrs = _parse_param(name)
+    def _get_name(self, name, ori_name):
+        if not name.startswith("$"):
+            return name
+        base = name[1:]
+        wrapper = self.get(base, False)
+        if not wrapper:
+            raise CoreConfigParseError(
+                f"Cannot find field {base} with `{ori_name}`,"
+                "please adjust module definition order in config files."
+            )
+        if len(wrapper) == 1:
+            return wrapper.first().name
+        raise CoreConfigParseError(
+            f"More than one candidates are found: {[k.name for k in wrapper.values()]}"
+            f" with `{ori_name}`, please redifine the field `{base}` in config files."
+        )
+
+    # FIXME: Maybe ReusedNode should firstly search in hidden modules?
+    def _parse_single_param(self, ori_name, params):
+        name, attrs = _parse_param(ori_name)
+        name = self._get_name(name, ori_name)
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
             converted = _convert2module(self[name], params.base, ModuleType)
-            # for shared modules
-            if ModuleType == ReuseNode:
-                self[name] = converted
+            self[name] = converted
         elif self._contain_module(name):
             # once the hiddn module was added to config
             # this branch is unreachable.
             wrapper = self[self.__base__]
             converted = _convert2module(getattr(wrapper, name), params.base, ModuleType)
-            if ModuleType == ReuseNode:
-                self[name] = converted
+            self[name] = converted
             if self.__base__ not in self.target_fields:
                 wrapper.pop(name)
                 if len(wrapper) == 0:
@@ -392,10 +415,7 @@ class AttrNode(dict):
         else:
             # once the implicit module was added to config
             # this branch is unreachable.
-            self._parse_implicit_module(name, ModuleType)
-            converted = self.get(name, False)
-            if not converted:
-                raise CoreConfigParseError(f"Unregistered module `{name}`")
+            converted = self._parse_implicit_module(name, ModuleType)
         converted = converted.first()
 
         if not isinstance(converted, ModuleType):
@@ -413,7 +433,7 @@ class AttrNode(dict):
         for param_name in param_names:
             params = node[param_name]
             if isinstance(params, InterNode):
-                target_module_names = params.target_module
+                target_module_names = params.target_feild
                 if not isinstance(target_module_names, list):
                     target_module_names = [target_module_names]
                 converted_modules = [
@@ -449,12 +469,12 @@ class AttrNode(dict):
         self._parse_isolated_obj()
         self._parse_inter_modules()
 
-    # TODO(Asthestarsfalll): enhance print. low priority.
+    # TODO: enhance print. low priority.
 
 
-# TODO(Asthestarsfalll): automatically generate pyi file
+# TODO: automatically generate pyi file
 #   according to config files for type hinting. high priority.
-# TODO(Asthestarsfalll): Add dump method to generate toml config files.
+# TODO: Add dump method to generate toml config files.
 class LazyConfig:
     globals: Registry
     hook_key = "ConfigHook"
@@ -462,15 +482,16 @@ class LazyConfig:
     def __init__(self, config: AttrNode) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
         self.target_modules = config.target_fields
-        self.parse_config(config)
-        self._config = config
+        config.registered_fields = list(Registry._registry_pool.keys())
+        self._config = deepcopy(config)
+        self.build_config_hooks()
+        self._config.parse()
 
-    def parse_config(self, config: AttrNode):
-        self.build_config_hooks(config)
-        config.parse()
+    def update(self, cfg: "LazyConfig"):
+        self._config.update(cfg._config)
 
-    def build_config_hooks(self, config: AttrNode):
-        hooks = config.pop(LazyConfig.hook_key, [])
+    def build_config_hooks(self):
+        hooks = self._config.pop(LazyConfig.hook_key, [])
         if hooks:
             _, base = Registry.find(list(hooks.keys())[0])
             hooks = [
@@ -480,10 +501,12 @@ class LazyConfig:
 
     def __getattr__(self, __name: str) -> Any:
         if __name in self._config:
+            if not self.hooks:
+                self.build_config_hooks()
             return self._config[__name]
-        raise KeyError()
+        raise KeyError(__name)
 
-    # TODO(Asthestarsfalll): refine output
+    # TODO: refine output
     def build_all(self) -> Tuple[Dict, Dict]:
         if self.target_modules is None:
             raise CoreConfigBuildError(
@@ -492,6 +515,8 @@ class LazyConfig:
         module_dict, isolated_dict = {}, {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:
+            if name not in self._config:
+                continue
             self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
             module_dict[name] = self._config[name]()
         for name in self._config.isolated_keys():
@@ -500,7 +525,7 @@ class LazyConfig:
             if isinstance(module, ModuleNode):
                 module = module()
             isolated_dict[name] = module
-        self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
+        self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
         return module_dict, isolated_dict
 
     def __str__(self):
@@ -509,16 +534,17 @@ class LazyConfig:
 
 def set_target_fields(target_fields):
     if hasattr(AttrNode, "target_fields"):
-        logger.info("`target_fields` will be set to {}", target_fields)
+        logger.ex("`target_fields` will be set to {}", target_fields)
     if target_fields:
         AttrNode.set_target_fields(target_fields)
 
 
 def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
+    logger.info(f"load_config {filename}")
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
-    # TODO(Asthestarsfalll): support more config file format. low priority.
+    # TODO: support more config file format. low priority.
     if ext in [".toml"]:
         config = toml.load(filename, AttrNode)
     else:
@@ -529,14 +555,17 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     base_cfgs = [
         load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])
     ]
-    # TODO(Asthestarsfalll): support inherit mechanism of config. high priority.
-    [config.update(c) for c in base_cfgs]  # pylint: disable=expression-not-assigned
-    return config
+    base_cfg = AttrNode()
+    for c in base_cfgs:
+        base_cfg.update(c)
+    base_cfg.update(config)
+
+    return base_cfg
 
 
 def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
-    load_registries()
     st = time.time()
+    load_registries()
     config = load_config(filename, base_key)
     lazy_config = LazyConfig(config)
     logger.success("Config loading and parsing cost {:.4f}s!", time.time() - st)

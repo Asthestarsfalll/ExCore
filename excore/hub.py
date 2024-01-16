@@ -326,7 +326,7 @@ def load_module(name: str, path: str) -> types.ModuleType:
 def _init_hub(
     repo_info: str,
     git_host: str,
-    entry: str = DEFAULT_HUBCONF_ENTRY,
+    hubconf_entry: str = DEFAULT_HUBCONF_ENTRY,
     use_cache: bool = True,
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
@@ -337,7 +337,9 @@ def _init_hub(
         git_host, repo_info, use_cache=use_cache, commit=commit, protocol=protocol
     )
     sys.path.insert(0, absolute_repo_dir)
-    hubmodule = load_module(entry, os.path.join(absolute_repo_dir, entry))
+    hubmodule = load_module(
+        hubconf_entry, os.path.join(absolute_repo_dir, hubconf_entry)
+    )
     sys.path.remove(absolute_repo_dir)
 
     return hubmodule
@@ -380,7 +382,7 @@ def load(
     )
 
     if not hasattr(hubmodule, entry) or not callable(getattr(hubmodule, entry)):
-        raise RuntimeError("Cannot find callable {} in hubconf.py".format(entry))
+        raise RuntimeError("Cannot find callable {} in {}".format(entry, hubconf_entry))
 
     _check_dependencies(hubmodule)
 

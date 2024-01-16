@@ -21,7 +21,7 @@ _private_flag: str = "__"
 __all__ = ["Registry"]
 
 
-# TODO(Asthestarsfalll): Maybe some methods need to be cleared.
+# TODO: Maybe some methods need to be cleared.
 
 
 def _is_pure_ascii(name: str):
@@ -220,6 +220,7 @@ class Registry(dict, metaclass=RegistryMeta):
         **extra_info,
     ) -> Union[Callable, ModuleType]:
         if Registry._prevent_register:
+            logger.ex("Registry has been locked!!!")
             return module
         if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
             raise TypeError(
@@ -341,7 +342,7 @@ class Registry(dict, metaclass=RegistryMeta):
             if match_func(name, base_module)
         ]
         matched_modules = list(filter(_is_function_or_class, matched_modules))
-        logger.info("matched modules:{}", [i.__name__ for i in matched_modules])
+        logger.ex("matched modules:{}", [i.__name__ for i in matched_modules])
         self.register_all(matched_modules)
 
     def module_table(
@@ -414,8 +415,11 @@ class Registry(dict, metaclass=RegistryMeta):
 
 
 def load_registries():
-    if not os.path.exists(_workspace_config_file):
-        logger.warning("Please run `excore init` in your command line first!")
+    if not os.path.exists(
+        os.path.join(_cache_dir, Registry._registry_dir, _registry_cache_file)
+    ):
+        logger.warning("Please run `excore auto-register` in your command line first!")
+        return
     Registry.load()
     # We'd better to lock register to prevent
     # the inconsistency between the twice registration.

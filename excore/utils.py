@@ -3,7 +3,7 @@ import threading
 import time
 
 
-class CacheOut(dict):
+class CacheOut:
     def __call__(self, func):
         @functools.wraps(func)
         def _cache(self):
