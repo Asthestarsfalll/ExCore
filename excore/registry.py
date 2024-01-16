@@ -220,6 +220,7 @@ class Registry(dict, metaclass=RegistryMeta):
         **extra_info,
     ) -> Union[Callable, ModuleType]:
         if Registry._prevent_register:
+            logger.ex("Registry has been locked!!!")
             return module
         if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
             raise TypeError(
@@ -341,7 +342,7 @@ class Registry(dict, metaclass=RegistryMeta):
             if match_func(name, base_module)
         ]
         matched_modules = list(filter(_is_function_or_class, matched_modules))
-        logger.info("matched modules:{}", [i.__name__ for i in matched_modules])
+        logger.ex("matched modules:{}", [i.__name__ for i in matched_modules])
         self.register_all(matched_modules)
 
     def module_table(

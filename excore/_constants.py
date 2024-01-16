@@ -15,7 +15,7 @@ _json_schema_file = "excore_schema.json"
 def _load_workspace_config():
     if osp.exists(_workspace_config_file):
         _workspace_cfg.update(toml.load(_workspace_config_file))
-        # logger.success("load `.excore.toml`")
+        logger.ex("load `.excore.toml`")
     else:
         logger.warning("Please use `excore init` in your command line first")
 

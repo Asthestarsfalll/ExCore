@@ -13,7 +13,7 @@ from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
                           CoreConfigSupportError, ModuleBuildError)
 from .hook import ConfigHookManager
 from .logger import logger
-from .registry import Registry
+from .registry import Registry, load_registries
 from .utils import CacheOut
 
 __all__ = ["load", "silent"]
@@ -208,8 +208,9 @@ class ReusedNode(InterNode):
 
 
 class ClassNode(InterNode):
-    def __call__(self):
-        return self._get_cls()
+    # def __call__(self):
+    #     return super()._get_cls()
+    __call__ = ModuleNode._get_cls
 
 
 @dataclass
@@ -289,7 +290,6 @@ class AttrNode(dict):
         class AttrNodeImpl(AttrNode):
             # otherwise it will share the same class variable with father class.
             target_fields = AttrNode.target_fields
-            registered_fields = AttrNode.registered_fields
 
         inst = super().__new__(AttrNodeImpl)
         return inst
@@ -308,7 +308,6 @@ class AttrNode(dict):
             registered_modules (List[str]): A list of all module names that have been registered.
         """
         cls.target_fields = target_fields
-        cls.registered_fields = list(Registry._registry_pool.keys())
 
     def isolated_keys(self):
         keys = list(self.keys())
@@ -341,11 +340,11 @@ class AttrNode(dict):
             if _ is None:
                 raise CoreConfigParseError(f"Unregistered module `{i.name}`")
 
-    def _parse_implicit_module(self, name, module_type=ModuleNode):
+    def _parse_implicit_module(self, name, module_type=ModuleNode) -> ModuleWrapper:
         _, base = Registry.find(name)
         converted = ModuleWrapper(module_type(name, base))
         if not base:
-            return None
+            raise CoreConfigParseError(f"Unregistered module `{name}`")
         if module_type == ReusedNode:
             self[name] = converted
         return converted
@@ -419,8 +418,6 @@ class AttrNode(dict):
             # once the implicit module was added to config
             # this branch is unreachable.
             converted = self._parse_implicit_module(name, ModuleType)
-            if not converted:
-                raise CoreConfigParseError(f"Unregistered module `{name}`")
         converted = converted.first()
 
         if not isinstance(converted, ModuleType):
@@ -474,12 +471,12 @@ class AttrNode(dict):
         self._parse_isolated_obj()
         self._parse_inter_modules()
 
-    # TODO(Asthestarsfalll): enhance print. low priority.
+    # TODO: enhance print. low priority.
 
 
-# TODO(Asthestarsfalll): automatically generate pyi file
+# TODO: automatically generate pyi file
 #   according to config files for type hinting. high priority.
-# TODO(Asthestarsfalll): Add dump method to generate toml config files.
+# TODO: Add dump method to generate toml config files.
 class LazyConfig:
     globals: Registry
     hook_key = "ConfigHook"
@@ -487,6 +484,7 @@ class LazyConfig:
     def __init__(self, config: AttrNode) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
         self.target_modules = config.target_fields
+        config.registered_fields = list(Registry._registry_pool.keys())
         self._config = deepcopy(config)
         self.build_config_hooks()
         self._config.parse()
@@ -529,7 +527,7 @@ class LazyConfig:
             if isinstance(module, ModuleNode):
                 module = module()
             isolated_dict[name] = module
-        self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
+        self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
         return module_dict, isolated_dict
 
     def __str__(self):
@@ -538,12 +536,13 @@ class LazyConfig:
 
 def set_target_fields(target_fields):
     if hasattr(AttrNode, "target_fields"):
-        logger.info("`target_fields` will be set to {}", target_fields)
+        logger.ex("`target_fields` will be set to {}", target_fields)
     if target_fields:
         AttrNode.set_target_fields(target_fields)
 
 
 def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
+    logger.info(f"load_config {filename}")
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
@@ -568,6 +567,7 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
 
 def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
     st = time.time()
+    load_registries()
     config = load_config(filename, base_key)
     lazy_config = LazyConfig(config)
     logger.success("Config loading and parsing cost {:.4f}s!", time.time() - st)

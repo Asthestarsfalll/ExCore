@@ -1,3 +1,4 @@
+import os
 import sys
 
 from loguru import logger as _logger
@@ -5,7 +6,6 @@ from loguru import logger as _logger
 __all__ = ["logger", "add_logger", "remove_logger", "debug_only", "log_to_file_only"]
 
 LOGGERS = {}
-IMPORTANCE_TAG = "IMPORT"
 
 FORMAT = (
     "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
@@ -67,19 +67,32 @@ def debug_only(*args, **kwargs) -> None:
     filter = kwargs.pop("filter", None)
     if filter:
         logger.warning("Override filter!!!")
-    logger.remove(None)
-    logger.add(sys.stderr, *args, filter=_debug_only, **kwargs)
+    logger.remove()
+    logger.add(sys.stderr, *args, format=FORMAT, filter=_debug_only, **kwargs)
     logger.debug("DEBUG ONLY!!!")
 
 
 def _call_importance(__message: str, *args, **kwargs):
-    logger.log(IMPORTANCE_TAG, __message, *args, **kwargs)
+    logger.log("IMPORT", __message, *args, **kwargs)
+
+
+def _excore_debug(__message: str, *args, **kwargs):
+    logger.log("EXCORE", __message, *args, **kwargs)
+
+
+def enable_excore_debug():
+    if os.getenv("EXCORE_DEBUG"):
+        logger.remove()
+        logger.add(sys.stdout, format=FORMAT, level="EXCORE")
+        logger.ex("Enabled excore debug")
 
 
 def init_logger():
-    logger.remove(None)
+    logger.remove()
     logger.add(sys.stderr, format=FORMAT)
     logger.level("SUCCESS", color="<yellow>")
     logger.level("WARNING", color="<red>")
-    logger.level(IMPORTANCE_TAG, no=45, color="<YELLOW><red><bold>")
+    logger.level("IMPORT", no=45, color="<YELLOW><red><bold>")
+    logger.level("EXCORE", no=9, color="<GREEN><cyan>")
     logger.imp = _call_importance
+    logger.ex = _excore_debug
