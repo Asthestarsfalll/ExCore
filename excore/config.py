@@ -373,9 +373,27 @@ class AttrNode(dict):
                     return True
         return False
 
-    # FIXME: Maybe reuseNode should firstly search in hidden modules?
-    def _parse_single_param(self, name, params):
-        name, attrs = _parse_param(name)
+    def _get_name(self, name, ori_name):
+        if not name.startswith("$"):
+            return name
+        base = name[1:]
+        wrapper = self.get(base, False)
+        if not wrapper:
+            raise CoreConfigParseError(
+                f"Cannot find field {base} with `{ori_name}`,"
+                "please adjust module definition order in config files."
+            )
+        if len(wrapper) == 1:
+            return wrapper.first().name
+        raise CoreConfigParseError(
+            f"More than one candidates are found: {[k.name for k in wrapper.values()]}"
+            f" with `{ori_name}`, please redifine the field `{base}` in config files."
+        )
+
+    # FIXME: Maybe ReuseNode should firstly search in hidden modules?
+    def _parse_single_param(self, ori_name, params):
+        name, attrs = _parse_param(ori_name)
+        name = self._get_name(name, ori_name)
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
             converted = _convert2module(self[name], params.base, ModuleType)

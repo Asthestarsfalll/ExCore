@@ -1,16 +1,18 @@
 from src import MODEL
 
-IDX = 0  # for check
+
+class ID:
+    def __str__(self):
+        return f"{id(self)}"
 
 
 @MODEL.register(is_pretrained=True)
 class FCN:
     def __init__(self, **kwargs):
-        global IDX  # pylint: disable=global-statement
+        self._id = ID()
 
         for k, v in kwargs.items():
             setattr(self, k, v)
-        IDX += 1
 
     def parameters(self):
-        return f"parameters of FCN_{IDX}"
+        return self._id

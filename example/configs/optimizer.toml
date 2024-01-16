@@ -1,5 +1,7 @@
 [Optimizer.AdamW]
-@params = "FCN.parameters()"
+# both methods can work
+# @params = "FCN.parameters()" 
+@params = "$Model.parameters()"
 weight_decay = 0.01
 
 [LRSche.CosDecay]
