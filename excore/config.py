@@ -558,9 +558,12 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     base_cfgs = [
         load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])
     ]
-    # TODO(Asthestarsfalll): support inherit mechanism of config. high priority.
-    [config.update(c) for c in base_cfgs]  # pylint: disable=expression-not-assigned
-    return config
+    base_cfg = AttrNode()
+    for c in base_cfgs:
+        base_cfg.update(c)
+    base_cfg.update(config)
+
+    return base_cfg
 
 
 def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
