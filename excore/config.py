@@ -201,7 +201,7 @@ class InterNode(ModuleNode):
         return self.pop(self.base)
 
 
-class ReuseNode(InterNode):
+class ReusedNode(InterNode):
     @CacheOut()
     def __call__(self):
         return super().__call__()
@@ -233,7 +233,7 @@ class ChainedInvocationWrapper:
 
 _dispatch_module_node = {
     OTHER_FLAG: ModuleNode,
-    REUSE_FLAG: ReuseNode,
+    REUSE_FLAG: ReusedNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
 }
@@ -343,8 +343,12 @@ class AttrNode(dict):
 
     def _parse_implicit_module(self, name, module_type=ModuleNode):
         _, base = Registry.find(name)
-        if base:
-            self[name] = ModuleWrapper(module_type(name, base))
+        converted = ModuleWrapper(module_type(name, base))
+        if not base:
+            return None
+        if module_type == ReusedNode:
+            self[name] = converted
+        return converted
 
     def _parse_isolated_module(self, name, module_type=ModuleNode):
         _, base = Registry.find(name)
@@ -390,7 +394,7 @@ class AttrNode(dict):
             f" with `{ori_name}`, please redifine the field `{base}` in config files."
         )
 
-    # FIXME: Maybe ReuseNode should firstly search in hidden modules?
+    # FIXME: Maybe ReusedNode should firstly search in hidden modules?
     def _parse_single_param(self, ori_name, params):
         name, attrs = _parse_param(ori_name)
         name = self._get_name(name, ori_name)
@@ -414,8 +418,7 @@ class AttrNode(dict):
         else:
             # once the implicit module was added to config
             # this branch is unreachable.
-            self._parse_implicit_module(name, ModuleType)
-            converted = self.get(name, False)
+            converted = self._parse_implicit_module(name, ModuleType)
             if not converted:
                 raise CoreConfigParseError(f"Unregistered module `{name}`")
         converted = converted.first()
