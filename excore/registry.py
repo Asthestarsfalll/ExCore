@@ -21,7 +21,7 @@ _private_flag: str = "__"
 __all__ = ["Registry"]
 
 
-# TODO(Asthestarsfalll): Maybe some methods need to be cleared.
+# TODO: Maybe some methods need to be cleared.
 
 
 def _is_pure_ascii(name: str):

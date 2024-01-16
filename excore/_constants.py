@@ -42,7 +42,7 @@ else:
 
 _cache_dir = osp.join(_cache_base_dir, _base_name)
 
-# TODO(Asthestarsfalll): Use a data class to store this
+# TODO: Use a data class to store this
 _workspace_cfg = dict(
     name="",
     src_dir="",

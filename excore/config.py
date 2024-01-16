@@ -105,7 +105,7 @@ def _dict2list(v, return_list=False):
     return v
 
 
-# FIXME(Asthestarsfalll): need to handle more situations.
+# FIXME: need to handle more situations.
 def _str_to_target(module_name):
     module_name = module_name.split(".")
     if len(module_name) == 1:
@@ -208,8 +208,6 @@ class ReusedNode(InterNode):
 
 
 class ClassNode(InterNode):
-    # def __call__(self):
-    #     return super()._get_cls()
     __call__ = ModuleNode._get_cls
 
 
@@ -508,7 +506,7 @@ class LazyConfig:
             return self._config[__name]
         raise KeyError(__name)
 
-    # TODO(Asthestarsfalll): refine output
+    # TODO: refine output
     def build_all(self) -> Tuple[Dict, Dict]:
         if self.target_modules is None:
             raise CoreConfigBuildError(
@@ -546,7 +544,7 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
-    # TODO(Asthestarsfalll): support more config file format. low priority.
+    # TODO: support more config file format. low priority.
     if ext in [".toml"]:
         config = toml.load(filename, AttrNode)
     else:
