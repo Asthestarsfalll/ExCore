@@ -17,7 +17,7 @@ from .registry import Registry, load_registries
 NoneType = type(None)
 
 TYPE_MAPPER = {
-    int: "integer",
+    int: "number",  # sometimes default value are not accurate
     str: "string",
     float: "number",
     list: "array",
@@ -129,7 +129,9 @@ def _clean(anno):
     if not hasattr(anno, "__origin__"):
         return anno
     if anno.__origin__ == type or (
-        anno.__origin__ == Union and anno.__args__[1] == NoneType
+        # Optional
+        anno.__origin__ == Union
+        and anno.__args__[1] == NoneType
     ):
         return _clean(anno.__args__[0])
     return anno
@@ -141,6 +143,10 @@ def parse_single_param(p: Parameter):
     potential_type = None
 
     anno = _clean(anno)
+
+    #  hardcore for torch.optim
+    if p.default.__class__.__name__ == "_RequiredParameter":
+        p._default = _empty
 
     if isinstance(anno, _GenericAlias):
         if anno.__origin__ in (Sequence, list, tuple):
@@ -160,7 +166,6 @@ def parse_single_param(p: Parameter):
         potential_type = _get_type(type(p.default))
     if p.name in SPECIAL_KEYS:
         potential_type = SPECIAL_KEYS[p.name]
-    # Default to integer
     if potential_type:
         prop["type"] = potential_type
     return p.default is _empty, prop
