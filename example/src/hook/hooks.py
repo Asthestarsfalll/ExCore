@@ -1,6 +1,14 @@
 from src import HOOK
 
+from excore import ConfigArgumentHookProtocol
 from excore.logger import logger
+
+
+@HOOK.register()
+class ParamsArgHook(ConfigArgumentHookProtocol):
+    def hook(self):
+        logger.debug("params argument hook")
+        return self.node()
 
 
 @HOOK.register()

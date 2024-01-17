@@ -214,7 +214,3 @@ class ConfigHookManager(HookManager):
             points in the build process where hooks can be executed. The stages are:
             "pre_build", "every_build", and "after_build".
     """
-
-
-class ConfigHookProtocol:
-    pass

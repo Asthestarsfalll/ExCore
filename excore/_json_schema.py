@@ -11,7 +11,7 @@ import toml
 from loguru import logger
 
 from ._constants import _cache_dir, _json_schema_file
-from .config import _str_to_target
+from .config import ConfigArgumentHookProtocol, _str_to_target
 from .registry import Registry, load_registries
 
 NoneType = type(None)
@@ -101,6 +101,7 @@ def parse_registry(reg: Registry):
         if isinstance(func, ModuleType):
             continue
         doc_string = func.__doc__
+        is_hook = issubclass(func, ConfigArgumentHookProtocol)
         if isclass(func) and _check(func.__bases__):
             func = func.__init__
         params = inspect.signature(func).parameters
@@ -111,7 +112,7 @@ def parse_registry(reg: Registry):
         items = {}
         required = []
         for param_name, param_obj in params.items():
-            if param_name == "self":
+            if param_name == "self" or (is_hook and param_name == "node"):
                 continue
             is_required, item = parse_single_param(param_obj)
             items[param_name] = item
@@ -137,6 +138,21 @@ def _clean(anno):
     return anno
 
 
+def _parse_generic_alias(prop, anno) -> Optional[str]:
+    potential_type = None
+    if anno.__origin__ in (Sequence, list, tuple):
+        potential_type = "array"
+        # Do not support like `List[ResNet]`.
+        inner_type = _get_type(anno.__args__[0])
+        if inner_type:
+            prop["items"] = {"type": inner_type}
+    elif anno.__origin__ == Union:
+        potential_type = None
+    elif len(anno.__args__) > 0:
+        potential_type = _get_type(anno.__args__[0])
+    return potential_type
+
+
 def parse_single_param(p: Parameter):
     prop = {}
     anno = p.annotation
@@ -149,23 +165,14 @@ def parse_single_param(p: Parameter):
         p._default = _empty
 
     if isinstance(anno, _GenericAlias):
-        if anno.__origin__ in (Sequence, list, tuple):
-            potential_type = "array"
-            # Do not support like `List[ResNet]`.
-            inner_type = _get_type(anno.__args__[0])
-            if inner_type:
-                prop["items"] = {"type": inner_type}
-        elif anno.__origin__ == Union:
-            potential_type = None
-        elif len(anno.__args__) > 0:
-            potential_type = _get_type(anno.__args__[0])
+        potential_type = _parse_generic_alias(prop, anno)
     elif anno is not _empty:
         potential_type = _get_type(anno)
     # determine type by default value
     elif p.default is not _empty:
         potential_type = _get_type(type(p.default))
     if p.name in SPECIAL_KEYS:
-        potential_type = SPECIAL_KEYS[p.name]
+        return False, SPECIAL_KEYS[p.name]
     if potential_type:
         prop["type"] = potential_type
     return p.default is _empty, prop

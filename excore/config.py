@@ -5,7 +5,7 @@ import time
 from copy import deepcopy
 from dataclasses import dataclass
 from sys import exc_info, exit
-from typing import Any, Dict, List, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, final
 
 import toml
 
@@ -121,10 +121,11 @@ def _str_to_target(module_name):
 
 
 def _parse_param(name):
-    attrs = name.split(".")
+    names = name.split("@")
+    attrs = names.pop(0).split(".")
     attrs = [i for i in attrs if i]
-    name = attrs.pop(0)
-    return name, attrs
+    hooks = [i for i in names if i]
+    return attrs.pop(0), attrs, hooks
 
 
 @dataclass
@@ -158,12 +159,13 @@ class ModuleNode(dict):
             self[k] = v
         return self
 
-    def _get_params(self):
+    def _get_params(self, **kwargs):
         params = {}
         for k, v in self.items():
             if isinstance(v, ModuleWrapper):
                 v = v()
             params[k] = v
+        params.update(kwargs)
         return params
 
     def _get_cls(self):
@@ -177,9 +179,7 @@ class ModuleNode(dict):
         cls = _str_to_target(cls_name)
         return cls
 
-    def __call__(self):
-        cls = self._get_cls()
-        params = self._get_params()
+    def _build_instance(self, cls, params):
         try:
             module = cls(**params)
         except Exception as exc:
@@ -193,6 +193,12 @@ class ModuleNode(dict):
             )
         return module
 
+    def __call__(self, **kwargs):
+        cls = self._get_cls()
+        params = self._get_params(**kwargs)
+        module = self._build_instance(cls, params)
+        return module
+
 
 class InterNode(ModuleNode):
     @property
@@ -201,10 +207,19 @@ class InterNode(ModuleNode):
         return self.pop(self.base)
 
 
+class ConfigHookNode(ModuleNode):
+    def __call__(self, **kwargs):
+        cls = self._get_cls()
+        if issubclass(cls, ConfigArgumentHookProtocol):
+            return None
+        params = self._get_params(**kwargs)
+        return self._build_instance(cls, params)
+
+
 class ReusedNode(InterNode):
     @CacheOut()
-    def __call__(self):
-        return super().__call__()
+    def __call__(self, **kwargs):
+        return super().__call__(**kwargs)
 
 
 class ClassNode(InterNode):
@@ -219,8 +234,8 @@ class ChainedInvocationWrapper:
     def __getattr__(self, __name):
         return getattr(self.node, __name)
 
-    def __call__(self):
-        target = self.node()
+    def __call__(self, **kwargs):
+        target = self.node(**kwargs)
         if self.attrs:
             for attr in self.attrs:
                 if attr[-2:] == "()":
@@ -239,8 +254,10 @@ _dispatch_module_node = {
 
 
 class ModuleWrapper(dict):
-    def __init__(self, modules: Union[List[ModuleNode], ModuleNode]):
+    def __init__(self, modules: Optional[Union[List[ModuleNode], ModuleNode]] = None):
         super().__init__()
+        if modules is None:
+            return
         if isinstance(modules, ModuleNode):
             modules = [modules]
         elif not isinstance(modules, list):
@@ -274,6 +291,32 @@ class ModuleWrapper(dict):
 
     def __repr__(self) -> str:
         return f"ModuleWrapper{list(self.values())}"
+
+
+class ConfigArgumentHookProtocol:
+    def __init__(
+        self,
+        node: Union[ModuleWrapper, ChainedInvocationWrapper, ModuleNode],
+        enabled: bool,
+    ):
+        self.node = node
+        self.enabled = enabled
+        self._is_initialized = True
+
+    def hook(self):
+        raise NotImplementedError(
+            f"`{self.__class__.__name__}` do not implement `hook` method."
+        )
+
+    @final
+    def __call__(self):
+        if not getattr(self, "_is_initialized", False):
+            raise CoreConfigSupportError(
+                f"Call super().__init__() in class `{self.__class__.__name__}`"
+            )
+        if self.enabled:
+            return self.hook()
+        return self.node()
 
 
 class AttrNode(dict):
@@ -391,9 +434,16 @@ class AttrNode(dict):
             f" with `{ori_name}`, please redifine the field `{base}` in config files."
         )
 
+    def _apply_hooks(self, node, hooks):
+        name = node.name  # for ModuleWrapper
+        for h in hooks:
+            node = self[h].first()(node=node)
+        node.name = name
+        return node
+
     # FIXME: Maybe ReusedNode should firstly search in hidden modules?
     def _parse_single_param(self, ori_name, params):
-        name, attrs = _parse_param(ori_name)
+        name, attrs, hooks = _parse_param(ori_name)
         name = self._get_name(name, ori_name)
         ModuleType = _dispatch_module_node[params.base]
         if name in self:
@@ -425,6 +475,8 @@ class AttrNode(dict):
             )
         if attrs:
             converted = ChainedInvocationWrapper(converted, attrs)
+        if hooks:
+            converted = self._apply_hooks(converted, hooks)
         return converted
 
     def _parse_module_node(self, node):
@@ -476,7 +528,6 @@ class AttrNode(dict):
 #   according to config files for type hinting. high priority.
 # TODO: Add dump method to generate toml config files.
 class LazyConfig:
-    globals: Registry
     hook_key = "ConfigHook"
 
     def __init__(self, config: AttrNode) -> None:
@@ -491,20 +542,24 @@ class LazyConfig:
         self._config.update(cfg._config)
 
     def build_config_hooks(self):
-        hooks = self._config.pop(LazyConfig.hook_key, [])
-        if hooks:
-            _, base = Registry.find(list(hooks.keys())[0])
-            hooks = [
-                InterNode(name, base).update(params)() for name, params in hooks.items()
-            ]
+        hook_cfgs = self._config.pop(LazyConfig.hook_key, [])
+        hooks = []
+        if hook_cfgs:
+            _, base = Registry.find(list(hook_cfgs.keys())[0])
+            for name, params in hook_cfgs.items():
+                hook = ConfigHookNode(name, base).update(params)()
+                if hook:
+                    hooks.append(hook)
+                else:
+                    self._config[name] = InterNode(name, base).update(params)
         self.hooks = ConfigHookManager(hooks)
 
     def __getattr__(self, __name: str) -> Any:
         if __name in self._config:
-            if not self.hooks:
+            if not hasattr(self, "hooks"):
                 self.build_config_hooks()
             return self._config[__name]
-        raise KeyError(__name)
+        raise AttributeError(__name)
 
     # TODO: refine output
     def build_all(self) -> Tuple[Dict, Dict]:
@@ -526,6 +581,10 @@ class LazyConfig:
                 module = module()
             isolated_dict[name] = module
         self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
+        for k in list(isolated_dict.keys()):
+            obj = isolated_dict[k]
+            if isinstance(obj, ModuleWrapper):
+                isolated_dict.pop(k)
         return module_dict, isolated_dict
 
     def __str__(self):
@@ -544,13 +603,11 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
-    # TODO: support more config file format. low priority.
-    if ext in [".toml"]:
-        config = toml.load(filename, AttrNode)
-    else:
+    if ext != ".toml":
         raise CoreConfigSupportError(
             "Only support `toml` files for now, but got {}".format(filename)
         )
+    config = toml.load(filename, AttrNode)
 
     base_cfgs = [
         load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])
