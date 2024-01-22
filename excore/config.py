@@ -29,6 +29,7 @@ sys.path.append(os.getcwd())
 REUSE_FLAG = "@"
 INTER_FLAG = "!"
 CLASS_FLAG = "$"
+REFER_FLAG = "&"
 OTHER_FLAG = ""
 LOG_BUILD_MESSAGE = True
 BASE_CONFIG_KEY = "__base__"
@@ -53,6 +54,8 @@ def _is_special(k: str) -> Tuple[str, str]:
         return k[1:], INTER_FLAG
     if k.startswith(CLASS_FLAG):
         return k[1:], CLASS_FLAG
+    if k.startswith(REFER_FLAG):
+        return k[1:], REFER_FLAG
     return k, ""
 
 
@@ -135,7 +138,9 @@ class ModuleNode(dict):
 
     def __setitem__(self, k, v) -> None:
         k, k_type = _is_special(k)
-        if k_type:
+        if k_type == REFER_FLAG:
+            v = VariableReference(v)
+        elif k_type:
             _v = v
             v = _attr2module(k, k_type, k_type)
             # prevent recursion depth exceed
@@ -245,11 +250,20 @@ class ChainedInvocationWrapper:
         return target
 
 
+@dataclass
+class VariableReference:
+    value: Any
+
+    def __call__(self):
+        return self.value
+
+
 _dispatch_module_node = {
     OTHER_FLAG: ModuleNode,
     REUSE_FLAG: ReusedNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
+    REFER_FLAG: VariableReference,
 }
 
 
@@ -363,7 +377,6 @@ class AttrNode(dict):
             if name in self.registered_fields:
                 base = name
             else:
-                # m = next(iter(self[name].keys()))
                 _, base = Registry.find(list(self[name].keys())[0])
                 if base is None:
                     raise CoreConfigParseError(f"Unregistered module `{name}`")
@@ -494,6 +507,11 @@ class AttrNode(dict):
                 ]
                 to_pop.extend(target_module_names)
                 node[param_name] = ModuleWrapper(converted_modules)
+            elif isinstance(params, VariableReference):
+                ref_name = params()
+                if ref_name not in self:
+                    raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
+                node[param_name] = self[ref_name]
         if hasattr(self, "__route__"):
             delattr(self, "__route__")
         return to_pop
