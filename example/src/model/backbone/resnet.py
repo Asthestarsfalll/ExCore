@@ -11,9 +11,7 @@ class BasicBlock:
 
 @MODEL.register(is_pretrained=True, is_backbone=True)
 class ResNet:
-    def __init__(
-        self, in_channel: int, depth: int, block: BasicBlock, layers: List[int]
-    ):
+    def __init__(self, in_channel: int, depth: int, block: BasicBlock, layers: List[int]):
         assert block == BasicBlock
         self.in_channel = in_channel
         self.depth = depth

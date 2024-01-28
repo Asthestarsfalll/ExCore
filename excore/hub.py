@@ -21,8 +21,14 @@ import requests
 from tqdm import tqdm
 
 from ._constants import __version__, _cache_dir
-from ._exceptions import (GitCheckoutError, GitPullError, HTTPDownloadError,
-                          InvalidGitHost, InvalidProtocol, InvalidRepo)
+from ._exceptions import (
+    GitCheckoutError,
+    GitPullError,
+    HTTPDownloadError,
+    InvalidGitHost,
+    InvalidProtocol,
+    InvalidRepo,
+)
 from .logger import logger
 
 __all__ = [
@@ -84,7 +90,7 @@ class RepoFetcherBase:
             repo_owner, repo_name = prefix_info.split("/")
             return repo_owner, repo_name, branch_info
         except ValueError as exc:
-            raise InvalidRepo("repo_info: '{}' is invalid.".format(repo_info)) from exc
+            raise InvalidRepo(f"repo_info: '{repo_info}' is invalid.") from exc
 
     @classmethod
     def _check_git_host(cls, git_host):
@@ -120,17 +126,15 @@ class GitSSHFetcher(RepoFetcherBase):
         silent: bool = True,
     ) -> str:
         if not cls._check_git_host(git_host):
-            raise InvalidGitHost("git_host: '{}' is malformed.".format(git_host))
+            raise InvalidGitHost(f"git_host: '{git_host}' is malformed.")
 
         repo_owner, repo_name, branch_info = cls._parse_repo_info(repo_info)
         normalized_branch_info = branch_info.replace("/", "_")
-        repo_dir_raw = "{}_{}_{}".format(
-            repo_owner, repo_name, normalized_branch_info
-        ) + ("_{}".format(commit) if commit else "")
-        repo_dir = (
-            "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
-        )
-        git_url = "git@{}:{}/{}.git".format(git_host, repo_owner, repo_name)
+        repo_dir_raw = f"{repo_owner}_{repo_name}_{normalized_branch_info}"
+        if commit:
+            repo_dir_raw += f"_{commit}"
+        repo_dir = "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
+        git_url = f"git@{git_host}:{repo_owner}/{repo_name}.git"
 
         if use_cache and os.path.exists(repo_dir):  # use cache
             logger.debug("Cache Found in {}", repo_dir)
@@ -145,9 +149,7 @@ class GitSSHFetcher(RepoFetcherBase):
             repo_dir,
         )
 
-        kwargs = (
-            {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
-        )
+        kwargs = {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
         if commit is None:
             # shallow clone repo by branch/tag
             p = subprocess.Popen(
@@ -179,8 +181,7 @@ class GitSSHFetcher(RepoFetcherBase):
                 if p.returncode:
                     shutil.rmtree(repo_dir, ignore_errors=True)
                     raise GitCheckoutError(
-                        "Git checkout error, please check the commit id.\n"
-                        + err.decode()
+                        "Git checkout error, please check the commit id.\n" + err.decode()
                     )
         with cd(repo_dir):
             shutil.rmtree(".git")
@@ -191,9 +192,7 @@ class GitSSHFetcher(RepoFetcherBase):
     def _check_clone_pipe(cls, p):
         _, err = p.communicate()
         if p.returncode:
-            raise GitPullError(
-                "Repo pull error, please check repo info.\n" + err.decode()
-            )
+            raise GitPullError("Repo pull error, please check repo info.\n" + err.decode())
 
 
 class GitHTTPSFetcher(RepoFetcherBase):
@@ -209,16 +208,14 @@ class GitHTTPSFetcher(RepoFetcherBase):
         silent: bool = True,
     ) -> str:
         if not cls._check_git_host(git_host):
-            raise InvalidGitHost("git_host: '{}' is malformed.".format(git_host))
+            raise InvalidGitHost(f"git_host: '{git_host}' is malformed.")
 
         repo_owner, repo_name, branch_info = cls._parse_repo_info(repo_info)
         normalized_branch_info = branch_info.replace("/", "_")
-        repo_dir_raw = "{}_{}_{}".format(
-            repo_owner, repo_name, normalized_branch_info
-        ) + ("_{}".format(commit) if commit else "")
-        repo_dir = (
-            "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
+        repo_dir_raw = f"{repo_owner}_{repo_name}_{normalized_branch_info}" + (
+            f"_{commit}" if commit else ""
         )
+        repo_dir = "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
         archive_url = "https://{}/{}/{}/archive/{}.zip".format(
             git_host, repo_owner, repo_name, commit or branch_info
         )
@@ -229,7 +226,7 @@ class GitHTTPSFetcher(RepoFetcherBase):
 
         shutil.rmtree(repo_dir, ignore_errors=True)  # ignore and clear cache
 
-        logger.debug("Downloading from {} to {}".format(archive_url, repo_dir))
+        logger.debug(f"Downloading from {archive_url} to {repo_dir}")
         cls._download_zip_and_extract(archive_url, repo_dir)
 
         return repo_dir
@@ -238,9 +235,7 @@ class GitHTTPSFetcher(RepoFetcherBase):
     def _download_zip_and_extract(cls, url, target_dir):
         resp = requests.get(url, timeout=cls.HTTP_TIMEOUT, stream=True)
         if resp.status_code != 200:
-            raise HTTPDownloadError(
-                "An error occurred when downloading from {}".format(url)
-            )
+            raise HTTPDownloadError(f"An error occurred when downloading from {url}")
 
         total_size = int(resp.headers.get("Content-Length", 0))
         _bar = tqdm(total=total_size, unit="iB", unit_scale=True)
@@ -268,9 +263,7 @@ PROTOCOLS = {
 def download_from_url(url: str, dst: str):
     resp = requests.get(url, timeout=120, stream=True)
     if resp.status_code != 200:
-        raise HTTPDownloadError(
-            "An error occurred when downloading from {}".format(url)
-        )
+        raise HTTPDownloadError(f"An error occurred when downloading from {url}")
 
     total_size = int(resp.headers.get("Content-Length", 0))
     _bar = tqdm(total=total_size, unit="iB", unit_scale=True)
@@ -293,9 +286,7 @@ def _get_repo(
 ) -> str:
     if protocol not in PROTOCOLS:
         raise InvalidProtocol(
-            "Invalid protocol, the value should be one of {}.".format(
-                ", ".join(PROTOCOLS.keys())
-            )
+            "Invalid protocol, the value should be one of {}.".format(", ".join(PROTOCOLS.keys()))
         )
     cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
     with cd(cache_dir):
@@ -337,9 +328,7 @@ def _init_hub(
         git_host, repo_info, use_cache=use_cache, commit=commit, protocol=protocol
     )
     sys.path.insert(0, absolute_repo_dir)
-    hubmodule = load_module(
-        hubconf_entry, os.path.join(absolute_repo_dir, hubconf_entry)
-    )
+    hubmodule = load_module(hubconf_entry, os.path.join(absolute_repo_dir, hubconf_entry))
     sys.path.remove(absolute_repo_dir)
 
     return hubmodule
@@ -359,11 +348,7 @@ def list(
     protocol: str = DEFAULT_PROTOCOL,
 ) -> List[str]:
     hubmodule = _init_hub(repo_info, git_host, entry, use_cache, commit, protocol)
-    return [
-        _
-        for _ in dir(hubmodule)
-        if not _.startswith("__") and callable(getattr(hubmodule, _))
-    ]
+    return [_ for _ in dir(hubmodule) if not _.startswith("__") and callable(getattr(hubmodule, _))]
 
 
 def load(
@@ -375,14 +360,12 @@ def load(
     use_cache: bool = True,
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
-    **kwargs
+    **kwargs,
 ) -> Any:
-    hubmodule = _init_hub(
-        repo_info, git_host, hubconf_entry, use_cache, commit, protocol
-    )
+    hubmodule = _init_hub(repo_info, git_host, hubconf_entry, use_cache, commit, protocol)
 
     if not hasattr(hubmodule, entry) or not callable(getattr(hubmodule, entry)):
-        raise RuntimeError("Cannot find callable {} in {}".format(entry, hubconf_entry))
+        raise RuntimeError(f"Cannot find callable {entry} in {hubconf_entry}")
 
     _check_dependencies(hubmodule)
 
@@ -399,12 +382,10 @@ def help(
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
 ) -> str:
-    hubmodule = _init_hub(
-        repo_info, git_host, hubconf_entry, use_cache, commit, protocol
-    )
+    hubmodule = _init_hub(repo_info, git_host, hubconf_entry, use_cache, commit, protocol)
 
     if not hasattr(hubmodule, entry) or not callable(getattr(hubmodule, entry)):
-        raise RuntimeError("Cannot find callable {} in hubconf.py".format(entry))
+        raise RuntimeError(f"Cannot find callable {entry} in hubconf.py")
 
     doc = getattr(hubmodule, entry).__doc__
     return doc

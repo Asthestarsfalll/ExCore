@@ -11,10 +11,7 @@ print(MODELS)
 
 
 def _check_func(values):
-    for v in values:
-        if v:
-            return True
-    return False
+    return any(v for v in values)
 
 
 add_logger("file_log", "./run.log")
@@ -25,14 +22,10 @@ logger.info(MODELS.module_table(select_info=["is_pretrained"]))
 logger.info(MODELS.module_table(select_info=["is_backbone"]))
 # 打印 is_pretrained 为 true 的 module 和 is_backbone 的信息
 filtered_module_name = MODELS.filter("is_pretrained")
-logger.info(
-    MODELS.module_table(select_info=["is_backbone"], module_list=filtered_module_name)
-)
+logger.info(MODELS.module_table(select_info=["is_backbone"], module_list=filtered_module_name))
 # 打印 is_pretrained 为 true 的 module 和 is_pretrained 的信息
 filtered_module_name = MODELS.filter("is_pretrained", _check_func)
-logger.info(
-    MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name)
-)
+logger.info(MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name))
 logger.info(Registry.registry_table())
 
 config.set_target_fields(config.AttrNode.target_fields + ["Backbone"])
