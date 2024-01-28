@@ -8,8 +8,8 @@ class CacheOut:
         @functools.wraps(func)
         def _cache(self):
             if not hasattr(self, "cached_elem"):
-                setattr(self, "cached_elem", func(self))
-            return getattr(self, "cached_elem")
+                self.cached_elem = func(self)
+            return self.cached_elem
 
         return _cache
 

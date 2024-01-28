@@ -49,15 +49,15 @@ def remove_logger(name: str) -> None:
     id = LOGGERS.pop(name, None)
     if id:
         logger.remove(id)
-        logger.success("Remove logger whose name is {}".format(name))
+        logger.success(f"Remove logger whose name is {name}")
     else:
-        logger.warning("Cannot find logger with name {}".format(name))
+        logger.warning(f"Cannot find logger with name {name}")
 
 
 def log_to_file_only(file_name: str, *args, **kwargs) -> None:
     logger.remove(None)
     logger.add(file_name, *args, **kwargs)
-    logger.success("Log to file {} only".format(file_name))
+    logger.success(f"Log to file {file_name} only")
 
 
 def debug_only(*args, **kwargs) -> None:
@@ -80,7 +80,7 @@ def _excore_debug(__message: str, *args, **kwargs):
     logger.log("EXCORE", __message, *args, **kwargs)
 
 
-def enable_excore_debug():
+def _enable_excore_debug():
     if os.getenv("EXCORE_DEBUG"):
         logger.remove()
         logger.add(sys.stdout, format=FORMAT, level="EXCORE")

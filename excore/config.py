@@ -9,8 +9,12 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Union, final
 
 import toml
 
-from ._exceptions import (CoreConfigBuildError, CoreConfigParseError,
-                          CoreConfigSupportError, ModuleBuildError)
+from ._exceptions import (
+    CoreConfigBuildError,
+    CoreConfigParseError,
+    CoreConfigSupportError,
+    ModuleBuildError,
+)
 from .hook import ConfigHookManager
 from .logger import logger
 from .registry import Registry, load_registries
@@ -275,9 +279,7 @@ class ModuleWrapper(dict):
         if isinstance(modules, ModuleNode):
             modules = [modules]
         elif not isinstance(modules, list):
-            raise TypeError(
-                f"Expect modules to be `list` or `ModuleNode`, but got {type(modules)}"
-            )
+            raise TypeError(f"Expect modules to be `list` or `ModuleNode`, but got {type(modules)}")
         for m in modules:
             self[m.name] = m
 
@@ -318,9 +320,7 @@ class ConfigArgumentHookProtocol:
         self._is_initialized = True
 
     def hook(self):
-        raise NotImplementedError(
-            f"`{self.__class__.__name__}` do not implement `hook` method."
-        )
+        raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
 
     @final
     def __call__(self):
@@ -502,8 +502,7 @@ class AttrNode(dict):
                 if not isinstance(target_module_names, list):
                     target_module_names = [target_module_names]
                 converted_modules = [
-                    self._parse_single_param(name, params)
-                    for name in target_module_names
+                    self._parse_single_param(name, params) for name in target_module_names
                 ]
                 to_pop.extend(target_module_names)
                 node[param_name] = ModuleWrapper(converted_modules)
@@ -622,14 +621,10 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     path = os.path.dirname(filename)
 
     if ext != ".toml":
-        raise CoreConfigSupportError(
-            "Only support `toml` files for now, but got {}".format(filename)
-        )
+        raise CoreConfigSupportError(f"Only support `toml` files for now, but got {filename}")
     config = toml.load(filename, AttrNode)
 
-    base_cfgs = [
-        load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])
-    ]
+    base_cfgs = [load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])]
     base_cfg = AttrNode()
     for c in base_cfgs:
         base_cfg.update(c)

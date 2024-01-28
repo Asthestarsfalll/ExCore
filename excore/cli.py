@@ -12,8 +12,14 @@ from typer import Argument as CArg
 from typer import Option as COp
 from typing_extensions import Annotated
 
-from ._constants import (LOGO, _base_name, _cache_base_dir, _cache_dir,
-                         _workspace_cfg, _workspace_config_file)
+from ._constants import (
+    LOGO,
+    _base_name,
+    _cache_base_dir,
+    _cache_dir,
+    _workspace_cfg,
+    _workspace_config_file,
+)
 from ._json_schema import _generate_json_shcema, _generate_taplo_config
 from .logger import logger
 from .registry import Registry
@@ -63,7 +69,7 @@ def _generate_registries(entry="__init__"):
         with open(target_file, "w", encoding="UTF-8") as f:
             f.write("")
 
-    with open(target_file, "r", encoding="UTF-8") as f:
+    with open(target_file, encoding="UTF-8") as f:
         source_code = ast.parse(f.read())
     flag = _has_import_excore(source_code)
     if flag == 1:
@@ -79,25 +85,27 @@ def _generate_registries(entry="__init__"):
     source_code = astor.to_source(source_code)
     with open(target_file, "w", encoding="UTF-8") as f:
         f.write(source_code)
-    logger.success(
-        "Generate Registry definition in {} according to `target_fields`", target_file
-    )
+    logger.success("Generate Registry definition in {} according to `target_fields`", target_file)
 
 
 def _detect_assign(node, definition):
     if isinstance(node, ast.Module):
         for child in node.body:
             _detect_assign(child, definition)
-    elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
-        if hasattr(node.value.func, "id") and node.value.func.id == "Registry":
-            definition.append(node.value.args[0].value)
+    elif (
+        isinstance(node, ast.Assign)
+        and isinstance(node.value, ast.Call)
+        and hasattr(node.value.func, "id")
+        and node.value.func.id == "Registry"
+    ):
+        definition.append(node.value.args[0].value)
 
 
 def _detect_registy_difinition() -> bool:
     target_file = osp.join(_workspace_cfg["src_dir"], "__init__.py")
     logger.info("Detect Registry definition in {}", target_file)
     definition = []
-    with open(target_file, "r", encoding="UTF-8") as f:
+    with open(target_file, encoding="UTF-8") as f:
         source_code = ast.parse(f.read())
     _detect_assign(source_code, definition)
     if len(definition) > 0:
@@ -148,9 +156,7 @@ def _update(is_init=True, entry="__init__"):
                 _workspace_cfg["registries"] = regs
             else:
                 logger.imp("You can define fields later.")
-            _workspace_cfg["target_fields"] = _get_target_fields(
-                _workspace_cfg["registries"]
-            )
+            _workspace_cfg["target_fields"] = _get_target_fields(_workspace_cfg["registries"])
             _generate_registries(entry)
         else:
             logger.imp(
@@ -207,9 +213,7 @@ def init(
 
     _update(True, entry)
 
-    logger.success(
-        "Welcome to ExCore. You can modify the `.excore.toml` file mannully."
-    )
+    logger.success("Welcome to ExCore. You can modify the `.excore.toml` file mannully.")
 
 
 def _clear_cache(cache_dir):
@@ -324,7 +328,7 @@ def registries():
 def generate_registries(
     entry: Annotated[
         str, CArg(help="Used for detect or generate Registry definition code")
-    ] = "__init__"
+    ] = "__init__",
 ):
     """
     Generate registries definition code according to workspace config.

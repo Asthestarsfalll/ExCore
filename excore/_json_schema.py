@@ -86,7 +86,7 @@ def _check(bases):
     for b in bases:
         if b is object:
             return False
-        if hasattr(b, "__call__"):
+        if callable(b):
             return True
     return False
 
@@ -131,8 +131,7 @@ def _clean(anno):
         return anno
     if anno.__origin__ == type or (
         # Optional
-        anno.__origin__ == Union
-        and anno.__args__[1] == NoneType
+        anno.__origin__ == Union and anno.__args__[1] == NoneType
     ):
         return _clean(anno.__args__[0])
     return anno

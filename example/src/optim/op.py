@@ -1,6 +1,5 @@
-from src import OPTIM
-
 from excore.logger import logger
+from src import OPTIM
 
 
 @OPTIM.register()

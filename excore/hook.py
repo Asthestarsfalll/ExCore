@@ -68,7 +68,7 @@ class MetaHookManager(type):
         stages = inst.stages
         if inst.__name__ != "HookManager" and stages is None:
             raise HookManagerBuildError(
-                "The hook manager `{}` must have valid stages".format(inst.__name__)
+                f"The hook manager `{inst.__name__}` must have valid stages"
             )
 
         return inst
@@ -116,21 +116,15 @@ class HookManager(metaclass=MetaHookManager):
         for h in hooks:
             if not hasattr(h, "__HookType__") or h.__HookType__ not in self.stages:
                 raise HookBuildError(
-                    __error_msg.format(
-                        h.__class__.__name__, "__HookType__", h.__HookType__
-                    )
+                    __error_msg.format(h.__class__.__name__, "__HookType__", h.__HookType__)
                 )
             if not hasattr(h, "__LifeSpan__") or h.__LifeSpan__ <= 0:
                 raise HookBuildError(
-                    __error_msg.format(
-                        h.__class__.__name__, "__LifeSpan__", h.__LifeSpan__
-                    )
+                    __error_msg.format(h.__class__.__name__, "__LifeSpan__", h.__LifeSpan__)
                 )
             if not hasattr(h, "__CallInter__") or h.__CallInter__ <= 0:
                 raise HookBuildError(
-                    __error_msg.format(
-                        h.__class__.__name__, "__CallInter__", h.__CallInter__
-                    )
+                    __error_msg.format(h.__class__.__name__, "__CallInter__", h.__CallInter__)
                 )
         self.hooks = defaultdict(list)
         self.calls = defaultdict(int)
