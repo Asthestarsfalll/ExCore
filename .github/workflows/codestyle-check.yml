@@ -9,7 +9,7 @@ on:
 jobs:
   code-style-check:
     runs-on: ubuntu-latest
-    name: CodeStyle Check (Python 3.8)
+    name: CodeStyle Check (Python 3.7)
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -17,14 +17,14 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: 3.7
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
-          pip install pre-commit
-          poetry install
+          pip install poetry
+          poetry install --with dev
       - name: Run codestyle-check
         run: |
+          pip install pre-commit==2.21.0
           pre-commit install
           pre-commit run
