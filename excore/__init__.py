@@ -1,16 +1,6 @@
 from . import hub
-from ._constants import (
-    __author__,
-    __version__,
-    _load_workspace_config,
-    _workspace_cfg,
-)
-from .config import (
-    ConfigArgumentHookProtocol,
-    build_all,
-    load,
-    set_target_fields,
-)
+from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
+from .config import ConfigArgumentHookProtocol, build_all, load, set_target_fields
 from .hook import Hook, HookManager
 from .logger import _enable_excore_debug, add_logger, init_logger, remove_logger
 from .registry import Registry, load_registries

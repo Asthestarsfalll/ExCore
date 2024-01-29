@@ -2,6 +2,7 @@
 Take and adapt from
     https://github.com/MegEngine/MegEngine/blob/master/imperative/python/megengine/hub/
 """
+
 import functools
 import hashlib
 import importlib
