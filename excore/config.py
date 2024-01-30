@@ -630,6 +630,14 @@ def set_target_fields(target_fields):
         AttrNode.set_target_fields(target_fields)
 
 
+def _merge_config(base_cfg, new_cfg):
+    for k, v in new_cfg.items():
+        if k in base_cfg and isinstance(v, dict):
+            _merge_config(base_cfg[k], v)
+        else:
+            base_cfg[k] = v
+
+
 def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     logger.info(f"load_config {filename}")
     ext = os.path.splitext(filename)[-1]
@@ -642,8 +650,8 @@ def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
     base_cfgs = [load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])]
     base_cfg = AttrNode()
     for c in base_cfgs:
-        base_cfg.update(c)
-    base_cfg.update(config)
+        _merge_config(base_cfg, c)
+    _merge_config(base_cfg, config)
 
     return base_cfg
 
