@@ -7,7 +7,6 @@ import sys
 import astor
 import toml
 import typer
-from tabulate import tabulate
 from typer import Argument as CArg
 from typer import Option as COp
 from typing_extensions import Annotated
@@ -23,6 +22,7 @@ from ._constants import (
 from ._json_schema import _generate_json_shcema, _generate_taplo_config
 from .logger import logger
 from .registry import Registry
+from .utils import _create_table
 
 app = typer.Typer(rich_markup_mode="rich")
 
@@ -248,21 +248,13 @@ def clear_all_cache():
     _clear_cache(_cache_base_dir)
 
 
-def _build_table(header, _cache_dir):
-    table = tabulate(
-        [(i,) for i in _cache_dir],
-        headers=[header],
-        tablefmt="fancy_grid",
-    )
-    logger.info("\n{}", table)
-
-
 @app.command()
 def cache_list():
     """
     Show cache folders.
     """
-    _build_table("NAMES", os.listdir(_cache_base_dir))
+    tabel = _create_table("NAMES", os.listdir(_cache_base_dir))
+    logger.info(tabel)
 
 
 def _get_default_module_name(target_dir):
@@ -313,7 +305,8 @@ def target_fields():
     """
     Show target_fields.
     """
-    _build_table("FIELDS", _get_target_fields(_workspace_cfg["registries"]))
+    table = _create_table("FIELDS", _get_target_fields(_workspace_cfg["registries"]))
+    logger.info(table)
 
 
 @app.command()
@@ -321,7 +314,8 @@ def registries():
     """
     Show registries.
     """
-    _build_table("Registry", [_format(i) for i in _workspace_cfg["registries"]])
+    table = _create_table("Registry", [_format(i) for i in _workspace_cfg["registries"]])
+    logger.info(table)
 
 
 @app.command()

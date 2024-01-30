@@ -2,6 +2,8 @@ import functools
 import threading
 import time
 
+from tabulate import tabulate
+
 
 class CacheOut:
     def __call__(self, func):
@@ -30,3 +32,19 @@ class FileLock:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.lock.release()
+
+
+def _create_table(header, contents, split=True, **tabel_kwargs):
+    if split:
+        contents = [(i,) for i in contents]
+    if header is None:
+        header = ()
+    if not isinstance(header, (list, tuple)):
+        header = [header]
+    table = tabulate(
+        contents,
+        headers=header,
+        tablefmt="fancy_grid",
+        **tabel_kwargs,
+    )
+    return "\n" + table

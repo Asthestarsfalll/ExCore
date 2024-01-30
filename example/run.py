@@ -32,6 +32,7 @@ config.set_target_fields(config.AttrNode.target_fields + ["Backbone"])
 logger.info(config.AttrNode.target_fields)
 config.silent()
 cfg = config.load("./configs/run.toml")
+logger.info(cfg)
 # 判断是否是相同的实例
 assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone

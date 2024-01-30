@@ -1,18 +1,15 @@
 import fnmatch
 import functools
 import inspect
-import json
 import os
 import re
 import sys
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from tabulate import tabulate
-
 from ._constants import _cache_dir, _registry_cache_file, _workspace_config_file
 from .logger import logger
-from .utils import FileLock
+from .utils import FileLock, _create_table
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
@@ -193,8 +190,11 @@ class Registry(dict, metaclass=RegistryMeta):
         super().__setitem__(k, v)
 
     def __repr__(self) -> str:
-        s = json.dumps(self, indent=4, ensure_ascii=False, sort_keys=False, separators=(",", ":"))
-        return "\n" + s
+        return _create_table(
+            ["NAEM", "DIR"],
+            [(k, v) for k, v in self.items()],
+            False,
+        )
 
     __str__ = __repr__
 
@@ -361,10 +361,10 @@ class Registry(dict, metaclass=RegistryMeta):
         else:
             select_idx = []
 
-        table = tabulate(
+        table = _create_table(
+            table_headers,
             [(i, *[self.extra_info[i][idx] for idx in select_idx]) for i in modules],
-            headers=table_headers,
-            tablefmt="fancy_grid",
+            False,
             **table_kwargs,
         )
         table = "\n" + table
@@ -376,10 +376,10 @@ class Registry(dict, metaclass=RegistryMeta):
         Returns a table containing the names of all available registries.
         """
         table_headers = ["COMPONMENTS"]
-        table = tabulate(
+        table = _create_table(
+            table_headers,
             list(sorted([[i] for i in cls._registry_pool])),
-            headers=table_headers,
-            tablefmt="fancy_grid",
+            False,
             **table_kwargs,
         )
         table = "\n" + table

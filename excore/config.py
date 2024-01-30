@@ -18,7 +18,7 @@ from ._exceptions import (
 from .hook import ConfigHookManager
 from .logger import logger
 from .registry import Registry, load_registries
-from .utils import CacheOut
+from .utils import CacheOut, _create_table
 
 __all__ = ["load", "silent"]
 
@@ -538,7 +538,22 @@ class AttrNode(dict):
         self._parse_isolated_obj()
         self._parse_inter_modules()
 
-    # TODO: enhance print. low priority.
+    def __str__(self):
+        _dict = {}
+        for k, v in self.items():
+            self._flatten(_dict, k, v)
+        return _create_table(
+            None,
+            [(k, v) for k, v in _dict.items()],
+            False,
+        )
+
+    def _flatten(self, _dict, k, v):
+        if isinstance(v, dict):
+            for _k, _v in v.items():
+                _dict[".".join([k, _k])] = _v
+        else:
+            _dict[k] = v
 
 
 # TODO: automatically generate pyi file
@@ -637,6 +652,8 @@ def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
     st = time.time()
     load_registries()
     config = load_config(filename, base_key)
+    logger.info("Loaded configs:")
+    logger.info(config)
     lazy_config = LazyConfig(config)
     logger.success("Config loading and parsing cost {:.4f}s!", time.time() - st)
     return lazy_config
