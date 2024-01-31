@@ -9,6 +9,7 @@ __version__ = "0.1.3"
 _cache_base_dir = osp.expanduser("~/.cache/excore/")
 _workspace_config_file = "./.excore.toml"
 _registry_cache_file = "registry_cache.pkl"
+_recorder_cache_file = "records.pkl"
 _json_schema_file = "excore_schema.json"
 
 

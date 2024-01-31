@@ -114,34 +114,36 @@ class Registry(dict, metaclass=RegistryMeta):
         self.extra_info = dict()
 
     @classmethod
-    def dump(cls):
-        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
+    def dump(cls, file_name: str = _registry_cache_file, obj: Optional[Dict] = None):
+        file_path = os.path.join(_cache_dir, cls._registry_dir, file_name)
         os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):  # noqa: SIM117
-            with open(file_path, "wb") as f:
-                pickle.dump(cls._registry_pool, f)
+        with FileLock(file_path), open(file_path, "wb") as f:
+            pickle.dump(obj or cls._registry_pool, f)
 
     @classmethod
-    def load(cls):
+    def load(cls, file_name: str = _registry_cache_file, obj: Optional[Dict] = None, slient=False):
         if not os.path.exists(_workspace_config_file):
             logger.warning("Please run `excore init` in your command line first!")
-            raise RuntimeError()
-        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
-        if not os.path.exists(file_path):
-            # shall we need to be silent? Or raise error?
-            logger.critical(
-                "Registry cache file do not exist!"
-                " Please run `excore auto-register in your command line first`"
-            )
             sys.exit(0)
+        file_path = os.path.join(_cache_dir, cls._registry_dir, file_name)
+        if not os.path.exists(file_path):
+            if not slient:
+                # shall we need to be silent? Or raise error?
+                logger.critical(
+                    "Registry cache file do not exist!"
+                    " Please run `excore auto-register in your command line first`"
+                )
+            return
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):  # noqa: SIM117
-            with open(file_path, "rb") as f:
-                data = pickle.load(f)
-        cls._registry_pool.update(data)
+        with FileLock(file_path), open(file_path, "rb") as f:
+            data = pickle.load(f)
+        if obj is None:
+            cls._registry_pool.update(data)
+        else:
+            obj.update(data)
 
     @classmethod
     def lock_register(cls):
@@ -191,7 +193,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def __repr__(self) -> str:
         return _create_table(
-            ["NAEM", "DIR"],
+            None,
             [(k, v) for k, v in self.items()],
             False,
         )
@@ -234,7 +236,7 @@ class Registry(dict, metaclass=RegistryMeta):
         )
 
         # update to globals
-        if Registry._globals is not None and name.startswith(_private_flag):
+        if Registry._globals is not None and not self.name.startswith(_private_flag):
             Registry._globals._register(module, force, name, **extra_info)
 
         return module

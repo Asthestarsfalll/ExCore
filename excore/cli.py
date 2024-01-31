@@ -3,6 +3,7 @@ import importlib
 import os
 import os.path as osp
 import sys
+from functools import wraps
 
 import astor
 import toml
@@ -11,6 +12,7 @@ from typer import Argument as CArg
 from typer import Option as COp
 from typing_extensions import Annotated
 
+from . import recorder
 from ._constants import (
     LOGO,
     _base_name,
@@ -25,6 +27,8 @@ from .registry import Registry
 from .utils import _create_table
 
 app = typer.Typer(rich_markup_mode="rich")
+recorder_app = typer.Typer()
+app.add_typer(recorder_app, name="rec", help="ExCore recorder.")
 
 
 def _dump_workspace_config():
@@ -328,6 +332,82 @@ def generate_registries(
     Generate registries definition code according to workspace config.
     """
     _generate_registries(entry)
+
+
+def _recorder_wrapper(func):
+    @wraps(func)
+    def wrapper_func(*args, **kwargs):
+        recorder.load()
+        func(*args, **kwargs)
+        recorder.dump()
+
+    return wrapper_func
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def create(name: Annotated[str, CArg(help="Name of recorder")]):
+    """
+    Create a recorder.
+    """
+    recorder.create(name)
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def show(name: Annotated[str, CArg(help="Name of recorder")]):
+    """
+    Show target recorder.
+    """
+    if name not in recorder.RECORDERS:
+        logger.critical(f"Recorder {name} does not exist.")
+        sys.exit()
+    logger.info(recorder.RECORDERS[name])
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def add(
+    rec_name: Annotated[str, CArg(help="Name of recorder")],
+    header: Annotated[str, CArg(help="Name of value")],
+    value: Annotated[float, CArg()],
+):
+    """
+    Add value to recorder (float only)
+    """
+    recorder.add(rec_name, header, value)
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def reset(
+    name: Annotated[str, CArg(help="Name of recorder")],
+):
+    """
+    Reset target recorder.
+    """
+    recorder.RECORDERS[name].reset()
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def remove():
+    """
+    Remove all recorders.
+    """
+    recorder.remove()
+
+
+_list = list
+
+
+@recorder_app.command()
+@_recorder_wrapper
+def list():
+    """
+    List all recorders.
+    """
+    logger.info(_list(recorder.RECORDERS.keys()))
 
 
 if __name__ == "__main__":
