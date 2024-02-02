@@ -7,9 +7,10 @@ import sys
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from ._constants import _cache_dir, _registry_cache_file, _workspace_config_file
-from .logger import logger
-from .utils import FileLock, _create_table
+from excore.utils.utils import FileLock, _create_table
+
+from .._constants import _cache_dir, _registry_cache_file, _workspace_config_file
+from .logging import logger
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"

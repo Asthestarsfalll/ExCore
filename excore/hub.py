@@ -30,7 +30,7 @@ from ._exceptions import (
     InvalidProtocol,
     InvalidRepo,
 )
-from .logger import logger
+from .engine import logger
 
 __all__ = [
     "list",

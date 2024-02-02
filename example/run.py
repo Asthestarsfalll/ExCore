@@ -2,8 +2,7 @@ import time
 
 from rich import print
 
-from excore import Registry, config
-from excore.logger import add_logger, logger
+from excore import Registry, add_logger, config, logger
 
 Registry.load()
 MODELS = Registry.get_registry("Model")
@@ -28,7 +27,7 @@ filtered_module_name = MODELS.filter("is_pretrained", _check_func)
 logger.info(MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name))
 logger.info(Registry.registry_table())
 
-config.set_target_fields(config.AttrNode.target_fields + ["Backbone"])
+config.set_target_fields(config.parse.AttrNode.target_fields + ["Backbone"])
 logger.info(config.AttrNode.target_fields)
 config.silent()
 cfg = config.load("./configs/run.toml")
