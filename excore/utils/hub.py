@@ -21,8 +21,8 @@ from zipfile import ZipFile
 import requests
 from tqdm import tqdm
 
-from ._constants import __version__, _cache_dir
-from ._exceptions import (
+from .._constants import __version__, _cache_dir
+from .._exceptions import (
     GitCheckoutError,
     GitPullError,
     HTTPDownloadError,
@@ -30,7 +30,7 @@ from ._exceptions import (
     InvalidProtocol,
     InvalidRepo,
 )
-from .logger import logger
+from ..engine.logging import logger
 
 __all__ = [
     "list",

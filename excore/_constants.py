@@ -1,7 +1,7 @@
 import os
 import os.path as osp
 
-from .logger import logger
+from .engine.logging import logger
 
 __author__ = "Asthestarsfalll"
 __version__ = "0.1.3"
