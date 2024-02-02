@@ -1,19 +1,15 @@
 import fnmatch
 import functools
 import inspect
-import json
 import os
 import re
 import sys
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from tabulate import tabulate
-
-from ._constants import (_cache_dir, _registry_cache_file,
-                         _workspace_config_file)
-from .logger import logger
-from .utils import FileLock
+from .._constants import _cache_dir, _registry_cache_file, _workspace_config_file
+from ..utils.misc import FileLock, _create_table
+from .logging import logger
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
@@ -21,16 +17,14 @@ _private_flag: str = "__"
 __all__ = ["Registry"]
 
 
-# TODO(Asthestarsfalll): Maybe some methods need to be cleared.
+# TODO: Maybe some methods need to be cleared.
 
 
 def _is_pure_ascii(name: str):
     if not _name_re.match(name):
         raise ValueError(
-            """Unexpected name, only support ASCII letters, ASCII digits,
-             underscores, and dashes, but got {}""".format(
-                name
-            )
+            f"""Unexpected name, only support ASCII letters, ASCII digits,
+             underscores, and dashes, but got {name}"""
         )
 
 
@@ -39,10 +33,7 @@ def _is_function_or_class(module):
 
 
 def _default_filter_func(values: Sequence[Any]) -> bool:
-    for v in values:
-        if not v:
-            return False
-    return True
+    return all(v for v in values)
 
 
 def _default_match_func(m, base_module):
@@ -81,11 +72,7 @@ class RegistryMeta(type):
         if name in cls._registry_pool:
             extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
             target = cls._registry_pool[name]
-            if (
-                extra_field
-                and hasattr(target, "extra_field")
-                and extra_field != target.extra_field
-            ):
+            if extra_field and hasattr(target, "extra_field") and extra_field != target.extra_field:
                 logger.warning(
                     f"{cls.__name__}: `{name}` has already existed,"
                     " different arguments will be ignored"
@@ -123,9 +110,7 @@ class Registry(dict, metaclass=RegistryMeta):
         super().__init__()
         self.name = name
         if extra_field:
-            self.extra_field = (
-                [extra_field] if isinstance(extra_field, str) else extra_field
-            )
+            self.extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
         self.extra_info = dict()
 
     @classmethod
@@ -134,7 +119,7 @@ class Registry(dict, metaclass=RegistryMeta):
         os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):
+        with FileLock(file_path):  # noqa: SIM117
             with open(file_path, "wb") as f:
                 pickle.dump(cls._registry_pool, f)
 
@@ -142,7 +127,7 @@ class Registry(dict, metaclass=RegistryMeta):
     def load(cls):
         if not os.path.exists(_workspace_config_file):
             logger.warning("Please run `excore init` in your command line first!")
-            raise RuntimeError()
+            sys.exit(0)
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
@@ -153,7 +138,7 @@ class Registry(dict, metaclass=RegistryMeta):
             sys.exit(0)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):
+        with FileLock(file_path):  # noqa: SIM117
             with open(file_path, "rb") as f:
                 data = pickle.load(f)
         cls._registry_pool.update(data)
@@ -205,10 +190,11 @@ class Registry(dict, metaclass=RegistryMeta):
         super().__setitem__(k, v)
 
     def __repr__(self) -> str:
-        s = json.dumps(
-            self, indent=4, ensure_ascii=False, sort_keys=False, separators=(",", ":")
+        return _create_table(
+            ["NAEM", "DIR"],
+            [(k, v) for k, v in self.items()],
+            False,
         )
-        return "\n" + s
 
     __str__ = __repr__
 
@@ -220,27 +206,22 @@ class Registry(dict, metaclass=RegistryMeta):
         **extra_info,
     ) -> Union[Callable, ModuleType]:
         if Registry._prevent_register:
+            logger.ex("Registry has been locked!!!")
             return module
         if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
-            raise TypeError(
-                "Only support function or class, but got {}".format(type(module))
-            )
+            raise TypeError(f"Only support function or class, but got {type(module)}")
         true_name = _get_module_name(module)
         name = name or true_name
         if not force and name in self and not self[name] == module:
-            raise ValueError("The name {} exists".format(name))
+            raise ValueError(f"The name {name} exists")
 
         if extra_info:
             if not hasattr(self, "extra_field"):
-                raise ValueError(
-                    "Registry `{}` does not have `extra_field`.".format(self.name)
-                )
+                raise ValueError(f"Registry `{self.name}` does not have `extra_field`.")
             for k in extra_info:
                 if k not in self.extra_field:
                     raise ValueError(
-                        "Registry `{}`: 'extra_info' does not has expected key {}.".format(
-                            self.name, k
-                        )
+                        f"Registry `{self.name}`: 'extra_info' does not has expected key {k}."
                     )
             self.extra_info[name] = [extra_info.get(k, None) for k in self.extra_field]
         elif hasattr(self, "extra_field"):
@@ -258,9 +239,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
         return module
 
-    def register(
-        self, force: bool = False, name: Optional[str] = None, **extra_info
-    ) -> Callable:
+    def register(self, force: bool = False, name: Optional[str] = None, **extra_info) -> Callable:
         """
         Decorator that registers a function or class with the current `Registry`.
         Any keyword arguments provided are added to the `extra_info` list for the
@@ -299,9 +278,7 @@ class Registry(dict, metaclass=RegistryMeta):
         if not isinstance(others, list):
             others = [others]
         if not isinstance(others[0], Registry):
-            raise TypeError(
-                "Expect `Registry` type, but got {}".format(type(others[0]))
-            )
+            raise TypeError(f"Expect `Registry` type, but got {type(others[0])}")
         for other in others:
             modules = list(other.values())
             names = list(other.keys())
@@ -318,9 +295,7 @@ class Registry(dict, metaclass=RegistryMeta):
         """
 
         filter_field = [filter_field] if isinstance(filter_field, str) else filter_field
-        filter_idx = [
-            i for i, name in enumerate(self.extra_field) if name in filter_field
-        ]
+        filter_idx = [i for i, name in enumerate(self.extra_field) if name in filter_field]
         out = []
         for name in self.keys():
             info = self.extra_info[name]
@@ -337,11 +312,11 @@ class Registry(dict, metaclass=RegistryMeta):
         """
         matched_modules = [
             getattr(base_module, name)
-            for name in base_module.__dict__.keys()
+            for name in base_module.__dict__
             if match_func(name, base_module)
         ]
         matched_modules = list(filter(_is_function_or_class, matched_modules))
-        logger.info("matched modules:{}", [i.__name__ for i in matched_modules])
+        logger.ex("matched modules:{}", [i.__name__ for i in matched_modules])
         self.register_all(matched_modules)
 
     def module_table(
@@ -361,7 +336,7 @@ class Registry(dict, metaclass=RegistryMeta):
             select_info = [select_info] if isinstance(select_info, str) else select_info
             for info_key in select_info:
                 if info_key not in self.extra_field:
-                    raise ValueError("Got unexpected info key {}".format(info_key))
+                    raise ValueError(f"Got unexpected info key {info_key}")
         else:
             select_info = []
 
@@ -382,16 +357,14 @@ class Registry(dict, metaclass=RegistryMeta):
         table_headers = [f"{item}" for item in [self.name, *select_info]]
 
         if select_info:
-            select_idx = [
-                idx for idx, name in enumerate(self.extra_field) if name in select_info
-            ]
+            select_idx = [idx for idx, name in enumerate(self.extra_field) if name in select_info]
         else:
             select_idx = []
 
-        table = tabulate(
+        table = _create_table(
+            table_headers,
             [(i, *[self.extra_info[i][idx] for idx in select_idx]) for i in modules],
-            headers=table_headers,
-            tablefmt="fancy_grid",
+            False,
             **table_kwargs,
         )
         table = "\n" + table
@@ -403,10 +376,10 @@ class Registry(dict, metaclass=RegistryMeta):
         Returns a table containing the names of all available registries.
         """
         table_headers = ["COMPONMENTS"]
-        table = tabulate(
+        table = _create_table(
+            table_headers,
             list(sorted([[i] for i in cls._registry_pool])),
-            headers=table_headers,
-            tablefmt="fancy_grid",
+            False,
             **table_kwargs,
         )
         table = "\n" + table
@@ -414,14 +387,16 @@ class Registry(dict, metaclass=RegistryMeta):
 
 
 def load_registries():
-    if not os.path.exists(_workspace_config_file):
-        logger.warning("Please run `excore init` in your command line first!")
+    if not os.path.exists(os.path.join(_cache_dir, Registry._registry_dir, _registry_cache_file)):
+        logger.warning("Please run `excore auto-register` in your command line first!")
+        return
     Registry.load()
     # We'd better to lock register to prevent
     # the inconsistency between the twice registration.
     Registry.lock_register()
     if not Registry._registry_pool:
-        raise RuntimeError(
+        logger.critical(
             "No module has been registered, \
                            you may need to call `excore.registry.auto_register` first"
         )
+        sys.exit(0)

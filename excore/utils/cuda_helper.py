@@ -1,13 +1,16 @@
 from enum import Enum
 from typing import List
 
-from pynvml import nvmlDeviceGetCount  # noqa
+from pynvml import (
+    nvmlDeviceGetCount,  # noqa
+    nvmlInit,
+    nvmlShutdown,
+)
 from pynvml import nvmlDeviceGetHandleByIndex as get_device_handle
 from pynvml import nvmlDeviceGetMemoryInfo as _get_memory_info
 from pynvml import nvmlDeviceGetName as get_device_name
 from pynvml import nvmlDeviceGetPowerState as _get_device_powerstate
 from pynvml import nvmlDeviceGetTemperature as _get_device_temperature
-from pynvml import nvmlInit, nvmlShutdown
 
 __all__ = [
     "get_device_handle",

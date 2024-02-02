@@ -1,6 +1,12 @@
+from excore import ConfigArgumentHook, logger
 from src import HOOK
 
-from excore.logger import logger
+
+@HOOK.register()
+class ParamsArgHook(ConfigArgumentHook):
+    def hook(self):
+        logger.debug("params argument hook")
+        return self.node()
 
 
 @HOOK.register()
