@@ -1,4 +1,4 @@
-from excore.logger import logger
+from excore import logger
 from src import OPTIM
 
 

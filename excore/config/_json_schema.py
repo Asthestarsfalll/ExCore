@@ -8,11 +8,12 @@ from types import ModuleType
 from typing import Dict, Optional, Union, _GenericAlias
 
 import toml
-from loguru import logger
 
-from ._constants import _cache_dir, _json_schema_file
-from .config import ConfigArgumentHookProtocol, _str_to_target
-from .registry import Registry, load_registries
+from .._constants import _cache_dir, _json_schema_file
+from ..engine.hook import ConfigArgumentHook
+from ..engine.logging import logger
+from ..engine.registry import Registry, load_registries
+from .model import _str_to_target
 
 NoneType = type(None)
 
@@ -101,7 +102,7 @@ def parse_registry(reg: Registry):
         if isinstance(func, ModuleType):
             continue
         doc_string = func.__doc__
-        is_hook = issubclass(func, ConfigArgumentHookProtocol)
+        is_hook = issubclass(func, ConfigArgumentHook)
         if isclass(func) and _check(func.__bases__):
             func = func.__init__
         params = inspect.signature(func).parameters
@@ -129,10 +130,8 @@ def parse_registry(reg: Registry):
 def _clean(anno):
     if not hasattr(anno, "__origin__"):
         return anno
-    if anno.__origin__ == type or (
-        # Optional
-        anno.__origin__ == Union and anno.__args__[1] == NoneType
-    ):
+    # Optional
+    if anno.__origin__ == type or (anno.__origin__ == Union and anno.__args__[1] == NoneType):
         return _clean(anno.__args__[0])
     return anno
 
