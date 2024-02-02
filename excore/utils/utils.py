@@ -34,7 +34,7 @@ class FileLock:
         self.lock.release()
 
 
-def _create_table(header, contents, split=True, **tabel_kwargs):
+def _create_table(header, contents, split=True, prefix="\n", **tabel_kwargs):
     if split:
         contents = [(i,) for i in contents]
     if header is None:
@@ -47,4 +47,4 @@ def _create_table(header, contents, split=True, **tabel_kwargs):
         tablefmt="fancy_grid",
         **tabel_kwargs,
     )
-    return "\n" + table
+    return prefix + table

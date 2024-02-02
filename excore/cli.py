@@ -19,10 +19,10 @@ from ._constants import (
     _workspace_cfg,
     _workspace_config_file,
 )
-from ._json_schema import _generate_json_shcema, _generate_taplo_config
-from .logger import logger
-from .registry import Registry
-from .utils import _create_table
+from .config._json_schema import _generate_json_shcema, _generate_taplo_config
+from .engine.logging import logger
+from .engine.registry import Registry
+from .utils.utils import _create_table
 
 app = typer.Typer(rich_markup_mode="rich")
 

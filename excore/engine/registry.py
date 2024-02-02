@@ -7,9 +7,10 @@ import sys
 from types import ModuleType
 from typing import Any, Callable, Dict, List, Optional, Sequence, Union
 
-from ._constants import _cache_dir, _registry_cache_file, _workspace_config_file
-from .logger import logger
-from .utils import FileLock, _create_table
+from excore.utils.utils import FileLock, _create_table
+
+from .._constants import _cache_dir, _registry_cache_file, _workspace_config_file
+from .logging import logger
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
 _private_flag: str = "__"
@@ -127,7 +128,7 @@ class Registry(dict, metaclass=RegistryMeta):
     def load(cls):
         if not os.path.exists(_workspace_config_file):
             logger.warning("Please run `excore init` in your command line first!")
-            raise RuntimeError()
+            sys.exit(0)
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
