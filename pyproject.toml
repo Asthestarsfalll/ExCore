@@ -44,7 +44,7 @@ pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
 
 [tool.poetry.scripts]
-excore = 'excore.cli:app'
+excore = 'excore.cli.launch:app'
 
 [build-system]
 requires = ["poetry-core"]

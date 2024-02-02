@@ -5,34 +5,16 @@ import os.path as osp
 import sys
 
 import astor
-import toml
 import typer
 from typer import Argument as CArg
-from typer import Option as COp
 from typing_extensions import Annotated
 
-from ._constants import (
-    LOGO,
-    _base_name,
-    _cache_base_dir,
-    _cache_dir,
-    _workspace_cfg,
-    _workspace_config_file,
-)
-from ._json_schema import _generate_json_shcema, _generate_taplo_config
-from .logger import logger
-from .registry import Registry
-from .utils import _create_table
-
-app = typer.Typer(rich_markup_mode="rich")
-
-
-def _dump_workspace_config():
-    logger.info("Dump config to {}", _workspace_config_file)
-    # TODO: Add props which can be used in config ?
-    _workspace_cfg["props"] = dict()
-    with open(_workspace_config_file, "w", encoding="UTF-8") as f:
-        toml.dump(_workspace_cfg, f)
+from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
+from ..config._json_schema import _generate_json_shcema, _generate_taplo_config
+from ..engine.logging import logger
+from ..engine.registry import Registry
+from ..utils.misc import _create_table
+from ._app import app
 
 
 def _has_import_excore(node):
@@ -168,93 +150,6 @@ def _update(is_init=True, entry="__init__"):
             [_format(i) for i in _workspace_cfg["registries"]]
         )
         logger.success("Update target_fields")
-    _dump_workspace_config()
-
-
-@app.command()
-def update():
-    """
-    Update workspace config file.
-    """
-    _update(False)
-
-
-@app.command()
-def init(
-    force: Annotated[bool, COp(help="Whther forcely initialize workspace")] = False,
-    entry: Annotated[
-        str, CArg(help="Used for detect or generate Registry definition code")
-    ] = "__init__",
-):
-    """
-    Initialize workspace and generate a config file.
-    """
-    if osp.exists(_cache_dir) and not force:
-        logger.warning("excore.toml already existed!")
-        return
-    cwd = os.getcwd()
-    logger.success(LOGO)
-    logger.opt(colors=True).info(
-        "This command will guide you to create your <cyan>excore.toml</cyan> config",
-        colors=True,
-    )
-    logger.opt(colors=True).info(f"It will be generated in <cyan>{cwd}</cyan>\n")
-    logger.opt(colors=True).info(f"WorkSpace Name [<green>{_base_name}</green>]:")
-    name = typer.prompt("", default=_base_name, show_default=False, prompt_suffix="")
-    if not force and os.path.exists(os.path.join(_cache_base_dir, _base_name)):
-        logger.warning(f"name {name} already existed!")
-        return
-
-    logger.opt(colors=True).info("Source Code Directory(relative path):")
-    src_dir = typer.prompt("", prompt_suffix="")
-
-    _workspace_cfg["name"] = name
-    _workspace_cfg["src_dir"] = src_dir
-
-    _update(True, entry)
-
-    logger.success("Welcome to ExCore. You can modify the `.excore.toml` file mannully.")
-
-
-def _clear_cache(cache_dir):
-    if os.path.exists(cache_dir):
-        import shutil  # pylint: disable=import-outside-toplevel
-
-        shutil.rmtree(cache_dir)
-        logger.info("Cache dir {} has been cleared!", cache_dir)
-    else:
-        logger.warning("Cache dir {} does not exist", cache_dir)
-
-
-@app.command()
-def clear_cache():
-    """
-    Remove the cache folder which belongs to current workspace.
-    """
-    if not typer.confirm(f"Are you sure you want to clear cache of {_base_name}?"):
-        return
-
-    target = os.path.join(_cache_dir, _base_name)
-    _clear_cache(target)
-
-
-@app.command()
-def clear_all_cache():
-    """
-    Remove the whole cache folder.
-    """
-    if not typer.confirm("Are you sure you want to clear all cache?"):
-        return
-    _clear_cache(_cache_base_dir)
-
-
-@app.command()
-def cache_list():
-    """
-    Show cache folders.
-    """
-    tabel = _create_table("NAMES", os.listdir(_cache_base_dir))
-    logger.info(tabel)
 
 
 def _get_default_module_name(target_dir):
@@ -328,7 +223,3 @@ def generate_registries(
     Generate registries definition code according to workspace config.
     """
     _generate_registries(entry)
-
-
-if __name__ == "__main__":
-    app()
