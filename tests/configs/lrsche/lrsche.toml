@@ -1,0 +1,4 @@
+[LRSche.ExponentialLR]
+@optimizer = "$Optimizer"
+gamma = 0.99
+

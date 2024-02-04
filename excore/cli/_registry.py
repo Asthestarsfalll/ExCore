@@ -105,15 +105,19 @@ def _format(reg_and_fields: str) -> str:
     return splits[0] + ": " + ", ".join(fields)
 
 
-def _get_target_fields(reg_and_fields):
+def _get_target_fields_and_reverse(reg_and_fields):
     fields = [i[1:].split(":") for i in reg_and_fields if i.startswith("*")]
     targets = []
+    rev = {}
     for i in fields:
         if len(i) == 1:
             targets.append(i[0])
         else:
-            targets.extend([j.strip() for j in i[1].split(",")])
-    return targets
+            tar = [j.strip() for j in i[1].split(",")]
+            for j in tar:
+                rev[j] = i[0]
+            targets.extend(tar)
+    return targets, rev
 
 
 def _get_registries(reg_and_fields):
@@ -138,7 +142,9 @@ def _update(is_init=True, entry="__init__"):
                 _workspace_cfg["registries"] = regs
             else:
                 logger.imp("You can define fields later.")
-            _workspace_cfg["target_fields"] = _get_target_fields(_workspace_cfg["registries"])
+            _workspace_cfg["target_fields"] = _get_target_fields_and_reverse(
+                _workspace_cfg["registries"]
+            )[0]
             _generate_registries(entry)
         else:
             logger.imp(
@@ -146,9 +152,9 @@ def _update(is_init=True, entry="__init__"):
                 "run `excore update` to generate `target_fields`"
             )
     else:
-        _workspace_cfg["target_fields"] = _get_target_fields(
+        _workspace_cfg["target_fields"] = _get_target_fields_and_reverse(
             [_format(i) for i in _workspace_cfg["registries"]]
-        )
+        )[0]
         logger.success("Update target_fields")
 
 
@@ -200,7 +206,7 @@ def target_fields():
     """
     Show target_fields.
     """
-    table = _create_table("FIELDS", _get_target_fields(_workspace_cfg["registries"]))
+    table = _create_table("FIELDS", _get_target_fields_and_reverse(_workspace_cfg["registries"]))
     logger.info(table)
 
 

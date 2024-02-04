@@ -102,7 +102,7 @@ def parse_registry(reg: Registry):
         if isinstance(func, ModuleType):
             continue
         doc_string = func.__doc__
-        is_hook = issubclass(func, ConfigArgumentHook)
+        is_hook = isclass(func) and issubclass(func, ConfigArgumentHook)
         if isclass(func) and _check(func.__bases__):
             func = func.__init__
         params = inspect.signature(func).parameters
@@ -171,6 +171,8 @@ def parse_single_param(p: Parameter):
         potential_type = _get_type(type(p.default))
     if p.name in SPECIAL_KEYS:
         return False, SPECIAL_KEYS[p.name]
+    if p.default is _empty:
+        potential_type = "number"
     if potential_type:
         prop["type"] = potential_type
     return p.default is _empty, prop

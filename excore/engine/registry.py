@@ -198,7 +198,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
     __str__ = __repr__
 
-    def _register(
+    def register_module(
         self,
         module: Union[Callable, ModuleType],
         force: bool = False,
@@ -235,7 +235,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
         # update to globals
         if Registry._globals is not None and name.startswith(_private_flag):
-            Registry._globals._register(module, force, name, **extra_info)
+            Registry._globals.register_module(module, force, name, **extra_info)
 
         return module
 
@@ -246,7 +246,7 @@ class Registry(dict, metaclass=RegistryMeta):
         registered element. If `force` is True, overwrites any existing element with
         the same name.
         """
-        return functools.partial(self._register, force=force, name=name, **extra_info)
+        return functools.partial(self.register_module, force=force, name=name, **extra_info)
 
     def register_all(
         self,
@@ -261,10 +261,12 @@ class Registry(dict, metaclass=RegistryMeta):
         extra information from the corresponding dict in `extra_info` (if provided).
         If `force` is True, overwrites any existing elements with the same names.
         """
+        if Registry._prevent_register:
+            return
         _names = names if names else [None] * len(modules)
         _info = extra_info if extra_info else [{}] * len(modules)
         for module, name, info in zip(modules, _names, _info):
-            self._register(module, force=force, name=name, **info)
+            self.register_module(module, force=force, name=name, **info)
 
     def merge(
         self,
@@ -305,11 +307,13 @@ class Registry(dict, metaclass=RegistryMeta):
         out = list(sorted(out))
         return out
 
-    def match(self, base_module, match_func=_default_match_func):
+    def match(self, base_module, match_func=_default_match_func, force=False):
         """
         Registers all functions or classes from the given module that pass a matching
         function. If `match_func` is not provided, uses `_default_match_func`.
         """
+        if Registry._prevent_register:
+            return
         matched_modules = [
             getattr(base_module, name)
             for name in base_module.__dict__
@@ -317,7 +321,7 @@ class Registry(dict, metaclass=RegistryMeta):
         ]
         matched_modules = list(filter(_is_function_or_class, matched_modules))
         logger.ex("matched modules:{}", [i.__name__ for i in matched_modules])
-        self.register_all(matched_modules)
+        self.register_all(matched_modules, force=force)
 
     def module_table(
         self,

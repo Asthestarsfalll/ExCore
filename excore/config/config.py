@@ -1,5 +1,4 @@
 import os
-import sys
 import time
 from typing import Tuple
 
@@ -9,32 +8,30 @@ from .._exceptions import CoreConfigSupportError
 from ..engine.logging import logger
 from ..engine.registry import load_registries
 from .lazy_config import LazyConfig
-from .parse import AttrNode
+from .parse import ConfigDict
 
 __all__ = ["load", "build_all", "load_config"]
 
 
-# TODO: Prune and decoupling. low priority.
 # TODO: Improve error messages. high priority.
-# TODO: Support multiple same module parse.
+# TODO: Support multiple same modules parsing.
 # TODO: Add UnitTests. high priority.
 
-sys.path.append(os.getcwd())
 
 BASE_CONFIG_KEY = "__base__"
 
 
-def load_config(filename: str, base_key: str = "__base__") -> AttrNode:
+def load_config(filename: str, base_key: str = "__base__") -> ConfigDict:
     logger.info(f"load_config {filename}")
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
 
     if ext != ".toml":
         raise CoreConfigSupportError(f"Only support `toml` files for now, but got {filename}")
-    config = toml.load(filename, AttrNode)
+    config = toml.load(filename, ConfigDict)
 
     base_cfgs = [load_config(os.path.join(path, i), base_key) for i in config.pop(base_key, [])]
-    base_cfg = AttrNode()
+    base_cfg = ConfigDict()
     for c in base_cfgs:
         _merge_config(base_cfg, c)
     _merge_config(base_cfg, config)

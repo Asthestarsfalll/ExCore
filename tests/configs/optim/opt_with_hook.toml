@@ -1,0 +1,11 @@
+[Optimizer.SGD]
+@params = "$Model.parameters()@BnWeightDecayHook@DoNothing"
+lr = 0.1
+
+[ConfigHook.BnWeightDecayHook]
+enabled = true
+bn_weight_decay = 0.99
+weight_decay = 0
+
+[ConfigHook.DoNothing]
+enabled = true

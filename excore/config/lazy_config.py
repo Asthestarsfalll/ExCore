@@ -4,8 +4,8 @@ from typing import Any, Dict, Tuple
 from .._exceptions import CoreConfigBuildError
 from ..engine.hook import ConfigHookManager
 from ..engine.registry import Registry
-from .model import ConfigHookNode, InterNode, ModuleNode, ModuleWrapper
-from .parse import AttrNode
+from .model import ConfigHookNode, InterNode, ModuleWrapper
+from .parse import ConfigDict
 
 
 # TODO: automatically generate pyi file
@@ -14,7 +14,7 @@ from .parse import AttrNode
 class LazyConfig:
     hook_key = "ConfigHook"
 
-    def __init__(self, config: AttrNode) -> None:
+    def __init__(self, config: ConfigDict) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
         self.target_modules = config.target_fields
         config.registered_fields = list(Registry._registry_pool.keys())
@@ -30,12 +30,13 @@ class LazyConfig:
         hooks = []
         if hook_cfgs:
             _, base = Registry.find(list(hook_cfgs.keys())[0])
+            reg = Registry.get_registry(base)
             for name, params in hook_cfgs.items():
-                hook = ConfigHookNode(name, base).update(params)()
+                hook = ConfigHookNode.from_str(reg[name], **params)()
                 if hook:
                     hooks.append(hook)
                 else:
-                    self._config[name] = InterNode(name, base).update(params)
+                    self._config[name] = InterNode.from_str(reg[name], **params)
         self.hooks = ConfigHookManager(hooks)
 
     def __getattr__(self, __name: str) -> Any:
@@ -51,25 +52,20 @@ class LazyConfig:
             raise CoreConfigBuildError(
                 "`target_modules` can't be None when calling `LazyConfig.build_all`"
             )
-        module_dict, isolated_dict = {}, {}
+        module_dict, isolated_dict = ModuleWrapper(), {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:
             if name not in self._config:
                 continue
             self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
-            module_dict[name] = self._config[name]()
-        for name in self._config.isolated_keys():
-            self.hooks.call_hooks("every_build", self, module_dict, isolated_dict)
-            module = self._config[name]
-            if isinstance(module, ModuleNode):
-                module = module()
-            isolated_dict[name] = module
+            out = self._config[name]()
+            if isinstance(out, list):
+                out = ModuleWrapper(out)
+            module_dict[name] = out
+        for name in self._config.non_target_keys():
+            isolated_dict[name] = self._config[name]
         self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
-        for k in list(isolated_dict.keys()):
-            obj = isolated_dict[k]
-            if isinstance(obj, ModuleWrapper):
-                isolated_dict.pop(k)
-        return module_dict, isolated_dict
+        return ModuleWrapper(module_dict), isolated_dict
 
     def __str__(self):
         return str(self._config)
