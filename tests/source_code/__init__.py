@@ -2,7 +2,10 @@ import time
 
 from excore import Registry
 
-MODEL = Registry("Model", extra_field=["is_pretrained", "is_backbone"])
+MODEL = Registry("Model")
+BLOCK = Registry("Block")
+HEAD = Registry("Head")
+BACKBONE = Registry("Backbone")
 DATA = Registry("Data")
 HOOK = Registry("Hook")
 LOSS = Registry("Loss")

@@ -1,0 +1,5 @@
+__base__ = ["./test_reused_intern.toml"]
+
+[Model.DeepLabV3]
+!backbone = "$Backbone"
+!classifier = "$Head"

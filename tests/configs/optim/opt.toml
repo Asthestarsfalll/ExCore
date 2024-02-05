@@ -1,0 +1,5 @@
+learning_rate = 0.1
+
+[Optimizer.SGD]
+@params = "$Model.backbone.parameters()"
+&lr = "learning_rate"

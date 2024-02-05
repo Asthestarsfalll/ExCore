@@ -1,0 +1,6 @@
+__base__ = [
+  "../models/fcn.toml",
+  "../backbones/resnet.toml",
+  "../heads/head.toml",
+  "../optim/opt.toml",
+]

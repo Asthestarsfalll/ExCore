@@ -16,7 +16,6 @@ classifiers = [
   "Topic :: Utilities",
   "Development Status :: 4 - Beta",
   "Programming Language :: Python :: 3 :: Only",
-  "Programming Language :: Python :: 3.7",
   "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -25,7 +24,7 @@ classifiers = [
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.8"
 loguru = "^0.7.2"
 requests = "2.28.1"
 toml = "0.10.2"
@@ -42,6 +41,8 @@ pre-commit = "2.21.0"
 ruff = "^0.1.14"
 pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
+torch = "1.13.1"
+torchvision = "0.14.1"
 
 [tool.poetry.scripts]
 excore = 'excore.cli.launch:app'

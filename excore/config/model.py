@@ -1,7 +1,7 @@
 import importlib
 from dataclasses import dataclass
 from sys import exc_info, exit
-from typing import Any, List, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from .._exceptions import ModuleBuildError
 from ..engine.hook import ConfigArgumentHook
@@ -67,36 +67,7 @@ def _str_to_target(module_name):
 
 @dataclass
 class ModuleNode(dict):
-    name: str
-    base: str
-
-    def __setitem__(self, k, v) -> None:
-        k, k_type = _is_special(k)
-        if k_type == REFER_FLAG:
-            v = VariableReference(v)
-        elif k_type:
-            _v = v
-            v = _attr2module(k, k_type, k_type)
-            # prevent recursion depth exceed
-            # just a placeholder
-            super(ModuleNode, v).__setitem__(k_type, _v)
-        super().__setitem__(k, v)
-
-    def set_funcs(self, funcs):
-        self.funcs = funcs
-
-    def add_params(self, **kwargs):
-        self.update(kwargs)
-
-    def update(self, others: dict) -> "ModuleNode":
-        """
-        Override native `update` method to make it use the overrode
-        `__setitem__` method.
-        Return self for convenience.
-        """
-        for k, v in others.items():
-            self[k] = v
-        return self
+    cls: Any
 
     def _get_params(self, **kwargs):
         params = {}
@@ -107,50 +78,67 @@ class ModuleNode(dict):
         params.update(kwargs)
         return params
 
-    def _get_cls(self):
-        try:
-            cls_name = Registry.get_registry(self.base)[self.name]
-        except Exception as exc:
-            logger.critical(exc_info())
-            raise ModuleBuildError(
-                f"Failed to find the registered module {self.name} with base registry {self.base}"
-            ) from exc
-        cls = _str_to_target(cls_name)
-        return cls
+    @property
+    def name(self):
+        return self.cls.__name__
 
-    def _build_instance(self, cls, params):
+    def update(self, _other):
+        super().update(_other)
+        return self
+
+    def _build_instance(self, params):
         try:
-            module = cls(**params)
+            module = self.cls(**params)
         except Exception as exc:
             logger.critical(exc_info())
             raise ModuleBuildError(
-                f"Build Error with module {cls} and arguments {{**params}}"
+                f"Build Error with module {self.cls} and arguments {params}"
             ) from exc
         if LOG_BUILD_MESSAGE:
-            logger.success(f"Successfully build module: {self.name}, with arguments {{**params}}")
+            logger.success(
+                f"Successfully build module: {self.cls.__name__}, with arguments {params}"
+            )
         return module
 
     def __call__(self, **kwargs):
-        cls = self._get_cls()
         params = self._get_params(**kwargs)
-        module = self._build_instance(cls, params)
+        module = self._build_instance(params)
         return module
+
+    @classmethod
+    def from_str(cls, str_target, **params):
+        node = cls(_str_to_target(str_target))
+        node.update(params)
+        return node
+
+    @classmethod
+    def from_base_name(cls, base, name, **params):
+        try:
+            cls_name = Registry.get_registry(base)[name]
+        except Exception as exc:
+            logger.critical(exc_info())
+            raise ModuleBuildError(
+                f"Failed to find the registered module {name} with base registry {base}"
+            ) from exc
+        return cls.from_str(cls_name, **params)
+
+    @classmethod
+    def from_node(cls, _other: "ModuleNode") -> "ModuleNode":
+        if _other.__class__.__name__ == cls.__name__:
+            return _other
+        return cls(_other.cls).update(_other)
 
 
 class InterNode(ModuleNode):
-    @property
-    def target_feild(self):
-        assert self.base in [REUSE_FLAG, INTER_FLAG, CLASS_FLAG]
-        return self.pop(self.base)
+    pass
 
 
 class ConfigHookNode(ModuleNode):
     def __call__(self, **kwargs):
-        cls = self._get_cls()
-        if issubclass(cls, ConfigArgumentHook):
+        if issubclass(self.cls, ConfigArgumentHook):
             return None
         params = self._get_params(**kwargs)
-        return self._build_instance(cls, params)
+        return self._build_instance(params)
 
 
 class ReusedNode(InterNode):
@@ -160,7 +148,8 @@ class ReusedNode(InterNode):
 
 
 class ClassNode(InterNode):
-    __call__ = ModuleNode._get_cls
+    def __call__(self):
+        return self.cls
 
 
 @dataclass
@@ -191,16 +180,29 @@ class VariableReference:
 
 
 class ModuleWrapper(dict):
-    def __init__(self, modules: Optional[Union[List[ModuleNode], ModuleNode]] = None):
+    def __init__(
+        self, modules: Optional[Union[Dict[str, ModuleNode], List[ModuleNode], ModuleNode]] = None
+    ):
         super().__init__()
         if modules is None:
             return
-        if isinstance(modules, ModuleNode):
-            modules = [modules]
-        elif not isinstance(modules, list):
-            raise TypeError(f"Expect modules to be `list` or `ModuleNode`, but got {type(modules)}")
-        for m in modules:
-            self[m.name] = m
+        if isinstance(modules, (ModuleNode, ConfigArgumentHook, ChainedInvocationWrapper)):
+            self[modules.name] = modules
+        elif isinstance(modules, dict):
+            for k, m in modules.items():
+                self[k] = m
+        elif isinstance(modules, list):
+            for m in modules:
+                self[self._get_name(m)] = m
+        else:
+            raise TypeError(
+                f"Expect modules to be `list`, `dict` or `ModuleNode`, but got {type(modules)}"
+            )
+
+    def _get_name(self, m):
+        if hasattr(m, "name"):
+            return m.name
+        return m.__class__.__name__
 
     def add_params(self, **kwargs):
         if len(self) == 1:
@@ -226,32 +228,6 @@ class ModuleWrapper(dict):
 
     def __repr__(self) -> str:
         return f"ModuleWrapper{list(self.values())}"
-
-
-def _attr2module(v, base, k_type=""):
-    ModuleType = _dispatch_module_node[k_type]
-    if not base:
-        return v
-    if isinstance(v, dict):
-        # if v is {}, return {}
-        return {_k: ModuleType(_k, base).update(_v) for _k, _v in v.items()}
-    if isinstance(v, list):
-        return [ModuleType(_k, base) for _k in v]
-    if isinstance(v, str):
-        return ModuleType(v, base)
-    raise RuntimeError()
-
-
-def _convert2module(m, k_type, ModuleType=None, return_wrapper=True):
-    if isinstance(m, ModuleWrapper):
-        assert len(m) == 1
-        m = m.first()
-    if not isinstance(m, ModuleNode):
-        return m
-    ModuleType = ModuleType or _dispatch_module_node[k_type]
-    if return_wrapper:
-        return ModuleWrapper(ModuleType(m.name, m.base).update(m))
-    return ModuleType(m.name, m.base)
 
 
 _dispatch_module_node = {

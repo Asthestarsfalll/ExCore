@@ -1,3 +1,5 @@
+import sys
+
 from . import config
 from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
 from .config.config import build_all, load
@@ -40,3 +42,4 @@ init_logger()
 _load_workspace_config()
 set_target_fields(_workspace_cfg["target_fields"])
 _enable_excore_debug()
+sys.path.append(_workspace_cfg["base_dir"])

@@ -8,7 +8,7 @@ from .model import (
     VariableReference,
     silent,
 )
-from .parse import AttrNode, set_target_fields
+from .parse import ConfigDict, set_target_fields
 
 __all__ = [
     "build_all",
@@ -16,7 +16,7 @@ __all__ = [
     "load_config",
     "silent",
     "set_target_fields",
-    "AttrNode",
+    "ConfigDict",
     "ChainedInvocationWrapper",
     "ClassNode",
     "InterNode",

@@ -27,8 +27,8 @@ filtered_module_name = MODELS.filter("is_pretrained", _check_func)
 logger.info(MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name))
 logger.info(Registry.registry_table())
 
-config.set_target_fields(config.parse.AttrNode.target_fields + ["Backbone"])
-logger.info(config.AttrNode.target_fields)
+config.set_target_fields(config.parse.ConfigDict.target_fields + ["Backbone"])
+logger.info(config.ConfigDict.target_fields)
 config.silent()
 cfg = config.load("./configs/run.toml")
 logger.info(cfg)
@@ -36,10 +36,9 @@ logger.info(cfg)
 assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone
 modules_dict, cfg_dict = config.build_all(cfg)
-assert id(modules_dict["Optimizer"]) == id(modules_dict["LRSche"].optimizer)
-assert id(modules_dict["Model"].backbone) == id(modules_dict["Backbone"])
-assert modules_dict["Model"].head.timer == time
-assert modules_dict["Optimizer"].kwargs["params"] == modules_dict["Model"].parameters()
+assert id(modules_dict.Optimizer) == id(modules_dict.LRSche.optimizer)
+assert id(modules_dict.Model.backbone) == id(modules_dict.Backbone)
+assert modules_dict.Model.head.timer == time
+assert modules_dict.Optimizer.kwargs["params"] == modules_dict.Model.parameters()
 
-print(modules_dict)
 print(cfg_dict)
