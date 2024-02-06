@@ -214,7 +214,7 @@ class ConfigArgumentHook:
     def __init__(
         self,
         node: Callable,
-        enabled: bool,
+        enabled: bool = True,
     ):
         self.node = node
         self.enabled = enabled

@@ -1,6 +1,7 @@
 __base__ = [
-'../models/fcn.toml',
-'../models/deeplab.toml',
-'../backbones/resnet.toml',
-'../heads/head.toml',
+  '../models/fcn.toml',
+  '../models/deeplab.toml',
+  '../backbones/resnet.toml',
+  '../heads/head.toml',
+  '../global.toml',
 ]

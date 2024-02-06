@@ -40,6 +40,6 @@ __all__ = [
 
 init_logger()
 _load_workspace_config()
-set_target_fields(_workspace_cfg["target_fields"])
+set_target_fields(_workspace_cfg)
 _enable_excore_debug()
 sys.path.append(_workspace_cfg["base_dir"])

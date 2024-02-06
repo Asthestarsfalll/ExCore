@@ -1,0 +1,9 @@
+[TestData.MockData]
+trans = 1
+
+[TrainData.MockData]
+!trans = ["Pad", "Resize"]
+
+[Transform.Pad]
+
+[Transform.Resize]

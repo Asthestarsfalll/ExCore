@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "excore"
-version = "0.1.1"
+version = "0.1.1beta"
 description = "Build your own development toolkit efficiently."
 authors = ["Asthestarsfalll <1186454801@qq.com>"]
 license = "MIT"

@@ -55,7 +55,7 @@ def _init_json_schema(settings: Optional[Dict]) -> Dict:
     return default_schema
 
 
-def _generate_json_shcema(
+def _generate_json_schema(
     fields: Dict,
     save_path: Optional[str] = None,
     schema_settings: Optional[Dict] = None,

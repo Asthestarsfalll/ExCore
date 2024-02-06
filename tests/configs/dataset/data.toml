@@ -1,0 +1,12 @@
+[TestData.MockData]
+trans = 1
+
+[TrainData.MockData]
+!trans = ["Pad", "Resize"]
+
+[Transform.Pad]
+padding = 1
+
+[Transform.Resize]
+size = 124
+max_size = 250
