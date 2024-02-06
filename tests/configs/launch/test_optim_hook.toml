@@ -3,4 +3,5 @@ __base__ = [
   "../backbones/resnet.toml",
   "../heads/head.toml",
   "../optim/opt_with_hook.toml",
+  "../global.toml",
 ]

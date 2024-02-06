@@ -1,5 +1,6 @@
 # Custom
 local_tests/
+temp*
 .empty/
 .taplo.toml
 .excore.toml

@@ -1,1 +1,1 @@
-__base__ = ["./test_optim.toml", "../lrsche/lrsche.toml"]
+__base__ = ["./test_optim.toml", "../lrsche/lrsche.toml", "../global.toml"]

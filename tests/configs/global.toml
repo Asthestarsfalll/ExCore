@@ -1,0 +1,13 @@
+test1 = 1
+
+test2 = [1, 2, 3]
+
+[test3]
+a = 1
+b = 2
+c = 3
+
+[test4.test5]
+a = 1
+b = 2
+c = 3

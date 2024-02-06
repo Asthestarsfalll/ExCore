@@ -8,9 +8,17 @@ predefined_inputs = {
 }
 
 
+def excute(command: str, inputs=None):
+    if inputs:
+        subprocess.run(
+            command.split(" "), stdout=subprocess.PIPE, input="\n".join(inputs), text=True
+        )
+    else:
+        subprocess.run(command.split(" "), stdout=subprocess.PIPE)
+
+
 def init():
-    input_data = "\n".join(predefined_inputs.values())
-    subprocess.run(["excore", "init"], stdout=subprocess.PIPE, input=input_data, text=True)
+    excute("excore init --force", predefined_inputs.values())
     cfg = toml.load("./.excore.toml")
     cfg["registries"] = [
         "*Model",
@@ -26,8 +34,9 @@ def init():
     ]
     with open("./.excore.toml", "w", encoding="UTF-8") as f:
         toml.dump(cfg, f)
-    subprocess.run(["excore", "update"])
-    subprocess.run(["excore", "auto-register"])
+    excute("excore update")
+    excute("excore auto-register")
+
 
 if __name__ == "__main__":
     init()

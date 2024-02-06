@@ -1,4 +1,4 @@
-__base__ = ["./test_reused_intern.toml"]
+__base__ = ["./test_reused_intern.toml", "../global.toml"]
 
 [Model.DeepLabV3]
 !backbone = "$Backbone"

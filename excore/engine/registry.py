@@ -180,10 +180,11 @@ class Registry(dict, metaclass=RegistryMeta):
         """
         if cls._globals is not None:
             return cls._globals
-        cls._globals = cls("__global")
+        reg = cls("__global")
         for member in Registry._registry_pool.values():
-            cls._globals.merge(member, force=False)
-        return cls._globals
+            reg.merge(member, force=False)
+        cls._globals = reg
+        return reg
 
     def __setitem__(self, k, v) -> None:
         _is_pure_ascii(k)
@@ -202,17 +203,19 @@ class Registry(dict, metaclass=RegistryMeta):
         self,
         module: Union[Callable, ModuleType],
         force: bool = False,
-        name: Optional[str] = None,
+        _is_str: bool = False,
         **extra_info,
     ) -> Union[Callable, ModuleType]:
         if Registry._prevent_register:
             logger.ex("Registry has been locked!!!")
             return module
-        if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
-            raise TypeError(f"Only support function or class, but got {type(module)}")
-        true_name = _get_module_name(module)
-        name = name or true_name
-        if not force and name in self and not self[name] == module:
+        if not _is_str:
+            if not (_is_function_or_class(module) or isinstance(module, ModuleType)):
+                raise TypeError(f"Only support function or class, but got {type(module)}")
+            name = _get_module_name(module)
+        else:
+            name = module.split(".")[-1]
+        if not force and name in self:
             raise ValueError(f"The name {name} exists")
 
         if extra_info:
@@ -226,47 +229,47 @@ class Registry(dict, metaclass=RegistryMeta):
             self.extra_info[name] = [extra_info.get(k, None) for k in self.extra_field]
         elif hasattr(self, "extra_field"):
             self.extra_info[name] = [None] * len(self.extra_field)
-
-        self[name] = (
-            true_name
-            if isinstance(module, ModuleType)
-            else ".".join([module.__module__, module.__qualname__])
-        )
+        if not _is_str:
+            target = (
+                name
+                if isinstance(module, ModuleType)
+                else ".".join([module.__module__, module.__qualname__])
+            )
+        else:
+            target = module
+        self[name] = target
 
         # update to globals
-        if Registry._globals is not None and name.startswith(_private_flag):
-            Registry._globals.register_module(module, force, name, **extra_info)
+        if Registry._globals is not None and not name.startswith(_private_flag):
+            Registry._globals.register_module(target, force, True, **extra_info)
 
         return module
 
-    def register(self, force: bool = False, name: Optional[str] = None, **extra_info) -> Callable:
+    def register(self, force: bool = False, **extra_info) -> Callable:
         """
         Decorator that registers a function or class with the current `Registry`.
         Any keyword arguments provided are added to the `extra_info` list for the
         registered element. If `force` is True, overwrites any existing element with
         the same name.
         """
-        return functools.partial(self.register_module, force=force, name=name, **extra_info)
+        return functools.partial(self.register_module, force=force, **extra_info)
 
     def register_all(
         self,
         modules: Sequence[Callable],
-        names: Optional[Sequence[str]] = None,
         extra_info: Optional[Sequence[Dict[str, Any]]] = None,
         force: bool = False,
+        _is_str: bool = False,
     ) -> None:
         """
-        Registers multiple functions or classes with the current `Registry`. Each
-        element in `modules` is associated with a name from `names` (if provided) and
-        extra information from the corresponding dict in `extra_info` (if provided).
+        Registers multiple functions or classes with the current `Registry`.
         If `force` is True, overwrites any existing elements with the same names.
         """
         if Registry._prevent_register:
             return
-        _names = names if names else [None] * len(modules)
         _info = extra_info if extra_info else [{}] * len(modules)
-        for module, name, info in zip(modules, _names, _info):
-            self.register_module(module, force=force, name=name, **info)
+        for module, info in zip(modules, _info):
+            self.register_module(module, force=force, _is_str=_is_str, **info)
 
     def merge(
         self,
@@ -279,12 +282,11 @@ class Registry(dict, metaclass=RegistryMeta):
         """
         if not isinstance(others, list):
             others = [others]
-        if not isinstance(others[0], Registry):
-            raise TypeError(f"Expect `Registry` type, but got {type(others[0])}")
         for other in others:
+            if not isinstance(other, Registry):
+                raise TypeError(f"Expect `Registry` type, but got {type(other)}")
             modules = list(other.values())
-            names = list(other.keys())
-            self.register_all(modules, force=force, names=names)
+            self.register_all(modules, force=force, _is_str=True)
 
     def filter(
         self,
@@ -379,7 +381,7 @@ class Registry(dict, metaclass=RegistryMeta):
         """
         Returns a table containing the names of all available registries.
         """
-        table_headers = ["COMPONMENTS"]
+        table_headers = ["REGISTRY"]
         table = _create_table(
             table_headers,
             list(sorted([[i] for i in cls._registry_pool])),

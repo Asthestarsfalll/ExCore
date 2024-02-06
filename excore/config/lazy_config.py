@@ -1,7 +1,6 @@
 from copy import deepcopy
 from typing import Any, Dict, Tuple
 
-from .._exceptions import CoreConfigBuildError
 from ..engine.hook import ConfigHookManager
 from ..engine.registry import Registry
 from .model import ConfigHookNode, InterNode, ModuleWrapper
@@ -48,10 +47,6 @@ class LazyConfig:
 
     # TODO: refine output
     def build_all(self) -> Tuple[Dict, Dict]:
-        if self.target_modules is None:
-            raise CoreConfigBuildError(
-                "`target_modules` can't be None when calling `LazyConfig.build_all`"
-            )
         module_dict, isolated_dict = ModuleWrapper(), {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:

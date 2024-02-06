@@ -33,6 +33,7 @@ def _parse_param_name(name):
 
 class ConfigDict(dict):
     target_fields: List
+    target_to_registry: Dict[str, str]
     registered_fields: List
 
     def __new__(cls):
@@ -43,24 +44,22 @@ class ConfigDict(dict):
         class ConfigDictImpl(ConfigDict):
             # otherwise it will share the same class variable with father class.
             target_fields = ConfigDict.target_fields
+            target_to_registry = ConfigDict.target_to_registry
 
         inst = super().__new__(ConfigDictImpl)
         return inst
 
     @classmethod
-    def set_target_fields(cls, target_fields):
+    def set_target_fields(cls, target_fields, target_to_registry):
         """
         Sets the `target_modules` attribute to the specified list of module names,
             and `registered_modules` attributes based on the current state
             of the `Registry` object.
 
         Note that `set_key_fields` must be called before `config.load`.
-
-        Attributes:
-            target_modules (List[str]): Target module names that need to be built.
-            registered_modules (List[str]): A list of all module names that have been registered.
         """
         cls.target_fields = target_fields
+        cls.target_to_registry = target_to_registry
 
     def parse(self):
         self._parse_target_modules()
@@ -94,10 +93,13 @@ class ConfigDict(dict):
             if name in self.registered_fields:
                 base = name
             else:
-                reg = Registry.get_registry(name)
+                if name in self.registered_fields:
+                    reg = Registry.get_registry(name)
+                else:
+                    reg = Registry.get_registry(self.target_to_registry.get(name, ""))
                 if reg is None:
                     raise CoreConfigParseError(f"Undefined registry `{name}`")
-                for n in self[name].keys():
+                for n in self[name]:
                     if n not in reg:
                         raise CoreConfigParseError(f"Unregistered module `{n}`")
                 base = reg.name
@@ -249,8 +251,10 @@ class ConfigDict(dict):
             _dict[k] = v
 
 
-def set_target_fields(target_fields):
+def set_target_fields(cfg):
+    target_fields = cfg["target_fields"]
+    target_to_registry = cfg["target_to_registry"]
     if hasattr(ConfigDict, "target_fields"):
         logger.ex("`target_fields` will be set to {}", target_fields)
     if target_fields:
-        ConfigDict.set_target_fields(target_fields)
+        ConfigDict.set_target_fields(target_fields, target_to_registry)

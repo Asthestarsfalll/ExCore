@@ -329,7 +329,9 @@ def _init_hub(
         git_host, repo_info, use_cache=use_cache, commit=commit, protocol=protocol
     )
     sys.path.insert(0, absolute_repo_dir)
-    hubmodule = load_module(hubconf_entry, os.path.join(absolute_repo_dir, hubconf_entry))
+    hubmodule = load_module(
+        ".".join(hubconf_entry.split(os.sep)), os.path.join(absolute_repo_dir, hubconf_entry)
+    )
     sys.path.remove(absolute_repo_dir)
 
     return hubmodule
