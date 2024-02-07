@@ -9,7 +9,7 @@ from typing import Dict, Optional, Union, _GenericAlias
 
 import toml
 
-from .._constants import _cache_dir, _json_schema_file
+from .._constants import _cache_dir, _class_mapping_file, _json_schema_file
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry, load_registries
@@ -55,13 +55,15 @@ def _init_json_schema(settings: Optional[Dict]) -> Dict:
     return default_schema
 
 
-def _generate_json_schema(
+def _generate_json_schema_and_class_mapping(
     fields: Dict,
     save_path: Optional[str] = None,
+    class_mapping_save_path: Optional[str] = None,
     schema_settings: Optional[Dict] = None,
 ) -> None:
     load_registries()
     schema = _init_json_schema(schema_settings)
+    class_mapping = {}
     isolated_fields = fields.pop("isolated_fields", [])
     for name, reg in Registry._registry_pool.items():
         target_fields = fields.get(name, name)
@@ -69,7 +71,8 @@ def _generate_json_schema(
             target_fields = [target_fields]
         elif not isinstance(target_fields, (list, tuple)):
             raise TypeError("Unexpected type of elements of fields")
-        props = parse_registry(reg)
+        props, mapping = parse_registry(reg)
+        class_mapping.update(mapping)
         for f in target_fields:
             schema["properties"][f] = props
         # Is this too heavey?
@@ -78,9 +81,13 @@ def _generate_json_schema(
                 schema["properties"][name] = v
     json_str = json.dumps(schema, indent=2)
     save_path = save_path or _json_schema_path()
+    class_mapping_save_path = class_mapping_save_path or _class_mapping_path()
     with open(save_path, "w", encoding="UTF-8") as f:
         f.write(json_str)
     logger.success("json schema has been written to {}", save_path)
+    with open(class_mapping_save_path, "w", encoding="UTF-8") as f:
+        f.write(json.dumps(class_mapping))
+    logger.success("class mapping has been written to {}", class_mapping_save_path)
 
 
 def _check(bases):
@@ -97,10 +104,12 @@ def parse_registry(reg: Registry):
         "type": "object",
         "properties": {},
     }
+    class_mapping = {}
     for name, item_dir in reg.items():
         func = _str_to_target(item_dir)
         if isinstance(func, ModuleType):
             continue
+        class_mapping[name] = [inspect.getfile(func), inspect.getsourcelines(func)[1]]
         doc_string = func.__doc__
         is_hook = isclass(func) and issubclass(func, ConfigArgumentHook)
         if isclass(func) and _check(func.__bases__):
@@ -124,7 +133,7 @@ def parse_registry(reg: Registry):
         if required:
             param_props["required"] = required
         props["properties"][name] = param_props
-    return props
+    return props, class_mapping
 
 
 def _clean(anno):
@@ -180,6 +189,10 @@ def parse_single_param(p: Parameter):
 
 def _json_schema_path():
     return os.path.join(_cache_dir, _json_schema_file)
+
+
+def _class_mapping_path():
+    return os.path.join(_cache_dir, _class_mapping_file)
 
 
 def _generate_taplo_config(path):

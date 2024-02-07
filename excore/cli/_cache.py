@@ -47,3 +47,10 @@ def cache_list():
     """
     tabel = _create_table("NAMES", os.listdir(_cache_base_dir))
     logger.info(tabel)
+
+
+@app.command()
+def cache_dir():
+    # if not os.path.exists(_workspace_config_file):
+    #     raise RuntimeError("Not in ExCore project")
+    print(_cache_dir)

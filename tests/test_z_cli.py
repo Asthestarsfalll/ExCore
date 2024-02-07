@@ -13,8 +13,8 @@ def test_generate_registries():
     from source_code import temp  # noqa: F401
 
 
-def test_generate_json_schema():
-    excute("excore config-completion")
+def test_config_extention():
+    excute("excore config-extention")
 
 
 def test_cache():
