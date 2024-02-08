@@ -10,6 +10,7 @@ _cache_base_dir = osp.expanduser("~/.cache/excore/")
 _workspace_config_file = "./.excore.toml"
 _registry_cache_file = "registry_cache.pkl"
 _json_schema_file = "excore_schema.json"
+_class_mapping_file = "class_mapping.json"
 
 
 def _load_workspace_config():
