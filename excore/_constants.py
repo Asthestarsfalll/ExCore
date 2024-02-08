@@ -4,7 +4,7 @@ import os.path as osp
 from .engine.logging import logger
 
 __author__ = "Asthestarsfalll"
-__version__ = "0.1.3"
+__version__ = "0.1.1beta"
 
 _cache_base_dir = osp.expanduser("~/.cache/excore/")
 _workspace_config_file = "./.excore.toml"
@@ -49,10 +49,10 @@ _workspace_cfg = dict(
     base_dir=os.getcwd(),
     registries=[],
     target_fields=[],
-    json_schema_fields=dict(),
-    props=dict(),
+    target_to_registry={},
+    json_schema_fields={},
+    props={},
 )
-
 
 LOGO = r"""
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████

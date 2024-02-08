@@ -34,10 +34,6 @@ class CoreConfigParseError(BaseException):
     pass
 
 
-class CoreConfigBuildError(BaseException):
-    pass
-
-
 class ModuleBuildError(BaseException):
     pass
 

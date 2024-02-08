@@ -10,7 +10,7 @@ from typer import Argument as CArg
 from typing_extensions import Annotated
 
 from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
-from ..config._json_schema import _generate_json_shcema, _generate_taplo_config
+from ..config._json_schema import _generate_json_schema, _generate_taplo_config
 from ..engine.logging import logger
 from ..engine.registry import Registry
 from ..utils.misc import _create_table
@@ -105,15 +105,24 @@ def _format(reg_and_fields: str) -> str:
     return splits[0] + ": " + ", ".join(fields)
 
 
-def _get_target_fields(reg_and_fields):
+def _parse_registries(reg_and_fields):
     fields = [i[1:].split(":") for i in reg_and_fields if i.startswith("*")]
     targets = []
+    rev = {}
+    json_schema = {}
+    isolated_fields = []
     for i in fields:
         if len(i) == 1:
             targets.append(i[0])
+            isolated_fields.append(i[0])
         else:
-            targets.extend([j.strip() for j in i[1].split(",")])
-    return targets
+            tar = [j.strip() for j in i[1].split(",")]
+            json_schema[i[0]] = tar
+            for j in tar:
+                rev[j] = i[0]
+            targets.extend(tar)
+    json_schema["isolated_fields"] = isolated_fields
+    return targets, rev, json_schema
 
 
 def _get_registries(reg_and_fields):
@@ -138,7 +147,11 @@ def _update(is_init=True, entry="__init__"):
                 _workspace_cfg["registries"] = regs
             else:
                 logger.imp("You can define fields later.")
-            _workspace_cfg["target_fields"] = _get_target_fields(_workspace_cfg["registries"])
+            (
+                _workspace_cfg["target_fields"],
+                _workspace_cfg["target_to_registry"],
+                _workspace_cfg["json_schema_fields"],
+            ) = _parse_registries(_workspace_cfg["registries"])
             _generate_registries(entry)
         else:
             logger.imp(
@@ -146,16 +159,17 @@ def _update(is_init=True, entry="__init__"):
                 "run `excore update` to generate `target_fields`"
             )
     else:
-        _workspace_cfg["target_fields"] = _get_target_fields(
-            [_format(i) for i in _workspace_cfg["registries"]]
-        )
+        (
+            _workspace_cfg["target_fields"],
+            _workspace_cfg["target_to_registry"],
+            _workspace_cfg["json_schema_fields"],
+        ) = _parse_registries([_format(i) for i in _workspace_cfg["registries"]])
         logger.success("Update target_fields")
 
 
 def _get_default_module_name(target_dir):
     assert os.path.isdir(target_dir)
     full_path = os.path.abspath(target_dir)
-    # return ".".join(full_path.split(os.sep)[-2:])
     return full_path.split(os.sep)[-1]
 
 
@@ -191,8 +205,8 @@ def config_completion():
     """
     if not _workspace_cfg["json_schema_fields"]:
         logger.warning("You should set json_schema_fields first")
-        return
-    _generate_json_shcema(_workspace_cfg["json_schema_fields"])
+        sys.exit()
+    _generate_json_schema(_workspace_cfg["json_schema_fields"])
 
 
 @app.command()
@@ -200,7 +214,7 @@ def target_fields():
     """
     Show target_fields.
     """
-    table = _create_table("FIELDS", _get_target_fields(_workspace_cfg["registries"]))
+    table = _create_table("FIELDS", _parse_registries(_workspace_cfg["registries"])[0])
     logger.info(table)
 
 

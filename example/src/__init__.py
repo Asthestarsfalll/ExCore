@@ -11,4 +11,4 @@ OPTIM = Registry("Optimizer")
 TRANSFORM = Registry("Transform")
 MODULE = Registry("module")
 
-MODULE._register(time)
+MODULE.register_module(time)

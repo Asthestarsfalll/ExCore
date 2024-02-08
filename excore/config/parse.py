@@ -1,44 +1,29 @@
-from typing import List
+from typing import Dict, List, Type
 
 from .._exceptions import CoreConfigParseError
 from ..engine import Registry, logger
 from ..utils.misc import _create_table
 from .model import (
+    OTHER_FLAG,
+    REFER_FLAG,
     ChainedInvocationWrapper,
-    InterNode,
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
     VariableReference,
-    _attr2module,
-    _convert2module,
     _dispatch_module_node,
+    _is_special,
 )
 
 
-def _dict2list(v, return_list=False):
-    """
-    Converts a dictionary to a list of its values.
-
-    Args:
-        v (dict): The dictionary to be converted.
-        return_list (bool): Enforce to return list.
-
-    Returns:
-        list: A list of the values in the input dictionary.
-            If the input is not a dictionary or is an empty dictionary,
-            the original input is returned.
-            If the input dictionary has only one value and return_list is False,
-            the value itself is returned.
-    """
-    if v:
-        v = list(v.values())
-        if not return_list and len(v) == 1:
-            v = v[0]
-    return v
+def _dict2node(module_type: str, base: str, _dict: Dict, return_list=False):
+    ModuleType: Type[ModuleNode] = _dispatch_module_node[module_type]
+    if return_list:
+        return [ModuleType.from_base_name(base, name, **v) for name, v in _dict.items()]
+    return {name: ModuleType.from_base_name(base, name, **v) for name, v in _dict.items()}
 
 
-def _parse_param(name):
+def _parse_param_name(name):
     names = name.split("@")
     attrs = names.pop(0).split(".")
     attrs = [i for i in attrs if i]
@@ -46,8 +31,9 @@ def _parse_param(name):
     return attrs.pop(0), attrs, hooks
 
 
-class AttrNode(dict):
+class ConfigDict(dict):
     target_fields: List
+    target_to_registry: Dict[str, str]
     registered_fields: List
 
     def __new__(cls):
@@ -55,90 +41,109 @@ class AttrNode(dict):
             raise RuntimeError("Call `set_target_fields` before `load`")
 
         # make target fields unique when multiple load.
-        class AttrNodeImpl(AttrNode):
+        class ConfigDictImpl(ConfigDict):
             # otherwise it will share the same class variable with father class.
-            target_fields = AttrNode.target_fields
+            target_fields = ConfigDict.target_fields
+            target_to_registry = ConfigDict.target_to_registry
 
-        inst = super().__new__(AttrNodeImpl)
+        inst = super().__new__(ConfigDictImpl)
         return inst
 
     @classmethod
-    def set_target_fields(cls, target_fields):
+    def set_target_fields(cls, target_fields, target_to_registry):
         """
         Sets the `target_modules` attribute to the specified list of module names,
             and `registered_modules` attributes based on the current state
             of the `Registry` object.
 
         Note that `set_key_fields` must be called before `config.load`.
-
-        Attributes:
-            target_modules (List[str]): Target module names that need to be built.
-            registered_modules (List[str]): A list of all module names that have been registered.
         """
         cls.target_fields = target_fields
+        cls.target_to_registry = target_to_registry
 
-    def isolated_keys(self):
+    def parse(self):
+        self._parse_target_modules()
+        self._parse_isolated_obj()
+        self._parse_inter_modules()
+        self._wrap()
+        self._clean()
+
+    def _wrap(self):
+        for name in self.target_keys():
+            self[name] = ModuleWrapper(self[name])
+
+    def _clean(self):
+        for name in self.non_target_keys():
+            if name in self.registered_fields or isinstance(self[name], ModuleNode):
+                self.pop(name)
+
+    def target_keys(self):
+        for name in self.target_fields:
+            if name in self:
+                yield name
+
+    def non_target_keys(self):
         keys = list(self.keys())
         for k in keys:
             if k not in self.target_fields:
                 yield k
 
     def _parse_target_modules(self):
-        for name in self.target_fields:
-            if name not in self:
-                continue
+        for name in self.target_keys():
             if name in self.registered_fields:
                 base = name
             else:
-                _, base = Registry.find(list(self[name].keys())[0])
-                if base is None:
-                    raise CoreConfigParseError(f"Unregistered module `{name}`")
-            v = _attr2module(self.pop(name), base)
-            v = _dict2list(v)
-            self[name] = ModuleWrapper(v)
+                if name in self.registered_fields:
+                    reg = Registry.get_registry(name)
+                else:
+                    reg = Registry.get_registry(self.target_to_registry.get(name, ""))
+                if reg is None:
+                    raise CoreConfigParseError(f"Undefined registry `{name}`")
+                for n in self[name]:
+                    if n not in reg:
+                        raise CoreConfigParseError(f"Unregistered module `{n}`")
+                base = reg.name
+
+            self[name] = _dict2node(OTHER_FLAG, base, self.pop(name))
 
     def _parse_isolated_registered_module(self, name):
-        v = _attr2module(self.pop(name), name)
-        v = _dict2list(v, True)
-        for i in v:
-            assert i.base == name
-            self[i.name] = ModuleWrapper(i)
+        v = _dict2node(OTHER_FLAG, name, self.pop(name))
+        for i in v.values():
             _, _ = Registry.find(i.name)
             if _ is None:
                 raise CoreConfigParseError(f"Unregistered module `{i.name}`")
+        self[name] = v
 
-    def _parse_implicit_module(self, name, module_type=ModuleNode) -> ModuleWrapper:
+    def _parse_implicit_module(self, name, module_type):
         _, base = Registry.find(name)
-        converted = ModuleWrapper(module_type(name, base))
         if not base:
             raise CoreConfigParseError(f"Unregistered module `{name}`")
+        node = module_type.from_base_name(base, name)
         if module_type == ReusedNode:
-            self[name] = converted
-        return converted
+            self[name] = node
+        return node
 
-    def _parse_isolated_module(self, name, module_type=ModuleNode):
+    def _parse_isolated_module(self, name, module_type):
         _, base = Registry.find(name)
         if base:
-            self[name] = ModuleWrapper(module_type(name, base).update(self[name]))
+            self[name] = module_type.from_base_name(base, name).update(self[name])
 
     def _parse_isolated_obj(self):
-        for name in self.isolated_keys():
+        for name in self.non_target_keys():
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_fields:
                     self._parse_isolated_registered_module(name)
                 else:
-                    self._parse_isolated_module(name)
+                    self._parse_isolated_module(name, ModuleNode)
 
     def _contain_module(self, name):
-        for k in self.target_fields:
+        fileds = set([*self.target_fields, *self.registered_fields])
+        for k in fileds:
             if k not in self:
                 continue
-            wrapper = self[k]
-            if not isinstance(wrapper, ModuleWrapper):
-                wrapper = ModuleWrapper(wrapper)
-            for i in wrapper.values():
-                if i.name == name:
+            for node in self[k].values():
+                if node.name == name:
                     self.__base__ = k
                     return True
         return False
@@ -147,109 +152,86 @@ class AttrNode(dict):
         if not name.startswith("$"):
             return name
         base = name[1:]
-        wrapper = self.get(base, False)
-        if not wrapper:
-            raise CoreConfigParseError(
-                f"Cannot find field {base} with `{ori_name}`,"
-                "please adjust module definition order in config files."
-            )
-        if len(wrapper) == 1:
-            return wrapper.first().name
+        modules = self.get(base, False)
+        if not modules:
+            raise CoreConfigParseError(f"Cannot find field {base} with `{ori_name}`")
+        if len(modules) == 1:
+            return list(modules.keys())[0]
         raise CoreConfigParseError(
-            f"More than one candidates are found: {[k.name for k in wrapper.values()]}"
+            f"More than one candidates are found: {[k.name for k in modules.values()]}"
             f" with `{ori_name}`, please redifine the field `{base}` in config files."
         )
 
     def _apply_hooks(self, node, hooks):
-        name = node.name  # for ModuleWrapper
-        for h in hooks:
-            node = self[h].first()(node=node)
-        node.name = name
+        for hook in hooks:
+            if hook not in self:
+                raise CoreConfigParseError(f"Unregistered hook {hook}")
+            node = self[hook](node=node)
         return node
 
-    # FIXME: Maybe ReusedNode should firstly search in hidden modules?
-    def _parse_single_param(self, ori_name, params):
-        name, attrs, hooks = _parse_param(ori_name)
+    def _parse_single_param(self, ori_name, module_type):
+        if module_type == REFER_FLAG:
+            return VariableReference(ori_name)
+        target_type = _dispatch_module_node[module_type]
+        name, attrs, hooks = _parse_param_name(ori_name)
         name = self._get_name(name, ori_name)
-        ModuleType = _dispatch_module_node[params.base]
+        ori_type = None
         if name in self:
-            converted = _convert2module(self[name], params.base, ModuleType)
-            self[name] = converted
+            ori_type = self[name].__class__
+            if ori_type == ModuleNode:
+                self[name] = target_type.from_node(self[name])
+            node = self[name]
         elif self._contain_module(name):
-            # once the hiddn module was added to config
-            # this branch is unreachable.
-            wrapper = self[self.__base__]
-            converted = _convert2module(getattr(wrapper, name), params.base, ModuleType)
-            self[name] = converted
-            if self.__base__ not in self.target_fields:
-                wrapper.pop(name)
-                if len(wrapper) == 0:
-                    self.pop(self.__base__)
-                self[self.__base__] = wrapper.first()
-            else:
-                wrapper.update(converted)
+            ori_type = self[self.__base__][name].__class__
+            if ori_type == ModuleNode:
+                self[self.__base__][name] = target_type.from_node(self[self.__base__][name])
+            node = self[self.__base__][name]
         else:
-            # once the implicit module was added to config
-            # this branch is unreachable.
-            converted = self._parse_implicit_module(name, ModuleType)
-        converted = converted.first()
-
-        if not isinstance(converted, ModuleType):
+            node = self._parse_implicit_module(name, target_type)
+        if ori_type and ori_type not in (ModuleNode, target_type):
             raise CoreConfigParseError(
-                f"Error when parse params {params.name}, \
-                  target_type is {ModuleType}, but got {type(converted)}"
+                f"Error when parsing params {ori_name}, \
+                  target_type is {target_type}, but got {ori_type}"
             )
+        name = node.name  # for ModuleWrapper
         if attrs:
-            converted = ChainedInvocationWrapper(converted, attrs)
+            node = ChainedInvocationWrapper(node, attrs)
+            node.name = name
         if hooks:
-            converted = self._apply_hooks(converted, hooks)
-        return converted
+            node = self._apply_hooks(node, hooks)
+            node.name = name
+        if hasattr(self, "__base__"):
+            delattr(self, "__base__")
+        return node
 
-    def _parse_module_node(self, node):
-        to_pop = []
-        param_names = list(node.keys())
-        for param_name in param_names:
-            params = node[param_name]
-            if isinstance(params, InterNode):
-                target_module_names = params.target_feild
-                if not isinstance(target_module_names, list):
-                    target_module_names = [target_module_names]
-                converted_modules = [
-                    self._parse_single_param(name, params) for name in target_module_names
-                ]
-                to_pop.extend(target_module_names)
-                node[param_name] = ModuleWrapper(converted_modules)
-            elif isinstance(params, VariableReference):
-                ref_name = params()
+    def _parse_modules(self, node: ModuleNode):
+        for param_name in list(node.keys()):
+            true_name, module_type = _is_special(param_name)
+            if not module_type:
+                continue
+            value = node.pop(param_name)
+            if isinstance(value, list):
+                value = [self._parse_single_param(v, module_type) for v in value]
+            elif isinstance(value, str):
+                value = self._parse_single_param(value, module_type)
+            else:
+                raise CoreConfigParseError(f"Wrong type: {param_name, value}")
+            if isinstance(value, VariableReference):
+                ref_name = value()
                 if ref_name not in self:
                     raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
-                node[param_name] = self[ref_name]
-        if hasattr(self, "__route__"):
-            delattr(self, "__route__")
-        return to_pop
-
-    def _parse_module_wrapper(self, wrapper):
-        to_pop = []
-        for m in wrapper.values():
-            to_pop.extend(self._parse_module_node(m))
-        return to_pop
+                node[true_name] = self[ref_name]
+            else:
+                node[true_name] = ModuleWrapper(value)
 
     def _parse_inter_modules(self):
-        to_pop = []
         for name in list(self.keys()):
             module = self[name]
-            if isinstance(module, ModuleWrapper):
-                to_pop.extend(self._parse_module_wrapper(module))
-        self._clean(to_pop)
-
-    def _clean(self, to_pop):
-        for i in to_pop:
-            self.pop(i, None)
-
-    def parse(self):
-        self._parse_target_modules()
-        self._parse_isolated_obj()
-        self._parse_inter_modules()
+            if name in self.target_fields and isinstance(module, dict):
+                for m in module.values():
+                    self._parse_modules(m)
+            elif isinstance(module, ModuleNode):
+                self._parse_modules(module)
 
     def __str__(self):
         _dict = {}
@@ -262,15 +244,17 @@ class AttrNode(dict):
         )
 
     def _flatten(self, _dict, k, v):
-        if isinstance(v, dict):
+        if isinstance(v, dict) and not isinstance(v, ModuleNode):
             for _k, _v in v.items():
                 _dict[".".join([k, _k])] = _v
         else:
             _dict[k] = v
 
 
-def set_target_fields(target_fields):
-    if hasattr(AttrNode, "target_fields"):
+def set_target_fields(cfg):
+    target_fields = cfg["target_fields"]
+    target_to_registry = cfg["target_to_registry"]
+    if hasattr(ConfigDict, "target_fields"):
         logger.ex("`target_fields` will be set to {}", target_fields)
     if target_fields:
-        AttrNode.set_target_fields(target_fields)
+        ConfigDict.set_target_fields(target_fields, target_to_registry)
