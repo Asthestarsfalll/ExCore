@@ -9,6 +9,7 @@ from ..engine.logging import logger
 from ..engine.registry import load_registries
 from .lazy_config import LazyConfig
 from .parse import ConfigDict
+from .model import ModuleWrapper
 
 __all__ = ["load", "build_all", "load_config"]
 
@@ -58,7 +59,7 @@ def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
     return lazy_config
 
 
-def build_all(cfg: LazyConfig) -> Tuple[dict, dict]:
+def build_all(cfg: LazyConfig) -> Tuple[ModuleWrapper, dict]:
     st = time.time()
     modules = cfg.build_all()
     logger.success("Modules building costs {:.4f}s!", time.time() - st)

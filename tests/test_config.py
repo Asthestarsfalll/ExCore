@@ -52,7 +52,7 @@ class TestConfig:
         optimizer = modules.Optimizer
         assert id(lr.optimizer) == id(optimizer)
 
-    def test_non_registry_target(self):
+    def test_non_registry_primary(self):
         self._load("./configs/dataset/data.toml", check=False)
 
     def test_argument_error(self):

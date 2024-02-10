@@ -21,8 +21,8 @@ def test_cache():
     excute("excore cache-list")
 
 
-def test_target():
-    excute("excore target-fields")
+def test_primary():
+    excute("excore primary-fields")
 
 
 def test_clear_cache():

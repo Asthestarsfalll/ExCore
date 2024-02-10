@@ -1,0 +1,60 @@
+---
+title: Module nodes
+---
+:::info info
+`ExCore` defines some module nodes for parsing toml file in excore's way.
+:::
+
+
+
+:::caution caution
+In fact, those nodes is called `LazyCall` in `detectron2`. Although the whole system is designed for toml file, but they still can be used in pure python configurations.
+For instance:
+```python
+from excore.config.model import ModuleNode
+from xxx import Module
+
+cfg = ModuleNode(Module).add_params(arg1=1, arg2=2)
+model = cfg() # support instantiate recursively
+# or
+model = ModuleNode(Module)(arg1=1, arg2=2)
+```
+:::
+ 
+## ModuleNode
+
+`ModuleNode` is the base class of all module nodes. It's derived from python built-in class `dict`. The arguments will be directly stored in the instance of `ModuleNode` and you can manipulate the node like `dict`.
+
+## InterNode
+
+`InterNode` is `ModuleNode`:
+
+```python
+class InterNode(ModuleNode):
+    pass
+
+```
+
+
+## ReusedNode
+
+`ReusedNode` will cache the outputs of `__call__` method.
+
+
+## ClassNode
+
+`ClassNode` will return the class instead of its instance.
+
+
+## ChainedInvocationWrapper
+
+Wrap the chained invocation of a node, for example:
+
+If we want to implement `ResNet().blocks.conv()`, we can use `ChainedInvocationWrapper`
+```python
+from excore.config.model import ModuleNode, ChainedInvocationWrapper
+from xxx import ResNet
+
+ChainedInvocationWrapper(ModuleNode(ResNet), ["blocks", "conv()"])
+
+```

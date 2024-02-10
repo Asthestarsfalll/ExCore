@@ -27,7 +27,7 @@ filtered_module_name = MODELS.filter("is_pretrained", _check_func)
 logger.info(MODELS.module_table(select_info=["is_pretrained"], module_list=filtered_module_name))
 logger.info(Registry.registry_table())
 
-logger.info(config.ConfigDict.target_fields)
+logger.info(config.ConfigDict.primary_fields)
 config.silent()
 cfg = config.load("./configs/run.toml")
 logger.info(cfg)

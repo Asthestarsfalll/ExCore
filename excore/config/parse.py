@@ -3,17 +3,9 @@ from typing import Dict, List, Type
 from .._exceptions import CoreConfigParseError
 from ..engine import Registry, logger
 from ..utils.misc import _create_table
-from .model import (
-    OTHER_FLAG,
-    REFER_FLAG,
-    ChainedInvocationWrapper,
-    ModuleNode,
-    ModuleWrapper,
-    ReusedNode,
-    VariableReference,
-    _dispatch_module_node,
-    _is_special,
-)
+from .model import (OTHER_FLAG, REFER_FLAG, ChainedInvocationWrapper,
+                    ModuleNode, ModuleWrapper, ReusedNode, VariableReference,
+                    _dispatch_module_node, _is_special)
 
 
 def _dict2node(module_type: str, base: str, _dict: Dict, return_list=False):
@@ -32,71 +24,71 @@ def _parse_param_name(name):
 
 
 class ConfigDict(dict):
-    target_fields: List
-    target_to_registry: Dict[str, str]
+    primary_fields: List
+    primary_to_registry: Dict[str, str]
     registered_fields: List
 
     def __new__(cls):
-        if not hasattr(cls, "target_fields"):
-            raise RuntimeError("Call `set_target_fields` before `load`")
+        if not hasattr(cls, "primary_fields"):
+            raise RuntimeError("Call `set_primary_fields` before `load`")
 
         # make target fields unique when multiple load.
         class ConfigDictImpl(ConfigDict):
             # otherwise it will share the same class variable with father class.
-            target_fields = ConfigDict.target_fields
-            target_to_registry = ConfigDict.target_to_registry
+            primary_fields = ConfigDict.primary_fields
+            primary_to_registry = ConfigDict.primary_to_registry
 
         inst = super().__new__(ConfigDictImpl)
         return inst
 
     @classmethod
-    def set_target_fields(cls, target_fields, target_to_registry):
+    def set_primary_fields(cls, primary_fields, primary_to_registry):
         """
-        Sets the `target_modules` attribute to the specified list of module names,
-            and `registered_modules` attributes based on the current state
+        Sets the `primary_fields` attribute to the specified list of module names,
+            and `registered_fields` attributes based on the current state
             of the `Registry` object.
 
-        Note that `set_key_fields` must be called before `config.load`.
+        Note that `set_primary_fields` must be called before `config.load`.
         """
-        cls.target_fields = target_fields
-        cls.target_to_registry = target_to_registry
+        cls.primary_fields = primary_fields
+        cls.primary_to_registry = primary_to_registry
 
     def parse(self):
-        self._parse_target_modules()
+        self._parse_primary_modules()
         self._parse_isolated_obj()
         self._parse_inter_modules()
         self._wrap()
         self._clean()
 
     def _wrap(self):
-        for name in self.target_keys():
+        for name in self.primary_keys():
             self[name] = ModuleWrapper(self[name])
 
     def _clean(self):
-        for name in self.non_target_keys():
+        for name in self.non_primary_keys():
             if name in self.registered_fields or isinstance(self[name], ModuleNode):
                 self.pop(name)
 
-    def target_keys(self):
-        for name in self.target_fields:
+    def primary_keys(self):
+        for name in self.primary_fields:
             if name in self:
                 yield name
 
-    def non_target_keys(self):
+    def non_primary_keys(self):
         keys = list(self.keys())
         for k in keys:
-            if k not in self.target_fields:
+            if k not in self.primary_fields:
                 yield k
 
-    def _parse_target_modules(self):
-        for name in self.target_keys():
+    def _parse_primary_modules(self):
+        for name in self.primary_keys():
             if name in self.registered_fields:
                 base = name
             else:
                 if name in self.registered_fields:
                     reg = Registry.get_registry(name)
                 else:
-                    reg = Registry.get_registry(self.target_to_registry.get(name, ""))
+                    reg = Registry.get_registry(self.primary_to_registry.get(name, ""))
                 if reg is None:
                     raise CoreConfigParseError(f"Undefined registry `{name}`")
                 for n in self[name]:
@@ -129,7 +121,7 @@ class ConfigDict(dict):
             self[name] = module_type.from_base_name(base, name).update(self[name])
 
     def _parse_isolated_obj(self):
-        for name in self.non_target_keys():
+        for name in self.non_primary_keys():
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_fields:
@@ -138,7 +130,7 @@ class ConfigDict(dict):
                     self._parse_isolated_module(name, ModuleNode)
 
     def _contain_module(self, name):
-        fileds = set([*self.target_fields, *self.registered_fields])
+        fileds = set([*self.primary_fields, *self.registered_fields])
         for k in fileds:
             if k not in self:
                 continue
@@ -227,7 +219,7 @@ class ConfigDict(dict):
     def _parse_inter_modules(self):
         for name in list(self.keys()):
             module = self[name]
-            if name in self.target_fields and isinstance(module, dict):
+            if name in self.primary_fields and isinstance(module, dict):
                 for m in module.values():
                     self._parse_modules(m)
             elif isinstance(module, ModuleNode):
@@ -251,10 +243,10 @@ class ConfigDict(dict):
             _dict[k] = v
 
 
-def set_target_fields(cfg):
-    target_fields = cfg["target_fields"]
-    target_to_registry = cfg["target_to_registry"]
-    if hasattr(ConfigDict, "target_fields"):
-        logger.ex("`target_fields` will be set to {}", target_fields)
-    if target_fields:
-        ConfigDict.set_target_fields(target_fields, target_to_registry)
+def set_primary_fields(cfg):
+    primary_fields = cfg["primary_fields"]
+    primary_to_registry = cfg["primary_to_registry"]
+    if hasattr(ConfigDict, "primary_fields"):
+        logger.ex("`primary_fields` will be set to {}", primary_fields)
+    if primary_fields:
+        ConfigDict.set_primary_fields(primary_fields, primary_to_registry)

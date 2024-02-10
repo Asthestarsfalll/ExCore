@@ -8,14 +8,14 @@ from .model import (
     VariableReference,
     silent,
 )
-from .parse import ConfigDict, set_target_fields
+from .parse import ConfigDict, set_primary_fields
 
 __all__ = [
     "build_all",
     "load",
     "load_config",
     "silent",
-    "set_target_fields",
+    "set_primary_fields",
     "ConfigDict",
     "ChainedInvocationWrapper",
     "ClassNode",

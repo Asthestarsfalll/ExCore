@@ -3,7 +3,7 @@ import sys
 from . import config
 from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
 from .config.config import build_all, load
-from .config.parse import set_target_fields
+from .config.parse import set_primary_fields
 from .engine import hook, logging, registry
 from .engine.hook import ConfigArgumentHook, Hook, HookManager
 from .engine.logging import (
@@ -40,6 +40,6 @@ __all__ = [
 
 init_logger()
 _load_workspace_config()
-set_target_fields(_workspace_cfg)
+set_primary_fields(_workspace_cfg)
 _enable_excore_debug()
 sys.path.append(_workspace_cfg["base_dir"])
