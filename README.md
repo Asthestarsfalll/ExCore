@@ -463,10 +463,14 @@ Result:
 
 ### Registry
 
+<details>
+  <summary>:sparkles:LazyRegistry</summary>
 To reduce the unnecessary imports, `ExCore` provides `LazyRegistry`, which store the mappings of class/function name to its `qualname` and dump the mappings to local. When config parsing, the necessary modules will be imported.
 
+</details>
+
 <details>
-  <summary>Extra information registed with modules</summary>
+  <summary>Extra information</summary>
 
 ```python
 from excore import Registry
@@ -545,36 +549,109 @@ results:
   <summary>Register all</summary>
 
 ```python
+from torch import optim
 from excore import Registry
 
-from xxx import yyy
+OPTIM = Registry("Optimizer")
 
-Models = Registry('Model')
 
-def match_methods(name: str) -> bool:
-    pass
+def _get_modules(name: str, module) -> bool:
+    if name[0].isupper():
+        return True
+    return False
 
-# Register all module with match_methods
-Models.match(yyy, match_methods)
+
+OPTIM.match(optim, _get_modules)
+print(OPTIM)
+```
+
+results:
+
+```
+╒════════════╤════════════════════════════════════╕
+│ NAEM       │ DIR                                │
+╞════════════╪════════════════════════════════════╡
+│ Adadelta   │ torch.optim.adadelta.Adadelta      │
+├────────────┼────────────────────────────────────┤
+│ Adagrad    │ torch.optim.adagrad.Adagrad        │
+├────────────┼────────────────────────────────────┤
+│ Adam       │ torch.optim.adam.Adam              │
+├────────────┼────────────────────────────────────┤
+│ AdamW      │ torch.optim.adamw.AdamW            │
+├────────────┼────────────────────────────────────┤
+│ SparseAdam │ torch.optim.sparse_adam.SparseAdam │
+├────────────┼────────────────────────────────────┤
+│ Adamax     │ torch.optim.adamax.Adamax          │
+├────────────┼────────────────────────────────────┤
+│ ASGD       │ torch.optim.asgd.ASGD              │
+├────────────┼────────────────────────────────────┤
+│ SGD        │ torch.optim.sgd.SGD                │
+├────────────┼────────────────────────────────────┤
+│ RAdam      │ torch.optim.radam.RAdam            │
+├────────────┼────────────────────────────────────┤
+│ Rprop      │ torch.optim.rprop.Rprop            │
+├────────────┼────────────────────────────────────┤
+│ RMSprop    │ torch.optim.rmsprop.RMSprop        │
+├────────────┼────────────────────────────────────┤
+│ Optimizer  │ torch.optim.optimizer.Optimizer    │
+├────────────┼────────────────────────────────────┤
+│ NAdam      │ torch.optim.nadam.NAdam            │
+├────────────┼────────────────────────────────────┤
+│ LBFGS      │ torch.optim.lbfgs.LBFGS            │
+╘════════════╧════════════════════════════════════╛
 ```
 
 </details>
 
 <details>
-  <summary>Register all</summary>
+  <summary>All in one</summary>
+
+Through Registry to find all registries. Make registries into a global one.
 
 ```python
 from excore import Registry
 
-from xxx import yyy
+MODEL = Registry.get_registry("Model")
 
-Models = Registry('Model')
+G = Registry.make_global()
 
-def match_methods(name: str) -> bool:
-    pass
+```
 
-# Register all module with match_methods
-Models.match(yyy, match_methods)
+</details>
+
+<details>
+  <summary>:sparkles:Register module</summary>
+
+`Registry` is able to not only register class or function, but also a python module, for example:
+
+```python
+from excore import Registry
+import torch
+
+MODULE = Registry("module")
+MODULE.register_module(torch)
+```
+
+Then you can use torch in config file:
+
+```toml
+[Model.ResNet]
+# Error
+$activation = "torch.nn.ReLU"
+# or
+# Error
+!activation = "torch.nn.ReLU"
+```
+
+equls to
+
+```python
+import torch
+from xxx import ResNet
+
+ResNet(torch.nn.ReLU)
+# or
+ResNet(torch.nn.ReLU())
 ```
 
 </details>

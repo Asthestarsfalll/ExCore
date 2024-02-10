@@ -9,8 +9,8 @@ import { themes as prismThemes } from "prism-react-renderer";
 /** @type {import('@docusaurus/types').Config} */
 const config = {
   title: "ExCore",
-  tagline: "Aim to speed up you developing",
-  favicon: "img/favicon.ico",
+  tagline: "Configuration/Registry System designed for deeplearning",
+  favicon: "img/logo.ico",
 
   // Set the production url of your site here
   url: "https://your-docusaurus-site.example.com",
@@ -64,12 +64,12 @@ const config = {
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
       // Replace with your project's social card
-      image: "img/docusaurus-social-card.jpg",
+      // image: "./img/docusaurus-social-card.jpg",
       navbar: {
         title: "ExCore",
         logo: {
           alt: "My Site Logo",
-          src: "img/logo.svg",
+          src: "img/logo.png",
         },
         items: [
           {
@@ -93,7 +93,7 @@ const config = {
       prism: {
         theme: prismThemes.github,
         darkTheme: prismThemes.dracula,
-        additionalLanguages: ["toml", "yaml"],
+        additionalLanguages: ["toml", "yaml", "python"],
         magicComments: [
           // Remember to extend the default highlight class name as well!
           {
