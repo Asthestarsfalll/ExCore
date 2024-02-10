@@ -86,10 +86,10 @@ const config = {
           },
         ],
       },
-      footer: {
-        style: "dark",
-        copyright: `MIT license, ${new Date().getFullYear()}, ExCore all right reserved`,
-      },
+      // footer: {
+      //   style: "dark",
+      //   copyright: `MIT license, ${new Date().getFullYear()}, ExCore all right reserved`,
+      // },
       prism: {
         theme: prismThemes.github,
         darkTheme: prismThemes.dracula,
