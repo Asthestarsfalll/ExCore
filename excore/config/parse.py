@@ -1,4 +1,4 @@
-from typing import Dict, List, Type
+from typing import Dict, List, Set, Type
 
 from .._exceptions import CoreConfigParseError
 from ..engine import Registry, logger
@@ -35,6 +35,7 @@ class ConfigDict(dict):
     target_fields: List
     target_to_registry: Dict[str, str]
     registered_fields: List
+    all_fields: Set[str]
 
     def __new__(cls):
         if not hasattr(cls, "target_fields"):
@@ -138,8 +139,7 @@ class ConfigDict(dict):
                     self._parse_isolated_module(name, ModuleNode)
 
     def _contain_module(self, name):
-        fileds = set([*self.target_fields, *self.registered_fields])
-        for k in fileds:
+        for k in self.all_fields:
             if k not in self:
                 continue
             for node in self[k].values():
@@ -175,23 +175,33 @@ class ConfigDict(dict):
         target_type = _dispatch_module_node[module_type]
         name, attrs, hooks = _parse_param_name(ori_name)
         name = self._get_name(name, ori_name)
+        if name in self.all_fields:
+            raise CoreConfigParseError(
+                f"Conflict name: `{name}`, the class name cannot be same with registry"
+            )
         ori_type = None
         if name in self:
             ori_type = self[name].__class__
             if ori_type == ModuleNode:
-                self[name] = target_type.from_node(self[name])
+                node = target_type.from_node(self[name])
+                self._parse_module(node)
+                self[name] = node
             node = self[name]
         elif self._contain_module(name):
             ori_type = self[self.__base__][name].__class__
             if ori_type == ModuleNode:
-                self[self.__base__][name] = target_type.from_node(self[self.__base__][name])
+                node = target_type.from_node(self[self.__base__][name])
+                base = self.__base__
+                self._parse_module(node)
+                self.__base__ = base
+                self[self.__base__][name] = node
             node = self[self.__base__][name]
         else:
             node = self._parse_implicit_module(name, target_type)
         if ori_type and ori_type not in (ModuleNode, target_type):
             raise CoreConfigParseError(
-                f"Error when parsing params {ori_name}, \
-                  target_type is {target_type}, but got {ori_type}"
+                f"Error when parsing param {ori_name}, "
+                f"target_type is {target_type}, but got {ori_type}"
             )
         name = node.name  # for ModuleWrapper
         if attrs:
@@ -204,7 +214,7 @@ class ConfigDict(dict):
             delattr(self, "__base__")
         return node
 
-    def _parse_modules(self, node: ModuleNode):
+    def _parse_module(self, node: ModuleNode):
         for param_name in list(node.keys()):
             true_name, module_type = _is_special(param_name)
             if not module_type:
@@ -229,9 +239,9 @@ class ConfigDict(dict):
             module = self[name]
             if name in self.target_fields and isinstance(module, dict):
                 for m in module.values():
-                    self._parse_modules(m)
+                    self._parse_module(m)
             elif isinstance(module, ModuleNode):
-                self._parse_modules(module)
+                self._parse_module(module)
 
     def __str__(self):
         _dict = {}

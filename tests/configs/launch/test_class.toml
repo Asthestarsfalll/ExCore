@@ -1,0 +1,4 @@
+[Model.TestClass]
+$cls = "VGG"
+
+[Backbone.VGG]
