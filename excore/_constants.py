@@ -49,8 +49,8 @@ _workspace_cfg = dict(
     src_dir="",
     base_dir=os.getcwd(),
     registries=[],
-    target_fields=[],
-    target_to_registry={},
+    primary_fields=[],
+    primary_to_registry={},
     json_schema_fields={},
     props={},
 )

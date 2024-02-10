@@ -1,0 +1,26 @@
+
+
+## load
+
+```python
+def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig
+```
+
+Load target toml file, `base_key` is used for config inheritance, default to `__base__`.
+
+## build_all
+
+```python
+def build_all(cfg: LazyConfig) -> Tuple[ModuleWraper, dict]
+```
+
+Build all modules. First element is primary modules, second is other information.
+
+
+## silent
+
+```python
+def silent()
+```
+
+Stop logging module building information.

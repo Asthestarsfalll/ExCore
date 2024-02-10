@@ -82,6 +82,10 @@ class ModuleNode(dict):
     def name(self):
         return self.cls.__name__
 
+    def add_params(self, **kwargs):
+        self.update(kwargs)
+        return self
+
     def update(self, _other):
         super().update(_other)
         return self
