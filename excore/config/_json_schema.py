@@ -66,14 +66,14 @@ def _generate_json_schema_and_class_mapping(
     class_mapping = {}
     isolated_fields = fields.pop("isolated_fields", [])
     for name, reg in Registry._registry_pool.items():
-        target_fields = fields.get(name, name)
-        if isinstance(target_fields, str):
-            target_fields = [target_fields]
-        elif not isinstance(target_fields, (list, tuple)):
+        primary_fields = fields.get(name, name)
+        if isinstance(primary_fields, str):
+            primary_fields = [primary_fields]
+        elif not isinstance(primary_fields, (list, tuple)):
             raise TypeError("Unexpected type of elements of fields")
         props, mapping = parse_registry(reg)
         class_mapping.update(mapping)
-        for f in target_fields:
+        for f in primary_fields:
             schema["properties"][f] = props
         # Is this too heavey?
         if name in isolated_fields:

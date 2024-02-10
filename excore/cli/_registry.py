@@ -41,7 +41,7 @@ def _build_ast(name: str) -> ast.Assign:
 
 
 def _generate_registries(entry="__init__"):
-    if not _workspace_cfg["target_fields"]:
+    if not _workspace_cfg["primary_fields"]:
         return
     logger.info("Generating Registry definition code.")
     target_file = osp.join(_workspace_cfg["src_dir"], entry + ".py")
@@ -66,7 +66,8 @@ def _generate_registries(entry="__init__"):
     source_code = astor.to_source(source_code)
     with open(target_file, "w", encoding="UTF-8") as f:
         f.write(source_code)
-    logger.success("Generate Registry definition in {} according to `target_fields`", target_file)
+    logger.success(
+        "Generate Registry definition in {} according to `primary_fields`", target_file)
 
 
 def _detect_assign(node, definition):
@@ -146,23 +147,23 @@ def _update(is_init=True, entry="__init__"):
             else:
                 logger.imp("You can define fields later.")
             (
-                _workspace_cfg["target_fields"],
-                _workspace_cfg["target_to_registry"],
+                _workspace_cfg["primary_fields"],
+                _workspace_cfg["primary_to_registry"],
                 _workspace_cfg["json_schema_fields"],
             ) = _parse_registries(_workspace_cfg["registries"])
             _generate_registries(entry)
         else:
             logger.imp(
                 "Please modify registries in .excore.toml and "
-                "run `excore update` to generate `target_fields`"
+                "run `excore update` to generate `primary_fields`"
             )
     else:
         (
-            _workspace_cfg["target_fields"],
-            _workspace_cfg["target_to_registry"],
+            _workspace_cfg["primary_fields"],
+            _workspace_cfg["primary_to_registry"],
             _workspace_cfg["json_schema_fields"],
         ) = _parse_registries([_format(i) for i in _workspace_cfg["registries"]])
-        logger.success("Update target_fields")
+        logger.success("Update primary_fields")
 
 
 def _get_default_module_name(target_dir):
@@ -198,11 +199,12 @@ def auto_register():
 
 
 @app.command()
-def target_fields():
+def primary_fields():
     """
-    Show target_fields.
+    Show primary_fields.
     """
-    table = _create_table("FIELDS", _parse_registries(_workspace_cfg["registries"])[0])
+    table = _create_table("FIELDS", _parse_registries(
+        _workspace_cfg["registries"])[0])
     logger.info(table)
 
 
@@ -211,7 +213,8 @@ def registries():
     """
     Show registries.
     """
-    table = _create_table("Registry", [_format(i) for i in _workspace_cfg["registries"]])
+    table = _create_table("Registry", [_format(i)
+                          for i in _workspace_cfg["registries"]])
     logger.info(table)
 
 
