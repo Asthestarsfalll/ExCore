@@ -10,7 +10,6 @@ from typer import Argument as CArg
 from typing_extensions import Annotated
 
 from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
-from ..config._json_schema import _generate_json_schema, _generate_taplo_config
 from ..engine.logging import logger
 from ..engine.registry import Registry
 from ..utils.misc import _create_table
@@ -133,7 +132,6 @@ def _get_registries(reg_and_fields):
 def _update(is_init=True, entry="__init__"):
     target_dir = osp.join(_cache_base_dir, _workspace_cfg["name"])
     os.makedirs(target_dir, exist_ok=True)
-    _generate_taplo_config(target_dir)
     logger.success("Generate `.taplo.toml`")
     if is_init:
         if not _detect_registy_difinition():
@@ -191,7 +189,8 @@ def auto_register():
     Automatically import all modules in `src_dir` and register all modules, then dump to files.
     """
     if not os.path.exists(_workspace_config_file):
-        logger.warning("Please run `excore init` in your command line first!")
+        logger.critical("Please run `excore init` in your command line first!")
+        sys.exit(0)
     target_dir = osp.abspath(_workspace_cfg["src_dir"])
     module_name = _get_default_module_name(target_dir)
     sys.path.append(os.getcwd())

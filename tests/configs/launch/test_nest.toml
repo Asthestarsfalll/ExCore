@@ -1,0 +1,12 @@
+[Model.FCN]
+!classifier = "$Head"
+@backbone = "$Backbone"
+
+[Backbone.MockModel]
+!block = "TestBlock"
+
+[Block.TestBlock]
+
+[Head.FCNHead]
+in_channels = 512
+channels = 10

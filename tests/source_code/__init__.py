@@ -1,5 +1,7 @@
 import time
 
+import torch
+
 from excore import Registry
 
 MODEL = Registry("Model")
@@ -15,3 +17,4 @@ TRANSFORM = Registry("Transform")
 MODULE = Registry("module")
 
 MODULE.register_module(time)
+MODULE.register_module(torch)
