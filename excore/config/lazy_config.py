@@ -17,7 +17,7 @@ class LazyConfig:
         self.modules_dict, self.isolated_dict = {}, {}
         self.target_modules = config.primary_fields
         config.registered_fields = list(Registry._registry_pool.keys())
-        config.all_fields = set([*config.registered_fields, *config.target_fields])
+        config.all_fields = set([*config.registered_fields, *config.primary_fields])
         self._config = deepcopy(config)
         self.build_config_hooks()
         self._config.parse()

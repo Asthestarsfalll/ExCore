@@ -73,7 +73,7 @@ def _generate_json_schema_and_class_mapping(
             raise TypeError("Unexpected type of elements of fields")
         props, mapping = parse_registry(reg)
         class_mapping.update(mapping)
-        for f in target_fields:
+        for f in primary_fields:
             schema["properties"][f] = props
         # Is this too heavey?
         if name in isolated_fields:

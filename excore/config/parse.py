@@ -3,9 +3,17 @@ from typing import Dict, List, Set, Type
 from .._exceptions import CoreConfigParseError
 from ..engine import Registry, logger
 from ..utils.misc import _create_table
-from .model import (OTHER_FLAG, REFER_FLAG, ChainedInvocationWrapper,
-                    ModuleNode, ModuleWrapper, ReusedNode, VariableReference,
-                    _dispatch_module_node, _is_special)
+from .model import (
+    OTHER_FLAG,
+    REFER_FLAG,
+    ChainedInvocationWrapper,
+    ModuleNode,
+    ModuleWrapper,
+    ReusedNode,
+    VariableReference,
+    _dispatch_module_node,
+    _is_special,
+)
 
 
 def _dict2node(module_type: str, base: str, _dict: Dict, return_list=False):
@@ -33,7 +41,7 @@ class ConfigDict(dict):
         if not hasattr(cls, "primary_fields"):
             raise RuntimeError("Call `set_primary_fields` before `load`")
 
-        # make target fields unique when multiple load.
+        # make primary fields unique when multiple load.
         class ConfigDictImpl(ConfigDict):
             # otherwise it will share the same class variable with father class.
             primary_fields = ConfigDict.primary_fields
