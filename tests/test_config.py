@@ -1,6 +1,6 @@
 import pytest
 import torch
-from torchvision.models import ResNet
+from torchvision.models import VGG, ResNet
 
 from excore import config
 from excore._exceptions import CoreConfigParseError, CoreConfigSupportError, ModuleBuildError
@@ -62,3 +62,33 @@ class TestConfig:
     def test_wrong_type(self):
         with pytest.raises(CoreConfigSupportError):
             self._load("./configs/launch/error.yaml")
+
+    def test_class(self):
+        modules, _ = self._load("./configs/launch/test_class.toml", False)
+        assert modules.Model.cls == VGG
+
+    def test_module(self):
+        modules, _ = self._load("./configs/launch/test_module.toml", False)
+        assert modules.Model.cls == torch.nn.ReLU
+
+    def test_regitered_error(self):
+        with pytest.raises(ModuleBuildError):
+            self._load("./configs/launch/test_regitered_error.toml", False)
+
+    def test_hidden_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_hidden_error.toml", False)
+
+    def test_ref_field_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_ref_field_error.toml", False)
+
+    def test_nest(self):
+        self._load("./configs/launch/test_nest.toml", False)
+
+    def test_nest_hidden(self):
+        self._load("./configs/launch/test_nest_hidden.toml", False)
+
+    def test_conflict_name_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_conflict_name.toml", False)

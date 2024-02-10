@@ -188,7 +188,8 @@ def auto_register():
     Automatically import all modules in `src_dir` and register all modules, then dump to files.
     """
     if not os.path.exists(_workspace_config_file):
-        logger.warning("Please run `excore init` in your command line first!")
+        logger.critical("Please run `excore init` in your command line first!")
+        sys.exit(0)
     target_dir = osp.abspath(_workspace_cfg["src_dir"])
     module_name = _get_default_module_name(target_dir)
     sys.path.append(os.getcwd())
