@@ -69,8 +69,11 @@ const config = {
         title: "ExCore",
         logo: {
           alt: "My Site Logo",
-          src: "img/logo.png",
+          src: "img/logo_light.png",
+          srcDark: "img/logo_dark.png",
         },
+        style: "dark",
+        hideOnScroll: true,
         items: [
           {
             type: "docSidebar",
@@ -82,6 +85,10 @@ const config = {
           {
             href: "https://github.com/Asthestarsfalll/ExCore",
             label: "GitHub",
+            position: "right",
+          },
+          {
+            type: "search",
             position: "right",
           },
         ],
