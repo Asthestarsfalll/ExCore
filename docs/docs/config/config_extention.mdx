@@ -23,3 +23,47 @@ Code navigation is provided by the an extention of excore, currently only suppor
 2. Run `excore auto-register` and `excore config-extention`.
 3. Open project by neovim, rum command `ExLoad` to manually load the cached mapping.
 
+
+## Generate Python Type Hints
+
+Run `excore generate-typehints` to generate python type hints for modules and isolated objects. You need to specify a config to get the isolated objects. For example:
+
+```
+excore generate-typehints types --class-name ModuleType --info-class-name Info --config ./configs/launch/test_optim.toml
+```
+
+It will generate a python file named `types`:
+
+```python
+from typing import Union, Any
+from excore.config.model import ModuleNode, ModuleWrapper
+
+class ModuleType:
+    Model: Union[ModuleNode, ModuleWrapper]
+    TrainData: Union[ModuleNode, ModuleWrapper]
+    TestData: Union[ModuleNode, ModuleWrapper]
+    Backbone: Union[ModuleNode, ModuleWrapper]
+    Loss: Union[ModuleNode, ModuleWrapper]
+    LRSche: Union[ModuleNode, ModuleWrapper]
+    Optimizer: Union[ModuleNode, ModuleWrapper]
+
+class Info:
+    learning_rate: Any
+    test1: Any
+    test2: Any
+    test3: Any
+    test4: Any
+```
+
+Then you can use them like:
+```python
+from .types import ModuleType, Info
+
+from excore import config
+
+cfg = config.load("xxx.toml")
+modules, run_info = config.build_all(cfg)
+
+modules: ModuleType
+run_info: Info
+```

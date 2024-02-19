@@ -66,8 +66,7 @@ def _generate_registries(entry="__init__"):
     source_code = astor.to_source(source_code)
     with open(target_file, "w", encoding="UTF-8") as f:
         f.write(source_code)
-    logger.success(
-        "Generate Registry definition in {} according to `primary_fields`", target_file)
+    logger.success("Generate Registry definition in {} according to `primary_fields`", target_file)
 
 
 def _detect_assign(node, definition):
@@ -203,8 +202,7 @@ def primary_fields():
     """
     Show primary_fields.
     """
-    table = _create_table("FIELDS", _parse_registries(
-        _workspace_cfg["registries"])[0])
+    table = _create_table("FIELDS", _parse_registries(_workspace_cfg["registries"])[0])
     logger.info(table)
 
 
@@ -213,8 +211,7 @@ def registries():
     """
     Show registries.
     """
-    table = _create_table("Registry", [_format(i)
-                          for i in _workspace_cfg["registries"]])
+    table = _create_table("Registry", [_format(i) for i in _workspace_cfg["registries"]])
     logger.info(table)
 
 
