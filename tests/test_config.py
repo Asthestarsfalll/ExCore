@@ -1,3 +1,5 @@
+import os
+
 import pytest
 import torch
 from torchvision.models import VGG, ResNet
@@ -92,3 +94,7 @@ class TestConfig:
     def test_conflict_name_error(self):
         with pytest.raises(CoreConfigParseError):
             self._load("./configs/launch/test_conflict_name.toml", False)
+
+    def test_dump(self):
+        config.load("./configs/launch/test_nest.toml", dump_config="./temp_config.toml")
+        assert os.path.exists("temp_config.toml")

@@ -1,6 +1,6 @@
 import os
 import time
-from typing import Tuple
+from typing import Optional, Tuple
 
 import toml
 
@@ -8,8 +8,8 @@ from .._exceptions import CoreConfigSupportError
 from ..engine.logging import logger
 from ..engine.registry import load_registries
 from .lazy_config import LazyConfig
-from .parse import ConfigDict
 from .model import ModuleWrapper
+from .parse import ConfigDict
 
 __all__ = ["load", "build_all", "load_config"]
 
@@ -48,10 +48,14 @@ def _merge_config(base_cfg, new_cfg):
             base_cfg[k] = v
 
 
-def load(filename: str, base_key: str = BASE_CONFIG_KEY) -> LazyConfig:
+def load(
+    filename: str, dump_config: Optional[str] = None, base_key: str = BASE_CONFIG_KEY
+) -> LazyConfig:
     st = time.time()
     load_registries()
     config = load_config(filename, base_key)
+    if dump_config:
+        config.dump(dump_config)
     logger.info("Loaded configs:")
     logger.info(config)
     lazy_config = LazyConfig(config)

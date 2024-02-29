@@ -260,6 +260,12 @@ class ConfigDict(dict):
         else:
             _dict[k] = v
 
+    def dump(self, path: str):
+        import toml
+
+        with open(path, "w", encoding="UTF-8") as f:
+            toml.dump(self, f)
+
 
 def set_primary_fields(cfg):
     primary_fields = cfg["primary_fields"]
