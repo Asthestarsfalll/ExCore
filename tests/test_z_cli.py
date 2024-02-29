@@ -25,5 +25,14 @@ def test_primary():
     excute("excore primary-fields")
 
 
+def test_typehints():
+    excute(
+        "excore generate-typehints temp_typing --class-name "
+        "TypedWrapper --info-class-name Info --config ./configs/launch/test_optim.toml"
+    )
+    assert os.path.exists("./source_code/temp_typing.py")
+    from source_code.temp_typing import Info, TypedWrapper  # noqa: F401
+
+
 def test_clear_cache():
     excute("excore clear-cache")
