@@ -49,7 +49,9 @@ def _merge_config(base_cfg, new_cfg):
 
 
 def load(
-    filename: str, dump_config: Optional[str] = None, base_key: str = BASE_CONFIG_KEY
+    filename: str,
+    dump_config: Optional[str] = None,
+    base_key: str = BASE_CONFIG_KEY,
 ) -> LazyConfig:
     st = time.time()
     load_registries()

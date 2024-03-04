@@ -16,11 +16,32 @@ from .model import (
 )
 
 
+def _check_implicit_module(module: ModuleNode) -> None:
+    import inspect
+    from inspect import Parameter
+
+    cls = module.cls
+    signature = inspect.signature(cls.__init__)
+    empty = []
+    for idx, param in enumerate(signature.parameters.values()):
+        if (
+            idx != 0
+            and param.default == param.empty
+            and param.kind not in [Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD]
+        ):
+            empty.append(param.name)
+    if empty:
+        raise CoreConfigParseError(
+            f"Parse class `{cls.__name__}` to `Implicit`, "
+            f"but find parameters: {empty} without default value."
+        )
+
+
 def _dict2node(module_type: str, base: str, _dict: Dict, return_list=False):
     ModuleType: Type[ModuleNode] = _dispatch_module_node[module_type]
     if return_list:
-        return [ModuleType.from_base_name(base, name, **v) for name, v in _dict.items()]
-    return {name: ModuleType.from_base_name(base, name, **v) for name, v in _dict.items()}
+        return [ModuleType.from_base_name(base, name, v) for name, v in _dict.items()]
+    return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
 def _parse_param_name(name):
@@ -120,6 +141,7 @@ class ConfigDict(dict):
         if not base:
             raise CoreConfigParseError(f"Unregistered module `{name}`")
         node = module_type.from_base_name(base, name)
+        _check_implicit_module(node)
         if module_type == ReusedNode:
             self[name] = node
         return node
@@ -177,7 +199,7 @@ class ConfigDict(dict):
         name = self._get_name(name, ori_name)
         if name in self.all_fields:
             raise CoreConfigParseError(
-                f"Conflict name: `{name}`, the class name cannot be same with registry"
+                f"Conflict name: `{name}`, the class name cannot be same with field name"
             )
         ori_type = None
         if name in self:

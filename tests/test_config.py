@@ -6,6 +6,7 @@ from torchvision.models import VGG, ResNet
 
 from excore import config
 from excore._exceptions import CoreConfigParseError, CoreConfigSupportError, ModuleBuildError
+from excore.config.model import ModuleNode
 
 
 class TestConfig:
@@ -95,6 +96,19 @@ class TestConfig:
         with pytest.raises(CoreConfigParseError):
             self._load("./configs/launch/test_conflict_name.toml", False)
 
+    def test_other_field(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_other_field.toml", False)
+
     def test_dump(self):
         config.load("./configs/launch/test_nest.toml", dump_config="./temp_config.toml")
         assert os.path.exists("temp_config.toml")
+
+    def test_dump2(self):
+        cfg = config.load("./configs/launch/test_nest.toml")
+        cfg.dump("./temp_config2.toml")
+        assert os.path.exists("temp_config2.toml")
+
+    def test_no_inst(self):
+        modules, _ = self._load("./configs/launch/test_no_inst.toml", False)
+        assert isinstance(modules.Model, ModuleNode)

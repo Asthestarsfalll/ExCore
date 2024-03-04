@@ -7,9 +7,6 @@ from .model import ConfigHookNode, InterNode, ModuleWrapper
 from .parse import ConfigDict
 
 
-# TODO: automatically generate pyi file
-#   according to config files for type hinting. high priority.
-# TODO: Add dump method to generate toml config files.
 class LazyConfig:
     hook_key = "ConfigHook"
 
@@ -19,6 +16,7 @@ class LazyConfig:
         config.registered_fields = list(Registry._registry_pool.keys())
         config.all_fields = set([*config.registered_fields, *config.primary_fields])
         self._config = deepcopy(config)
+        self._origin_config = deepcopy(config)
         self.build_config_hooks()
         self._config.parse()
 
@@ -46,7 +44,6 @@ class LazyConfig:
             return self._config[__name]
         raise AttributeError(__name)
 
-    # TODO: refine output
     def build_all(self) -> Tuple[ModuleWrapper, Dict]:
         module_dict, isolated_dict = ModuleWrapper(), {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
@@ -61,7 +58,10 @@ class LazyConfig:
         for name in self._config.non_primary_keys():
             isolated_dict[name] = self._config[name]
         self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
-        return ModuleWrapper(module_dict), isolated_dict
+        return module_dict, isolated_dict
+
+    def dump(self, dump_path: str) -> None:
+        self._origin_config.dump(dump_path)
 
     def __str__(self):
         return str(self._config)
