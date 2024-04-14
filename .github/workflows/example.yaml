@@ -29,8 +29,8 @@ jobs:
       - name: Install Dependencies
         run: poetry install --with dev
 
-      - name: Test with pytest
+      - name: Test example
         run: |
           cd ./example
           poetry run python init.py
-          python run.py
+          poetry run python run.py
