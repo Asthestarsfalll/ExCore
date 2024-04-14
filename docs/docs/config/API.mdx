@@ -3,10 +3,26 @@
 ## load
 
 ```python
-def load(filename: str, dump_config: Optional[str] = None, base_key: str = BASE_CONFIG_KEY) -> LazyConfig
+def load(
+    filename: str,
+    *,
+    dump_path: Optional[str] = None,
+    update_dict: Optional[Dict] = None,
+    base_key: str = BASE_CONFIG_KEY,
+    parse_config: bool = True,
+) -> LazyConfig:
 ```
 
-Load target toml file. `dump_config` is used for dump all loaded config into a single file. `base_key` is used for config inheritance, default to `__base__`.
+Load a configuration file and optionally update it with a dictionary, dump it to a specified path.
+
+`dump_path` is used for dump all loaded config into a single file. 
+
+`update_dict` is a dictionary with values to update in the loaded configuration. Defaults to None.
+
+`base_key` is used for config inheritance, default to `__base__`.
+
+`parse_config` is the flag whether to parse the configuration immediately. Defaults to True.
+
 
 ## build_all
 

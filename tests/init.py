@@ -10,11 +10,15 @@ predefined_inputs = {
 
 def excute(command: str, inputs=None):
     if inputs:
-        subprocess.run(
-            command.split(" "), stdout=subprocess.PIPE, input="\n".join(inputs), text=True
+        result = subprocess.run(
+            command.split(" "), input="\n".join(inputs), text=True, capture_output=True
         )
     else:
-        subprocess.run(command.split(" "), stdout=subprocess.PIPE)
+        result = subprocess.run(
+            command.split(" "),
+            capture_output=True,
+        )
+    assert result.returncode == 0, result.stderr
 
 
 def init():

@@ -1,3 +1,4 @@
+from .action import DictAction
 from .config import build_all, load, load_config
 from .model import (
     ChainedInvocationWrapper,
@@ -12,6 +13,7 @@ from .parse import ConfigDict, set_primary_fields
 
 __all__ = [
     "build_all",
+    "DictAction",
     "load",
     "load_config",
     "silent",

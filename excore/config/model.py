@@ -18,6 +18,7 @@ REFER_FLAG = "&"
 OTHER_FLAG = ""
 
 LOG_BUILD_MESSAGE = True
+DO_NOT_CALL_KEY = "__no_call__"
 
 
 def silent():
@@ -90,7 +91,7 @@ class ModuleNode(dict):
         super().update(_other)
         return self
 
-    def _build_instance(self, params):
+    def _instantiate(self, params):
         try:
             module = self.cls(**params)
         except Exception as exc:
@@ -105,18 +106,23 @@ class ModuleNode(dict):
         return module
 
     def __call__(self, **kwargs):
+        if hasattr(self, "_no_call"):
+            return self
         params = self._get_params(**kwargs)
-        module = self._build_instance(params)
+        module = self._instantiate(params)
         return module
 
     @classmethod
-    def from_str(cls, str_target, **params):
+    def from_str(cls, str_target, params=None):
         node = cls(_str_to_target(str_target))
-        node.update(params)
+        if params:
+            node.update(params)
+        if node.pop(DO_NOT_CALL_KEY, False):
+            node._no_call = True
         return node
 
     @classmethod
-    def from_base_name(cls, base, name, **params):
+    def from_base_name(cls, base, name, params=None):
         try:
             cls_name = Registry.get_registry(base)[name]
         except Exception as exc:
@@ -124,13 +130,16 @@ class ModuleNode(dict):
             raise ModuleBuildError(
                 f"Failed to find the registered module {name} with base registry {base}"
             ) from exc
-        return cls.from_str(cls_name, **params)
+        return cls.from_str(cls_name, params)
 
     @classmethod
     def from_node(cls, _other: "ModuleNode") -> "ModuleNode":
         if _other.__class__.__name__ == cls.__name__:
             return _other
-        return cls(_other.cls).update(_other)
+        node = cls(_other.cls).update(_other)
+        if hasattr(_other, "__no_call"):
+            node._no_call = True
+        return node
 
 
 class InterNode(ModuleNode):
@@ -142,7 +151,7 @@ class ConfigHookNode(ModuleNode):
         if issubclass(self.cls, ConfigArgumentHook):
             return None
         params = self._get_params(**kwargs)
-        return self._build_instance(params)
+        return self._instantiate(params)
 
 
 class ReusedNode(InterNode):
@@ -166,6 +175,8 @@ class ChainedInvocationWrapper:
 
     def __call__(self, **kwargs):
         target = self.node(**kwargs)
+        if isinstance(target, ModuleNode):
+            raise ModuleBuildError(f"Do not support `{DO_NOT_CALL_KEY}`")
         if self.attrs:
             for attr in self.attrs:
                 if attr[-2:] == "()":

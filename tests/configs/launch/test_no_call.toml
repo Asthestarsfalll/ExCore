@@ -1,0 +1,3 @@
+[Model.TestClass]
+__no_call__ = true
+$cls = "torch.nn.ReLU"

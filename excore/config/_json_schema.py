@@ -2,6 +2,7 @@ import inspect
 import json
 import os
 import os.path as osp
+import sys
 from collections.abc import Sequence
 from inspect import Parameter, _empty, isclass
 from types import ModuleType
@@ -34,8 +35,8 @@ def _get_type(t):
     if isinstance(t, _GenericAlias):
         if isinstance(t.__args__[0], _GenericAlias):
             return None
-        return TYPE_MAPPER.get(t, None)
-    potential_type = TYPE_MAPPER.get(t, None)
+        return TYPE_MAPPER.get(t)
+    potential_type = TYPE_MAPPER.get(t)
     if potential_type is None:
         return "string"
     return potential_type
@@ -124,7 +125,12 @@ def parse_registry(reg: Registry):
         for param_name, param_obj in params.items():
             if param_name == "self" or (is_hook and param_name == "node"):
                 continue
-            is_required, item = parse_single_param(param_obj)
+            try:
+                is_required, item = parse_single_param(param_obj)
+            except Exception:
+                logger.error(sys.exc_info())
+                logger.error(f"Skip {param_obj.name} of {name}")
+                continue
             items[param_name] = item
             if is_required:
                 required.append(param_name)
@@ -145,46 +151,59 @@ def _clean(anno):
     return anno
 
 
+def _parse_inner_types(prop, args):
+    inner_types = [_get_type(i) for i in args]
+    first_type = inner_types[0]
+    is_all_the_same = True
+    for t in inner_types:
+        is_all_the_same &= t == first_type
+    if is_all_the_same:
+        prop["items"] = {"type": first_type}
+
+
 def _parse_generic_alias(prop, anno) -> Optional[str]:
     potential_type = None
     if anno.__origin__ in (Sequence, list, tuple):
         potential_type = "array"
         # Do not support like `List[ResNet]`.
-        inner_type = _get_type(anno.__args__[0])
-        if inner_type:
-            prop["items"] = {"type": inner_type}
+        _parse_inner_types(prop, anno.__args__)
     elif anno.__origin__ == Union:
         potential_type = None
+    elif anno == Dict:
+        return "object"
     elif len(anno.__args__) > 0:
         potential_type = _get_type(anno.__args__[0])
     return potential_type
 
 
-def parse_single_param(p: Parameter):
+def parse_single_param(param: Parameter):
     prop = {}
-    anno = p.annotation
+    anno = param.annotation
     potential_type = None
 
     anno = _clean(anno)
 
     #  hardcore for torch.optim
-    if p.default.__class__.__name__ == "_RequiredParameter":
-        p._default = _empty
+    if param.default.__class__.__name__ == "_RequiredParameter":
+        param._default = _empty
 
     if isinstance(anno, _GenericAlias):
         potential_type = _parse_generic_alias(prop, anno)
     elif anno is not _empty:
         potential_type = _get_type(anno)
     # determine type by default value
-    elif p.default is not _empty:
-        potential_type = _get_type(type(p.default))
-    if p.name in SPECIAL_KEYS:
-        return False, SPECIAL_KEYS[p.name]
-    if p.default is _empty:
+    elif param.default is not _empty:
+        potential_type = _get_type(type(param.default))
+        if isinstance(param.default, (list, tuple)):
+            types = [type(t) for t in param.default]
+            _parse_inner_types(prop, types)
+    if param.name in SPECIAL_KEYS:
+        return False, SPECIAL_KEYS[param.name]
+    if anno is _empty and param.default is _empty:
         potential_type = "number"
     if potential_type:
         prop["type"] = potential_type
-    return p.default is _empty, prop
+    return param.default is _empty, prop
 
 
 def _json_schema_path():
