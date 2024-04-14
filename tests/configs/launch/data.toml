@@ -1,0 +1,9 @@
+[Test.1]
+name = 1
+data = [0, 1, 2, 3]
+
+[Test.2]
+name = 2
+
+[Test.2.data]
+name = 'data'

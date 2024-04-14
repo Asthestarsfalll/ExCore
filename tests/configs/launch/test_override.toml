@@ -1,0 +1,7 @@
+__base__ = ['./data.toml']
+
+[Test.1]
+data = [0]
+
+[Test.2.data]
+name = 'test'

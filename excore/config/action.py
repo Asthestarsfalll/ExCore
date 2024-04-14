@@ -2,10 +2,11 @@
 Copy from mmengine/config/config.py
 """
 
-
 import copy
 from argparse import Action, ArgumentParser, Namespace
 from typing import Any, Sequence, Union
+
+__all__ = ["DictAction"]
 
 
 class DictAction(Action):
@@ -16,6 +17,24 @@ class DictAction(Action):
     brackets, i.e. 'KEY=[V1,V2,V3]'. It also support nested brackets to build
     list/tuple values. e.g. 'KEY=[(V1,V2),(V3,V4)]'
     """
+
+    def __init__(
+        self,
+        option_strings,
+        dest,
+        nargs=None,
+        const=None,
+        default=None,
+        type=None,
+        choices=None,
+        required=False,
+        help=None,
+        metavar=None,
+    ):
+        super().__init__(
+            option_strings, dest, nargs, const, default, type, choices, required, help, metavar
+        )
+        self._dict = {}
 
     @staticmethod
     def _parse_int_float_bool(val: str) -> Union[int, float, bool, Any]:
@@ -29,7 +48,7 @@ class DictAction(Action):
         except ValueError:
             pass
         if val.lower() in ["true", "false"]:
-            return True if val.lower() == "true" else False
+            return val.lower() == "true"
         if val == "None":
             return None
         return val
@@ -103,6 +122,17 @@ class DictAction(Action):
 
         return values
 
+    def _set_dict(self, key, value):
+        keys = key.split(".")
+        d = self._dict
+        for k in keys[:-1]:
+            if k in d:
+                d = d[k]
+            else:
+                d[k] = {}
+                d = d[k]
+        d[keys[-1]] = value
+
     def __call__(
         self,
         parser: ArgumentParser,
@@ -120,9 +150,9 @@ class DictAction(Action):
                 Defaults to None.
         """
         # Copied behavior from `argparse._ExtendAction`.
-        options = copy.copy(getattr(namespace, self.dest, None) or {})
+        self._dict = copy.copy(getattr(namespace, self.dest, None) or {})
         if values is not None:
             for kv in values:
                 key, val = kv.split("=", maxsplit=1)
-                options[key] = self._parse_iterable(val)
-        setattr(namespace, self.dest, options)
+                self._set_dict(key, self._parse_iterable(val))
+        setattr(namespace, self.dest, self._dict)

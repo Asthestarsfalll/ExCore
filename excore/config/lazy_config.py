@@ -1,7 +1,9 @@
+import time
 from copy import deepcopy
 from typing import Any, Dict, Tuple
 
 from ..engine.hook import ConfigHookManager
+from ..engine.logging import logger
 from ..engine.registry import Registry
 from .model import ConfigHookNode, InterNode, ModuleWrapper
 from .parse import ConfigDict
@@ -17,8 +19,18 @@ class LazyConfig:
         config.all_fields = set([*config.registered_fields, *config.primary_fields])
         self._config = deepcopy(config)
         self._origin_config = deepcopy(config)
+        self.__is_parsed__ = False
+
+    def parse(self):
+        st = time.time()
         self.build_config_hooks()
         self._config.parse()
+        logger.success("Config parsing cost {:.4f}s!", time.time() - st)
+        self.__is_parsed__ = True
+
+    @property
+    def config(self):
+        return self._origin_config
 
     def update(self, cfg: "LazyConfig"):
         self._config.update(cfg._config)
@@ -45,6 +57,8 @@ class LazyConfig:
         raise AttributeError(__name)
 
     def build_all(self) -> Tuple[ModuleWrapper, Dict]:
+        if not self.__is_parsed__:
+            self.parse()
         module_dict, isolated_dict = ModuleWrapper(), {}
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:

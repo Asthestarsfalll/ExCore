@@ -217,8 +217,8 @@ class GitHTTPSFetcher(RepoFetcherBase):
             f"_{commit}" if commit else ""
         )
         repo_dir = "_".join(__version__.split(".")) + "_" + cls._gen_repo_dir(repo_dir_raw)
-        archive_url = "https://{}/{}/{}/archive/{}.zip".format(
-            git_host, repo_owner, repo_name, commit or branch_info
+        archive_url = (
+            f"https://{git_host}/{repo_owner}/{repo_name}/archive/{commit or branch_info}.zip"
         )
 
         if use_cache and os.path.exists(repo_dir):  # use cache

@@ -18,7 +18,7 @@ REFER_FLAG = "&"
 OTHER_FLAG = ""
 
 LOG_BUILD_MESSAGE = True
-DO_NOT_INSTANTIATE_KEY = "__no_inst__"
+DO_NOT_CALL_KEY = "__no_call__"
 
 
 def silent():
@@ -106,7 +106,7 @@ class ModuleNode(dict):
         return module
 
     def __call__(self, **kwargs):
-        if hasattr(self, "_no_inst"):
+        if hasattr(self, "_no_call"):
             return self
         params = self._get_params(**kwargs)
         module = self._instantiate(params)
@@ -117,8 +117,8 @@ class ModuleNode(dict):
         node = cls(_str_to_target(str_target))
         if params:
             node.update(params)
-        if node.pop(DO_NOT_INSTANTIATE_KEY, False):
-            node._no_inst = True
+        if node.pop(DO_NOT_CALL_KEY, False):
+            node._no_call = True
         return node
 
     @classmethod
@@ -137,8 +137,8 @@ class ModuleNode(dict):
         if _other.__class__.__name__ == cls.__name__:
             return _other
         node = cls(_other.cls).update(_other)
-        if hasattr(_other, "__no_inst"):
-            node._no_inst = True
+        if hasattr(_other, "__no_call"):
+            node._no_call = True
         return node
 
 
@@ -176,7 +176,7 @@ class ChainedInvocationWrapper:
     def __call__(self, **kwargs):
         target = self.node(**kwargs)
         if isinstance(target, ModuleNode):
-            raise ModuleBuildError(f"Do not support `{DO_NOT_INSTANTIATE_KEY}`")
+            raise ModuleBuildError(f"Do not support `{DO_NOT_CALL_KEY}`")
         if self.attrs:
             for attr in self.attrs:
                 if attr[-2:] == "()":

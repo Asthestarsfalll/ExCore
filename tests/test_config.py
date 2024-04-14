@@ -101,7 +101,7 @@ class TestConfig:
             self._load("./configs/launch/test_other_field.toml", False)
 
     def test_dump(self):
-        config.load("./configs/launch/test_nest.toml", dump_config="./temp_config.toml")
+        config.load("./configs/launch/test_nest.toml", dump_path="./temp_config.toml")
         assert os.path.exists("temp_config.toml")
 
     def test_dump2(self):
@@ -112,3 +112,30 @@ class TestConfig:
     def test_no_inst(self):
         modules, _ = self._load("./configs/launch/test_no_inst.toml", False)
         assert isinstance(modules.Model, ModuleNode)
+
+    def test_dict_action(self):
+        from init import excute
+
+        excute(
+            "python ./source_code/dict_action.py \
+            --config ./configs/launch/data.toml --cfg-options Test.1.data=[0, 3] \
+            Test.2.data=2 Test.3='(0)' TMP.1.2.3.4.5.6=7 --dump ./temp_config3.toml"
+        )
+
+        cfg = config.load("./temp_config3.toml", parse_config=False).config
+
+        assert cfg["Test"]["1"]["data"] == [0, 3]
+
+    def test_override(self):
+        cfg = config.load("./configs/launch/test_override.toml", parse_config=False).config
+        assert cfg["Test"]["1"]["data"] == [0]
+        assert cfg["Test"]["2"]["data"]["name"] == "test"
+
+    def test_auto_parse(self):
+        cfg = config.load("./configs/launch/test_reused_intern.toml", parse_config=False)
+        modules = cfg.build_all()[0]
+        assert isinstance(modules.Model.FCN.backbone, ResNet)
+        assert isinstance(modules.Model.DeepLabV3.backbone, ResNet)
+        assert id(modules.Model.FCN.backbone) == id(modules.Model.DeepLabV3.backbone)
+        assert id(modules.Backbone) == id(modules.Model.FCN.backbone)
+        assert id(modules.Model.FCN.classifier) != id(modules.Model.DeepLabV3.classifier)

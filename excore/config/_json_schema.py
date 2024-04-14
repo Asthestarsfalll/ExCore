@@ -34,8 +34,8 @@ def _get_type(t):
     if isinstance(t, _GenericAlias):
         if isinstance(t.__args__[0], _GenericAlias):
             return None
-        return TYPE_MAPPER.get(t, None)
-    potential_type = TYPE_MAPPER.get(t, None)
+        return TYPE_MAPPER.get(t)
+    potential_type = TYPE_MAPPER.get(t)
     if potential_type is None:
         return "string"
     return potential_type

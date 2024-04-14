@@ -2,6 +2,7 @@ import sys
 
 from . import config
 from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
+from .config.action import DictAction
 from .config.config import build_all, load
 from .config.parse import set_primary_fields
 from .engine import hook, logging, registry
@@ -20,22 +21,23 @@ from .utils import hub
 __all__ = [
     "__author__",
     "__version__",
-    "hub",
-    "config",
-    "hook",
-    "logger",
-    "registry",
-    "ConfigArgumentHook",
+    "add_logger",
     "build_all",
+    "config",
+    "ConfigArgumentHook",
+    "debug_only",
+    "DictAction",
     "load",
+    "load_registries",
+    "logging",
+    "logger",
+    "hook",
+    "hub",
     "Hook",
     "HookManager",
-    "add_logger",
+    "registry",
     "remove_logger",
     "Registry",
-    "load_registries",
-    "debug_only",
-    "logging",
 ]
 
 init_logger()
