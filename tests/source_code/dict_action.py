@@ -19,6 +19,7 @@ def parse_args():
 def main():
     args = parse_args()
     print(args.cfg_options)
+    print(args.dump)
     cfg = load(
         args.config,
         dump_path=args.dump,

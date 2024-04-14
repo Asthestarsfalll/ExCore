@@ -75,6 +75,3 @@ def test_type_parsing():
     _assert(property, "default_d", "object")
     _assert(property, "default_tuple", "array")
     _assert(property, "default_list", "array", "number")
-
-
-test_type_parsing()

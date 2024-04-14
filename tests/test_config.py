@@ -109,17 +109,18 @@ class TestConfig:
         cfg.dump("./temp_config2.toml")
         assert os.path.exists("temp_config2.toml")
 
-    def test_no_inst(self):
-        modules, _ = self._load("./configs/launch/test_no_inst.toml", False)
+    def test_no_call(self):
+        modules, _ = self._load("./configs/launch/test_no_call.toml", False)
         assert isinstance(modules.Model, ModuleNode)
 
     def test_dict_action(self):
         from init import excute
 
         excute(
-            "python ./source_code/dict_action.py \
-            --config ./configs/launch/data.toml --cfg-options Test.1.data=[0, 3] \
-            Test.2.data=2 Test.3='(0)' TMP.1.2.3.4.5.6=7 --dump ./temp_config3.toml"
+            "python ./source_code/dict_action.py "
+            "--config ./configs/launch/data.toml "
+            "--cfg-options Test.1.data=[0,3] "
+            'Test.2=1 Test.3="(0)" TMP.1.2.3.4.5.6=7 --dump ./temp_config3.toml'
         )
 
         cfg = config.load("./temp_config3.toml", parse_config=False).config

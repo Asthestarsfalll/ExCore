@@ -1,5 +1,5 @@
 """
-Copy from mmengine/config/config.py
+Copy and adapt from mmengine/config/config.py
 """
 
 import copy

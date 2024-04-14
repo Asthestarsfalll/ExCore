@@ -35,4 +35,4 @@ def test_typehints():
 
 
 def test_clear_cache():
-    excute("excore clear-cache")
+    excute("excore clear-cache", ["y"])
