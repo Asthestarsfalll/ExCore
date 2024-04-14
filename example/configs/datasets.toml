@@ -1,7 +1,7 @@
 size = 1024
 
 [TrainData.CityScapes]
-&train_size = "size"
+&img_size = "size"
 !transforms = ['RandomResize', 'RandomFlip', 'Normalize', 'Pad']
 data_path = 'xxx'
 
@@ -22,5 +22,5 @@ mean = [0.5, 0.5, 0.5]
 
 [TestData.CityScapes]
 !transforms = ['Normalize']
-&test_size = "size"
+&img_size = "size"
 data_path = 'xxx'

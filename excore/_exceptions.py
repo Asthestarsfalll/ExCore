@@ -34,6 +34,10 @@ class CoreConfigParseError(BaseException):
     pass
 
 
+class ImplicitModuleParseError(BaseException):
+    pass
+
+
 class ModuleBuildError(BaseException):
     pass
 

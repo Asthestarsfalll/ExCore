@@ -1,6 +1,6 @@
 from typing import Dict, List, Set, Type
 
-from .._exceptions import CoreConfigParseError
+from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from ..engine import Registry, logger
 from ..utils.misc import _create_table
 from .model import (
@@ -31,7 +31,7 @@ def _check_implicit_module(module: ModuleNode) -> None:
         ):
             empty.append(param.name)
     if empty:
-        raise CoreConfigParseError(
+        raise ImplicitModuleParseError(
             f"Parse class `{cls.__name__}` to `Implicit`, "
             f"but find parameters: {empty} without default value."
         )

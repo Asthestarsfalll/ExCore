@@ -42,11 +42,11 @@ class LazyConfig:
             _, base = Registry.find(list(hook_cfgs.keys())[0])
             reg = Registry.get_registry(base)
             for name, params in hook_cfgs.items():
-                hook = ConfigHookNode.from_str(reg[name], **params)()
+                hook = ConfigHookNode.from_str(reg[name], params)()
                 if hook:
                     hooks.append(hook)
                 else:
-                    self._config[name] = InterNode.from_str(reg[name], **params)
+                    self._config[name] = InterNode.from_str(reg[name], params)
         self.hooks = ConfigHookManager(hooks)
 
     def __getattr__(self, __name: str) -> Any:

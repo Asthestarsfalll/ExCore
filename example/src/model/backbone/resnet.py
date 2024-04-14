@@ -5,7 +5,7 @@ from src import MODEL
 
 @MODEL.register(is_backbone=False)
 class BasicBlock:
-    def __init__(self, in_chan, out_chan):
+    def __init__(self, in_chan=0, out_chan=0):
         pass
 
 
