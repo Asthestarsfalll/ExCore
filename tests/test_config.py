@@ -5,7 +5,12 @@ import torch
 from torchvision.models import VGG, ResNet
 
 from excore import config
-from excore._exceptions import CoreConfigParseError, CoreConfigSupportError, ModuleBuildError
+from excore._exceptions import (
+    CoreConfigParseError,
+    CoreConfigSupportError,
+    ImplicitModuleParseError,
+    ModuleBuildError,
+)
 from excore.config.model import ModuleNode
 
 
@@ -97,7 +102,7 @@ class TestConfig:
             self._load("./configs/launch/test_conflict_name.toml", False)
 
     def test_other_field(self):
-        with pytest.raises(CoreConfigParseError):
+        with pytest.raises(ImplicitModuleParseError):
             self._load("./configs/launch/test_other_field.toml", False)
 
     def test_dump(self):
@@ -140,3 +145,7 @@ class TestConfig:
         assert id(modules.Model.FCN.backbone) == id(modules.Model.DeepLabV3.backbone)
         assert id(modules.Backbone) == id(modules.Model.FCN.backbone)
         assert id(modules.Model.FCN.classifier) != id(modules.Model.DeepLabV3.classifier)
+
+    def test_implicit_module_parse(self):
+        with pytest.raises(ImplicitModuleParseError):
+            self._load("./configs/launch/test_implicit.toml", False)

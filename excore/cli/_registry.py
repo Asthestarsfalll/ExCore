@@ -178,8 +178,12 @@ def _auto_register(target_dir, module_name):
             _auto_register(full_path, module_name + "." + file_name)
         elif file_name.endswith(".py") and file_name != "__init__.py":
             import_name = module_name + "." + file_name[:-3]
-            logger.info("Register file {}", import_name)
-            importlib.import_module(import_name)
+            try:
+                importlib.import_module(import_name)
+            except Exception:
+                logger.success("Fail to register file {}", import_name)
+                continue
+            logger.success("Register file {}", import_name)
 
 
 @app.command()
