@@ -646,6 +646,77 @@ ResNet(torch.nn.ReLU())
 
 </details>
 
+### Plugins
+
+<details>
+  <summary>PathManager</summary>
+
+Manage paths in a structured manner for creating directories, if the scoped functions fail, it can automatically delete the created directories.
+
+```python
+from excore.plugins.path_manager import PathManager
+
+with PathManager(
+    base_path = "./exp",
+    sub_folders=["folder1", "folder2"],
+    config_name="config_dir",
+    instance_name="test1",
+    remove_if_fail=True,
+    sub_folder_exist_ok=False,
+    config_name_first=False,
+    return_str=True,
+) as pm:
+    folder1_path:str = pm.get("folder1")
+    folder2_path:str = pm.get("folder2")
+    do_sth(folder1_path, folder2_path)
+    train()
+```
+
+The structure will be
+
+```
+exp
+├── folder1
+│   └── config_dir
+│       └── test1
+└── folder2
+    └── config_dir
+        └── test1
+```
+
+You can also use the dataclass for a better experience:
+
+```python
+from dataclasses import dataclass
+
+from excore.plugins.path_manager import PathManager
+
+
+@dataclass
+class SubPath:
+    folder1: str = "folder1"
+    folder2: str = "folder2"
+
+sub_path = SubPath()
+
+with PathManager(
+    base_path = "./exp",
+    sub_folders=sub_path,
+    config_name="config_dir",
+    instance_name="test1",
+    remove_if_fail=True,
+    sub_folder_exist_ok=False,
+    config_name_first=False,
+    return_str=True,
+) as pm:
+    folder1_path:str = sub_path.folder1
+    folder2_path:str = sub_path.folder2
+    do_sth(folder1_path, folder2_path)
+    train()
+```
+
+</details>
+
 ### RoadMap
 
 For more features you may refer to [Roadmap of ExCore](https://github.com/users/Asthestarsfalll/projects/4)

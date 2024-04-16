@@ -7,7 +7,7 @@ from .._exceptions import ModuleBuildError
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry
-from ..utils.misc import CacheOut
+from .._misc import CacheOut
 
 __all__ = ["silent"]
 
