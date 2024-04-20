@@ -16,7 +16,7 @@ from .engine.logging import (
     remove_logger,
 )
 from .engine.registry import Registry, load_registries
-from .utils import hub
+from . import plugins
 
 __all__ = [
     "__author__",
@@ -32,11 +32,11 @@ __all__ = [
     "logging",
     "logger",
     "hook",
-    "hub",
     "Hook",
     "HookManager",
     "registry",
     "remove_logger",
+    "plugins",
     "Registry",
 ]
 

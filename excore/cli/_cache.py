@@ -4,7 +4,7 @@ import typer
 
 from .._constants import _base_name, _cache_base_dir, _cache_dir
 from ..engine.logging import logger
-from ..utils.misc import _create_table
+from .._misc import _create_table
 from ._app import app
 
 

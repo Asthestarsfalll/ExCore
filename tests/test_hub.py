@@ -1,6 +1,6 @@
 import pytest
 
-from excore import hub
+from excore.plugins import hub
 
 
 def test_hub_load():

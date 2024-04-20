@@ -2,7 +2,7 @@ from typing import Dict, List, Set, Type
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from ..engine import Registry, logger
-from ..utils.misc import _create_table
+from .._misc import _create_table
 from .model import (
     OTHER_FLAG,
     REFER_FLAG,

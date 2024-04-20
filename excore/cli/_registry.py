@@ -12,7 +12,7 @@ from typing_extensions import Annotated
 from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
 from ..engine.logging import logger
 from ..engine.registry import Registry
-from ..utils.misc import _create_table
+from .._misc import _create_table
 from ._app import app
 
 
