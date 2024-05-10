@@ -22,8 +22,7 @@ from ._registry import _update
 
 def _dump_workspace_config():
     logger.info("Dump config to {}", _workspace_config_file)
-    # TODO: Add props which can be used in config ?
-    _workspace_cfg["props"] = dict()
+    _workspace_cfg.pop("base_dir", None)
     with open(_workspace_config_file, "w", encoding="UTF-8") as f:
         toml.dump(_workspace_cfg, f)
 
