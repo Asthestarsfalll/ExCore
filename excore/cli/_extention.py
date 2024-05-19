@@ -21,7 +21,7 @@ def config_extention():
     _generate_taplo_config(target_dir)
     if not _workspace_cfg["json_schema_fields"]:
         logger.warning("You should set json_schema_fields first")
-        sys.exit()
+        sys.exit(0)
     _generate_json_schema_and_class_mapping(_workspace_cfg["json_schema_fields"])
 
 

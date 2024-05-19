@@ -2,7 +2,6 @@ import inspect
 import json
 import os
 import os.path as osp
-import sys
 from collections.abc import Sequence
 from inspect import Parameter, _empty, isclass
 from types import ModuleType
@@ -128,8 +127,10 @@ def parse_registry(reg: Registry):
             try:
                 is_required, item = parse_single_param(param_obj)
             except Exception:
-                logger.error(sys.exc_info())
+                from rich.console import Console
+
                 logger.error(f"Skip {param_obj.name} of {name}")
+                Console().print_exception()
                 continue
             items[param_name] = item
             if is_required:

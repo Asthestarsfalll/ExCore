@@ -1,13 +1,12 @@
 import importlib
 from dataclasses import dataclass
-from sys import exc_info, exit
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-from .._exceptions import ModuleBuildError
+from .._exceptions import ModuleBuildError, StrToClassError
+from .._misc import CacheOut
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry
-from .._misc import CacheOut
 
 __all__ = ["silent"]
 
@@ -59,10 +58,14 @@ def _str_to_target(module_name):
     target_name = module_name.pop(-1)
     try:
         module = importlib.import_module(".".join(module_name))
+    except ModuleNotFoundError as exc:
+        raise StrToClassError(f"Cannot import such moudle: `{'.'.join(module_name)}`") from exc
+    try:
         module = getattr(module, target_name)
-    except ModuleNotFoundError:
-        logger.critical(f"Can not import such module: {'.'.join(module_name)}")
-        exit(0)
+    except AttributeError as exc:
+        raise StrToClassError(
+            f"Cannot find such moudle `{target_name}` form `{'.'.join(module_name)}`"
+        ) from exc
     return module
 
 
@@ -95,7 +98,6 @@ class ModuleNode(dict):
         try:
             module = self.cls(**params)
         except Exception as exc:
-            logger.critical(exc_info())
             raise ModuleBuildError(
                 f"Build Error with module {self.cls} and arguments {params}"
             ) from exc
@@ -125,10 +127,9 @@ class ModuleNode(dict):
     def from_base_name(cls, base, name, params=None):
         try:
             cls_name = Registry.get_registry(base)[name]
-        except Exception as exc:
-            logger.critical(exc_info())
+        except KeyError as exc:
             raise ModuleBuildError(
-                f"Failed to find the registered module {name} with base registry {base}"
+                f"Failed to find the registered module `{name}` with base registry `{base}`"
             ) from exc
         return cls.from_str(cls_name, params)
 

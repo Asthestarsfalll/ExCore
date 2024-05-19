@@ -10,9 +10,9 @@ from typer import Argument as CArg
 from typing_extensions import Annotated
 
 from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
+from .._misc import _create_table
 from ..engine.logging import logger
 from ..engine.registry import Registry
-from .._misc import _create_table
 from ._app import app
 
 
@@ -181,7 +181,10 @@ def _auto_register(target_dir, module_name):
             try:
                 importlib.import_module(import_name)
             except Exception:
-                logger.success("Fail to register file {}", import_name)
+                from rich.console import Console
+
+                logger.critical("Fail to register file {}", import_name)
+                Console().print_exception()
                 continue
             logger.success("Register file {}", import_name)
 

@@ -1,6 +1,8 @@
 import sys
 
-from . import config
+from rich.traceback import install
+
+from . import config, plugins
 from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
 from .config.action import DictAction
 from .config.config import build_all, load
@@ -16,7 +18,6 @@ from .engine.logging import (
     remove_logger,
 )
 from .engine.registry import Registry, load_registries
-from . import plugins
 
 __all__ = [
     "__author__",
@@ -40,6 +41,7 @@ __all__ = [
     "Registry",
 ]
 
+install()
 init_logger()
 _load_workspace_config()
 set_primary_fields(_workspace_cfg)
