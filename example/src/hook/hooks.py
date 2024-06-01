@@ -19,7 +19,7 @@ class AddModelParams:
         if "Model" in module_dict:
             assert "Optimizer" not in module_dict
             model = module_dict["Model"]
-            cfg.Optimizer.add_params(params=model[0].parameters())
+            cfg.Optimizer << dict(params=model[0].parameters())
             logger.info("AddModelParams: add model params to optimizer")
             logger.info(cfg.Optimizer.get("params"))
             return True

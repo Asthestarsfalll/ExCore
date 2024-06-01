@@ -422,7 +422,9 @@ If you want to follow other logic to build modules, you can still use `LazyConfi
 ```python
 from excore import config
 layz_cfg = config.load('xxx.toml')
-lazy_cfg.Model.add_params(pre_trained='./')
+lazy_cfg.Model << dict(pre_trained='./')
+# or
+lazy_cfg.Model.add(pre_trained='./')
 
 module_dict, run_info = config.build_all(layz_cfg)
 ```

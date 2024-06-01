@@ -85,12 +85,8 @@ class ModuleNode(dict):
     def name(self):
         return self.cls.__name__
 
-    def add_params(self, **kwargs):
+    def add(self, **kwargs):
         self.update(kwargs)
-        return self
-
-    def update(self, _other):
-        super().update(_other)
         return self
 
     def _instantiate(self, params):
@@ -112,6 +108,18 @@ class ModuleNode(dict):
         params = self._get_params(**kwargs)
         module = self._instantiate(params)
         return module
+
+    def __lshift__(self, kwargs):
+        if not isinstance(kwargs, dict):
+            raise TypeError(f"Expect type is dict, but got {type(kwargs)}")
+        self.update(kwargs)
+        return self
+
+    def __rshift__(self, __other):
+        if not isinstance(__other, ModuleNode):
+            raise TypeError(f"Expect type is dict, but got {type(__other)}")
+        __other.update(self)
+        return self
 
     @classmethod
     def from_str(cls, str_target, params=None):
@@ -136,7 +144,7 @@ class ModuleNode(dict):
     def from_node(cls, _other: "ModuleNode") -> "ModuleNode":
         if _other.__class__.__name__ == cls.__name__:
             return _other
-        node = cls(_other.cls).update(_other)
+        node = cls(_other.cls) << _other
         if hasattr(_other, "__no_call"):
             node._no_call = True
         return node
@@ -219,9 +227,9 @@ class ModuleWrapper(dict):
             return m.name
         return m.__class__.__name__
 
-    def add_params(self, **kwargs):
+    def __lshift__(self, kwargs):
         if len(self) == 1:
-            self[list(self.keys())[0]].add_params(**kwargs)
+            self[list(self.keys())[0]] << kwargs
         else:
             raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 

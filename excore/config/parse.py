@@ -150,7 +150,7 @@ class ConfigDict(dict):
     def _parse_isolated_module(self, name, module_type):
         _, base = Registry.find(name)
         if base:
-            self[name] = module_type.from_base_name(base, name).update(self[name])
+            self[name] = module_type.from_base_name(base, name) << self[name]
 
     def _parse_isolated_obj(self):
         for name in self.non_primary_keys():

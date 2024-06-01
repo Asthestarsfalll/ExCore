@@ -1,6 +1,6 @@
 ---
 title: 深度学习中的配置系统
-hide_table_of_contents: false 
+hide_table_of_contents: false
 ---
 
 
@@ -186,7 +186,7 @@ TrainData:
     - type: RandomResize
       pad_size: 224
     - type: Pad
-   
+
 TestData:
     type: ImageNet
     test_size: 224
@@ -213,9 +213,9 @@ in_channel = 3
 `$`则用于表示不需要实例化，这是一个类，如:
 
 ```toml
-[Model.ResNet]  
-$block = "BasicBlock"  
-layers = 50  
+[Model.ResNet]
+$block = "BasicBlock"
+layers = 50
 in_channel = 3
 ```
 **该功能上文介绍的注册系统是无法实现的。**
@@ -231,8 +231,8 @@ __base__ = ["./block.toml"]
 
 同样为了方便使用，本配置系统提供了一套参数级别的HOOk，如最常见的将模型的参数传入优化器，格式为：
 ```toml
-[Optimizer.AdamW]  
-@params = "$Model.parameters()"  
+[Optimizer.AdamW]
+@params = "$Model.parameters()"
 weight_decay = 0.01
 ```
 **这也是上文所有配置系统所做不到的。**
@@ -240,18 +240,18 @@ weight_decay = 0.01
 如果你想调用类方法或静态方法，可以：
 
 ```toml
-[Model.XXX]  
+[Model.XXX]
 $backbone = "A.from_pretained()"
 ```
 也可以获取属性，就像写python一样即可，但是不可传入参数：
 ```toml
-[Model.XXX]  
+[Model.XXX]
 @channel = "$Block.last_conv.out_channels"
 ```
 借助该功能我们可以注册模块，如:
 ```toml
-[Model.ResNet]  
-$activation = "torch.nn.ReLU"  
+[Model.ResNet]
+$activation = "torch.nn.ReLU"
 ```
 
 更复杂的情况可以继承ExCore提供的hook基类：
@@ -328,12 +328,14 @@ model = modules.Model
 
 ExCore同样支持python形式的配置文件，与detectron2基本一致，不过实例化时只需调用`__call__`方法即可，如下：
 ```python
-from excore.config.model import ModuleNode  
-from xxx import Module  
-  
-cfg = ModuleNode(Module).add_params(arg1=1, arg2=2)  
-model = cfg() # support instantiate recursively  
-# or  
+from excore.config.model import ModuleNode
+from xxx import Module
+
+cfg = ModuleNode(Module) << dict(arg1=1, arg2=2)
+# or
+cfg = ModuleNode(Module).add(arg1=1, arg2=2)
+model = cfg() # support instantiate recursively
+# or
 model = ModuleNode(Module)(arg1=1, arg2=2)
 ```
 实际上上文中`lazy_config = config.load('xxx.toml')`就是将配置文件解析为了一系列LazyConfig对象，可以对其进行一些操作（如通过命令行替换参数），再使用`build_all`进行实例化。

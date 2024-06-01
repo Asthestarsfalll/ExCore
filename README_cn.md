@@ -106,10 +106,13 @@ crop_size = [1024, 512]
 
 <details>
   <summary>配置继承</summary>
+
 使用`__base__` 从另一个toml文件继承，只有字典会局部更新，其他类型会直接被覆盖。
+
 ```toml
 __base__ = ["xxx.toml", "xxxx.toml"]
 ```
+
 </details>
 
 <details>
@@ -223,8 +226,6 @@ data_path = 'xxx'
 <details>
   <summary>:sparkles:在配置文件中使用python模块</summary>
 
-The `Registry` in `ExCore` is able to register a module:
-
 `ExCore` 中的注册器可以注册一个模块，如：
 
 ```python
@@ -235,7 +236,7 @@ MODULE = Registry("module")
 MODULE.register_module(torch)
 ```
 
-Then you can use torch in config file:
+然后你可以在配置文件中使用 torch
 
 ```toml
 [Model.ResNet]
