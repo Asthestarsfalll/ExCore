@@ -50,7 +50,6 @@ def _is_special(k: str) -> Tuple[str, str]:
     return k, ""
 
 
-# FIXME: need to handle more situations.
 def _str_to_target(module_name):
     module_name = module_name.split(".")
     if len(module_name) == 1:
@@ -59,12 +58,12 @@ def _str_to_target(module_name):
     try:
         module = importlib.import_module(".".join(module_name))
     except ModuleNotFoundError as exc:
-        raise StrToClassError(f"Cannot import such moudle: `{'.'.join(module_name)}`") from exc
+        raise StrToClassError(f"Cannot import such module: `{'.'.join(module_name)}`") from exc
     try:
         module = getattr(module, target_name)
     except AttributeError as exc:
         raise StrToClassError(
-            f"Cannot find such moudle `{target_name}` form `{'.'.join(module_name)}`"
+            f"Cannot find such module `{target_name}` form `{'.'.join(module_name)}`"
         ) from exc
     return module
 

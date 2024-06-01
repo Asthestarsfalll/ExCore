@@ -2,7 +2,7 @@ import os
 
 import pytest
 import torch
-from torchvision.models import VGG, ResNet
+from torchvision.models import ResNet
 
 from excore import config
 from excore._exceptions import (
@@ -73,6 +73,8 @@ class TestConfig:
 
     def test_class(self):
         modules, _ = self._load("./configs/launch/test_class.toml", False)
+        from source_code.models.nets import VGG
+
         assert modules.Model.cls == VGG
 
     def test_module(self):
@@ -161,3 +163,12 @@ class TestConfig:
     def test_reused_conflict_error(self):
         with pytest.raises(CoreConfigParseError):
             self._load("./configs/launch/test_param_conflict_error.toml", False)
+
+    def test_cls_and_other_module(self):
+        modules, _ = self._load("./configs/launch/test_cls_and_other_module.toml", False)
+        from source_code.models.nets import VGG
+
+        assert modules.Model.cls == VGG
+        assert modules.Model.cls1 == VGG
+        assert modules.DataModule.train.x == 1
+        assert modules.DataModule.val.x == ""

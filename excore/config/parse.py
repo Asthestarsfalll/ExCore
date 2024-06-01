@@ -7,6 +7,7 @@ from .model import (
     OTHER_FLAG,
     REFER_FLAG,
     ChainedInvocationWrapper,
+    ClassNode,
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
@@ -208,9 +209,9 @@ class ConfigDict(dict):
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
             )
         ori_type = None
-        if name in self:
+        if not field and name in self:
             ori_type = self[name].__class__
-            if ori_type == ModuleNode:
+            if ori_type in (ModuleNode, ClassNode):
                 node = target_type.from_node(self[name])
                 self._parse_module(node)
                 self[name] = node
@@ -218,7 +219,7 @@ class ConfigDict(dict):
         elif field or self._contain_module(name):
             self.__base__ = field or self.__base__
             ori_type = self[self.__base__][name].__class__
-            if ori_type == ModuleNode:
+            if ori_type in (ModuleNode, ClassNode):
                 node = target_type.from_node(self[self.__base__][name])
                 base = self.__base__
                 self._parse_module(node)
@@ -227,10 +228,10 @@ class ConfigDict(dict):
             node = self[self.__base__][name]
         else:
             node = self._parse_implicit_module(name, target_type)
-        if ori_type and ori_type not in (ModuleNode, target_type):
+        if ori_type and ori_type not in (ModuleNode, ClassNode, target_type):
             raise CoreConfigParseError(
-                f"Error when parsing param {ori_name}, "
-                f"target_type is {target_type}, but got {ori_type}"
+                f"Error when parsing param `{ori_name}`, "
+                f"target_type is `{target_type}`, but got `{ori_type}`"
             )
         name = node.name  # for ModuleWrapper
         if attrs:
