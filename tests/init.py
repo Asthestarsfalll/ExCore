@@ -26,7 +26,7 @@ def init():
     cfg = toml.load("./.excore.toml")
     cfg["registries"] = [
         "*Model",
-        "*Data: TrainData, TestData",
+        "*Data: TrainData, TestData, DataModule",
         "*Backbone",
         "Head",
         "Hook",

@@ -1,8 +1,8 @@
 from typing import Dict, List, Set, Type
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
-from ..engine import Registry, logger
 from .._misc import _create_table
+from ..engine import Registry, logger
 from .model import (
     OTHER_FLAG,
     REFER_FLAG,
@@ -161,24 +161,30 @@ class ConfigDict(dict):
                     self._parse_isolated_module(name, ModuleNode)
 
     def _contain_module(self, name):
+        is_contain = False
         for k in self.all_fields:
             if k not in self:
                 continue
             for node in self[k].values():
                 if node.name == name:
+                    if not is_contain:
+                        is_contain = True
+                    else:
+                        raise CoreConfigParseError(
+                            f"Parameter `{name}` conflicts with field `{self.__base__}` and `{k}` "
+                        )
                     self.__base__ = k
-                    return True
-        return False
+        return is_contain
 
     def _get_name(self, name, ori_name):
         if not name.startswith("$"):
-            return name
+            return name, None
         base = name[1:]
         modules = self.get(base, False)
         if not modules:
             raise CoreConfigParseError(f"Cannot find field {base} with `{ori_name}`")
         if len(modules) == 1:
-            return list(modules.keys())[0]
+            return list(modules.keys())[0], base
         raise CoreConfigParseError(
             f"More than one candidates are found: {[k.name for k in modules.values()]}"
             f" with `{ori_name}`, please redifine the field `{base}` in config files."
@@ -196,7 +202,7 @@ class ConfigDict(dict):
             return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
         name, attrs, hooks = _parse_param_name(ori_name)
-        name = self._get_name(name, ori_name)
+        name, field = self._get_name(name, ori_name)
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
@@ -209,7 +215,8 @@ class ConfigDict(dict):
                 self._parse_module(node)
                 self[name] = node
             node = self[name]
-        elif self._contain_module(name):
+        elif field or self._contain_module(name):
+            self.__base__ = field or self.__base__
             ori_type = self[self.__base__][name].__class__
             if ori_type == ModuleNode:
                 node = target_type.from_node(self[self.__base__][name])

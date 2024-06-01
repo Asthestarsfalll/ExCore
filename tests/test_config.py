@@ -149,3 +149,15 @@ class TestConfig:
     def test_implicit_module_parse(self):
         with pytest.raises(ImplicitModuleParseError):
             self._load("./configs/launch/test_implicit.toml", False)
+
+    def test_reused_conflict(self):
+        modules, _ = self._load("./configs/launch/test_param_conflict.toml", False)
+
+        assert id(modules.DataModule.train) != id(modules.DataModule.val)
+        assert id(modules.TrainData) != id(modules.TestData)
+        assert id(modules.DataModule.train) == id(modules.TrainData)
+        assert id(modules.DataModule.val) == id(modules.TestData)
+
+    def test_reused_conflict_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_param_conflict_error.toml", False)
