@@ -8,6 +8,7 @@ from excore import config
 from excore._exceptions import (
     CoreConfigParseError,
     CoreConfigSupportError,
+    EnvVarParseError,
     ImplicitModuleParseError,
     ModuleBuildError,
 )
@@ -172,3 +173,12 @@ class TestConfig:
         assert modules.Model.cls1 == VGG
         assert modules.DataModule.train.x == 1
         assert modules.DataModule.val.x == ""
+
+    def test_env(self):
+        modules, _ = self._load("./configs/launch/test_env.toml", False)
+        assert modules.Backbone.x == os.environ.get("HOME")
+        assert modules.DataModule.train == f"$HOME is {os.environ.get('HOME')}"
+
+    def test_env_error(self):
+        with pytest.raises(EnvVarParseError):
+            self._load("./configs/launch/test_env_error.toml", False)

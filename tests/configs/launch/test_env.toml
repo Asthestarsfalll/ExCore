@@ -1,0 +1,6 @@
+[Backbone.VGG]
+&x = "${HOME}"
+
+[DataModule.DataModule]
+&train = "$HOME is ${HOME}"
+val = 1

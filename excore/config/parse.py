@@ -177,7 +177,7 @@ class ConfigDict(dict):
                     self.__base__ = k
         return is_contain
 
-    def _get_name(self, name, ori_name):
+    def _get_name_and_field(self, name, ori_name):
         if not name.startswith("$"):
             return name, None
         base = name[1:]
@@ -203,7 +203,7 @@ class ConfigDict(dict):
             return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
         name, attrs, hooks = _parse_param_name(ori_name)
-        name, field = self._get_name(name, ori_name)
+        name, field = self._get_name_and_field(name, ori_name)
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
@@ -258,9 +258,12 @@ class ConfigDict(dict):
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
             if isinstance(value, VariableReference):
                 ref_name = value()
-                if ref_name not in self:
-                    raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
-                node[true_name] = self[ref_name]
+                if not value.has_env:
+                    if ref_name not in self:
+                        raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
+                    node[true_name] = self[ref_name]
+                else:
+                    node[true_name] = ref_name
             else:
                 node[true_name] = ModuleWrapper(value)
 

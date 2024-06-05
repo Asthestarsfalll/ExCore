@@ -38,6 +38,10 @@ class StrToClassError(BaseException):
     pass
 
 
+class EnvVarParseError(BaseException):
+    pass
+
+
 class ImplicitModuleParseError(BaseException):
     pass
 

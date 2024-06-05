@@ -1,8 +1,10 @@
 import importlib
+import os
+import re
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
-from .._exceptions import ModuleBuildError, StrToClassError
+from .._exceptions import EnvVarParseError, ModuleBuildError, StrToClassError
 from .._misc import CacheOut
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
@@ -196,7 +198,14 @@ class ChainedInvocationWrapper:
 
 @dataclass
 class VariableReference:
-    value: Any
+    def __init__(self, value: str):
+        env_names = re.findall(r"\$\{([^}]+)\}", value)
+        self.has_env = len(env_names) > 0
+        for env in env_names:
+            if not (env_value := os.environ.get(env, None)):
+                raise EnvVarParseError(f"Can not get environment variable {env}.")
+            value = re.sub(r"\$\{" + re.escape(env) + r"\}", env_value, value)
+        self.value = value
 
     def __call__(self):
         return self.value
