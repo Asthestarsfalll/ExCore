@@ -1,4 +1,4 @@
-from typing import Dict, List, Set, Type
+from typing import Dict, List, Optional, Set, Type
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
@@ -38,10 +38,8 @@ def _check_implicit_module(module: ModuleNode) -> None:
         )
 
 
-def _dict2node(module_type: str, base: str, _dict: Dict, return_list=False):
+def _dict2node(module_type: str, base: str, _dict: Dict):
     ModuleType: Type[ModuleNode] = _dispatch_module_node[module_type]
-    if return_list:
-        return [ModuleType.from_base_name(base, name, v) for name, v in _dict.items()]
     return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
@@ -53,11 +51,23 @@ def _parse_param_name(name):
     return attrs.pop(0), attrs, hooks
 
 
+def _flatten_list(lis):
+    new_lis = []
+    for i in lis:
+        if isinstance(i, list):
+            new_lis.extend(i)
+        else:
+            new_lis.append(i)
+    return new_lis
+
+
 class ConfigDict(dict):
     primary_fields: List
     primary_to_registry: Dict[str, str]
     registered_fields: List
     all_fields: Set[str]
+    scratchpads_fields: Set[str] = set()
+    current_field: Optional[str] = None
 
     def __new__(cls):
         if not hasattr(cls, "primary_fields"):
@@ -68,6 +78,7 @@ class ConfigDict(dict):
             # otherwise it will share the same class variable with father class.
             primary_fields = ConfigDict.primary_fields
             primary_to_registry = ConfigDict.primary_to_registry
+            scratchpads_fields = ConfigDict.scratchpads_fields
 
         inst = super().__new__(ConfigDictImpl)
         return inst
@@ -116,10 +127,7 @@ class ConfigDict(dict):
             if name in self.registered_fields:
                 base = name
             else:
-                if name in self.registered_fields:
-                    reg = Registry.get_registry(name)
-                else:
-                    reg = Registry.get_registry(self.primary_to_registry.get(name, ""))
+                reg = Registry.get_registry(self.primary_to_registry.get(name, ""))
                 if reg is None:
                     raise CoreConfigParseError(f"Undefined registry `{name}`")
                 for n in self[name]:
@@ -147,10 +155,26 @@ class ConfigDict(dict):
             self[name] = node
         return node
 
-    def _parse_isolated_module(self, name, module_type):
+    def _parse_isolated_module(self, name):
         _, base = Registry.find(name)
         if base:
-            self[name] = module_type.from_base_name(base, name) << self[name]
+            self[name] = ModuleNode.from_base_name(base, name) << self[name]
+            return True
+        return False
+
+    def _parse_scratchpads(self, name):
+        has_module = False
+        modules = self[name]
+        for k, v in list(modules.items()):
+            if not isinstance(v, dict):
+                return
+            _, base = Registry.find(k)
+            if base:
+                has_module = True
+                modules[k] = ModuleNode.from_base_name(base, k) << v
+        if has_module:
+            self.scratchpads_fields.add(name)
+            self.all_fields.add(name)
 
     def _parse_isolated_obj(self):
         for name in self.non_primary_keys():
@@ -158,8 +182,8 @@ class ConfigDict(dict):
             if isinstance(modules, dict):
                 if name in self.registered_fields:
                     self._parse_isolated_registered_module(name)
-                else:
-                    self._parse_isolated_module(name, ModuleNode)
+                elif not self._parse_isolated_module(name):
+                    self._parse_scratchpads(name)
 
     def _contain_module(self, name):
         is_contain = False
@@ -172,24 +196,40 @@ class ConfigDict(dict):
                         is_contain = True
                     else:
                         raise CoreConfigParseError(
-                            f"Parameter `{name}` conflicts with field `{self.__base__}` and `{k}` "
+                            f"Parameter `{name}` conflicts with "
+                            f"field `{self.current_field}` and `{k}`, "
+                            f"considering using format `$field` to get module."
                         )
-                    self.__base__ = k
+                    self.current_field = k
         return is_contain
 
     def _get_name_and_field(self, name, ori_name):
         if not name.startswith("$"):
             return name, None
-        base = name[1:]
+        names = name[1:].split("::")
+        if len(names) > 2:
+            raise CoreConfigParseError(f"Only support index one level with name `{name}`")
+        base = names[0]
+        spec_name = names[1:]
         modules = self.get(base, False)
         if not modules:
-            raise CoreConfigParseError(f"Cannot find field {base} with `{ori_name}`")
-        if len(modules) == 1:
-            return list(modules.keys())[0], base
-        raise CoreConfigParseError(
-            f"More than one candidates are found: {[k.name for k in modules.values()]}"
-            f" with `{ori_name}`, please redifine the field `{base}` in config files."
-        )
+            raise CoreConfigParseError(f"Cannot find field `{base}` with `{ori_name}`")
+        if len(spec_name) > 0:
+            if spec_name[0] == "*":
+                return [k.name for k in modules.values()], base
+            if spec_name[0] not in modules:
+                raise CoreConfigParseError(
+                    f"Cannot get module `{spec_name[0]}` with param `{name}`."
+                    f" Should be one of `{[k.name for k in modules.values()]}`."
+                )
+            return spec_name[0], base
+        elif len(modules) > 1:
+            raise CoreConfigParseError(
+                f"More than one candidates are found: {[k.name for k in modules.values()]}"
+                f" with `{ori_name}`, please redifine the field `{base}` in config files, "
+                f"or get module with format `$field.name`."
+            )
+        return list(modules.keys())[0], base
 
     def _apply_hooks(self, node, hooks):
         for hook in hooks:
@@ -198,12 +238,7 @@ class ConfigDict(dict):
             node = self[hook](node=node)
         return node
 
-    def _parse_single_param(self, ori_name, module_type):
-        if module_type == REFER_FLAG:
-            return VariableReference(ori_name)
-        target_type = _dispatch_module_node[module_type]
-        name, attrs, hooks = _parse_param_name(ori_name)
-        name, field = self._get_name_and_field(name, ori_name)
+    def _parse_single_param(self, name, ori_name, field, target_type, attrs, hooks):
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
@@ -217,15 +252,15 @@ class ConfigDict(dict):
                 self[name] = node
             node = self[name]
         elif field or self._contain_module(name):
-            self.__base__ = field or self.__base__
-            ori_type = self[self.__base__][name].__class__
+            self.current_field = field or self.current_field
+            ori_type = self[self.current_field][name].__class__
             if ori_type in (ModuleNode, ClassNode):
-                node = target_type.from_node(self[self.__base__][name])
-                base = self.__base__
+                node = target_type.from_node(self[self.current_field][name])
+                base = self.current_field
                 self._parse_module(node)
-                self.__base__ = base
-                self[self.__base__][name] = node
-            node = self[self.__base__][name]
+                self.current_field = base
+                self[self.current_field][name] = node
+            node = self[self.current_field][name]
         else:
             node = self._parse_implicit_module(name, target_type)
         if ori_type and ori_type not in (ModuleNode, ClassNode, target_type):
@@ -240,9 +275,20 @@ class ConfigDict(dict):
         if hooks:
             node = self._apply_hooks(node, hooks)
             node.name = name
-        if hasattr(self, "__base__"):
-            delattr(self, "__base__")
         return node
+
+    def _parse_param(self, ori_name, module_type):
+        if module_type == REFER_FLAG:
+            return VariableReference(ori_name)
+        target_type = _dispatch_module_node[module_type]
+        name, attrs, hooks = _parse_param_name(ori_name)
+        name, field = self._get_name_and_field(name, ori_name)
+        if isinstance(name, list):
+            return [
+                self._parse_single_param(n, ori_name, field, target_type, attrs, hooks)
+                for n in name
+            ]
+        return self._parse_single_param(name, ori_name, field, target_type, attrs, hooks)
 
     def _parse_module(self, node: ModuleNode):
         for param_name in list(node.keys()):
@@ -251,9 +297,10 @@ class ConfigDict(dict):
                 continue
             value = node.pop(param_name)
             if isinstance(value, list):
-                value = [self._parse_single_param(v, module_type) for v in value]
+                value = [self._parse_param(v, module_type) for v in value]
+                value = _flatten_list(value)
             elif isinstance(value, str):
-                value = self._parse_single_param(value, module_type)
+                value = self._parse_param(value, module_type)
             else:
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
             if isinstance(value, VariableReference):
@@ -270,7 +317,11 @@ class ConfigDict(dict):
     def _parse_inter_modules(self):
         for name in list(self.keys()):
             module = self[name]
-            if name in self.primary_fields and isinstance(module, dict):
+            if (
+                name in self.primary_fields
+                or name in self.scratchpads_fields
+                and isinstance(module, dict)
+            ):
                 for m in module.values():
                     self._parse_module(m)
             elif isinstance(module, ModuleNode):

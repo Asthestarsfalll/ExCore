@@ -1,0 +1,15 @@
+[Model.TestClass]
+$cls = "$Scratch::*"
+$cls1 = ["$Scratch::VGG", "$Scratch::MockData"]
+
+[DataModule.DataModule]
+$train = ["$Scratch::*", "$Scratch1::*"]
+$val = "$Backbone"
+
+[Backbone.VGG]
+
+[Scratch.VGG]
+
+[Scratch.MockData]
+
+[Scratch1.TestClass]

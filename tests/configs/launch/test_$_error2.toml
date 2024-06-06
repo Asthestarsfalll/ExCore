@@ -1,0 +1,2 @@
+[Model.TestClass]
+$cls = "$Model::Name"

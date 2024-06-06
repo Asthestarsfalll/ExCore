@@ -226,6 +226,8 @@ class ModuleWrapper(dict):
         elif isinstance(modules, list):
             for m in modules:
                 self[self._get_name(m)] = m
+            if len(self) != len(modules):
+                raise ValueError("Currently not support for the same class name")
         else:
             raise TypeError(
                 f"Expect modules to be `list`, `dict` or `ModuleNode`, but got {type(modules)}"

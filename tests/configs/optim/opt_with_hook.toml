@@ -1,5 +1,5 @@
 [Optimizer.SGD]
-@params = "$Model.parameters()@BnWeightDecayHook@DoNothing"
+@params = "$Model@BnWeightDecayHook@DoNothing"
 lr = 0.1
 
 [ConfigHook.BnWeightDecayHook]

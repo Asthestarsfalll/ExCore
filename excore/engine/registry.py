@@ -160,6 +160,7 @@ class Registry(dict, metaclass=RegistryMeta):
         return Registry._registry_pool.get(name, default)
 
     @classmethod
+    @functools.lru_cache(32)
     def find(cls, name: str) -> Any:
         """
         Searches all registries for an element with the given name. If found,

@@ -1,0 +1,6 @@
+[Model.TestClass]
+$cls = "$Scratch"
+
+[Scratch.VGG]
+
+[Scratch.MockData]

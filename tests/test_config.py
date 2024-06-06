@@ -53,7 +53,7 @@ class TestConfig:
         optim.step()
 
     def test_argument_hook(self):
-        self._load("./configs/launch/test_lrsche.toml")
+        self._load("./configs/launch/test_optim_hook.toml")
 
     def test_lr_sche(self):
         modules, info = self._load("./configs/launch/test_lrsche.toml")
@@ -103,10 +103,6 @@ class TestConfig:
     def test_conflict_name_error(self):
         with pytest.raises(CoreConfigParseError):
             self._load("./configs/launch/test_conflict_name.toml", False)
-
-    def test_other_field(self):
-        with pytest.raises(ImplicitModuleParseError):
-            self._load("./configs/launch/test_other_field.toml", False)
 
     def test_dump(self):
         config.load("./configs/launch/test_nest.toml", dump_path="./temp_config.toml")
@@ -182,3 +178,29 @@ class TestConfig:
     def test_env_error(self):
         with pytest.raises(EnvVarParseError):
             self._load("./configs/launch/test_env_error.toml", False)
+
+    def test_scratchpads(self):
+        modules, _ = self._load("./configs/launch/test_scratchpads.toml", False)
+        from source_code.dataset.data import MockData
+        from source_code.models.nets import VGG, TestClass
+
+        assert modules.Model.cls == [VGG, MockData]
+        assert modules.Model.cls1 == [VGG, MockData]
+        assert modules.DataModule.train == [VGG, MockData, TestClass]
+        assert modules.DataModule.val == VGG
+
+    def test_get_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_$_error.toml", False)
+
+    def test_get_error2(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_$_error2.toml", False)
+
+    def test_get_error3(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_$_error3.toml", False)
+
+    def test_ref_error(self):
+        with pytest.raises(CoreConfigParseError):
+            self._load("./configs/launch/test_ref_error.toml", False)
