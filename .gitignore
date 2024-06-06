@@ -4,6 +4,8 @@ temp*
 .empty/
 .taplo.toml
 .excore.toml
+*_overrode.toml
+.fuse_hidden*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

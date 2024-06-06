@@ -36,3 +36,9 @@ def test_typehints():
 
 def test_clear_cache():
     excute("excore clear-cache", ["y"])
+
+
+def test_quote():
+    excute("excore quote ./configs/lrsche")
+    assert os.path.exists("./configs/lrsche/lrsche_overrode.toml")
+    assert os.path.exists("./configs/lrsche/lrsche_error_overrode.toml")

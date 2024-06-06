@@ -61,3 +61,38 @@ def generate_typehints(
     Generate type hints for modules and isolated objects.
     """
     _generate_typehints(entry, class_name, info_class_name, config)
+
+
+def _quote(config: str, override: bool):
+    config_paths = []
+
+    def _get_path(path, paths):
+        if not os.path.isdir(path):
+            paths.append(path)
+            return
+        pa = os.listdir(path)
+        for p in pa:
+            _get_path(os.path.join(path, p), paths)
+
+    _get_path(config, config_paths)
+    config_paths = [i for i in config_paths if i.endswith(".toml")]
+
+    import toml
+
+    for c in config_paths:
+        config_dict = toml.load(c)
+        if not override:
+            c = os.path.splitext(c)[0] + "_overrode.toml"
+        with open(c, "w") as f:
+            toml.dump(config_dict, f)
+
+
+@app.command()
+def quote(
+    config: Annotated[str, CArg(help="Target config file or folder.")],
+    override: Annotated[bool, COp(help="Whether to override configs.")] = False,
+):
+    """
+    Quote all special keys in target config files.
+    """
+    _quote(config, override)
