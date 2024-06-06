@@ -61,6 +61,15 @@ def _flatten_list(lis):
     return new_lis
 
 
+def _flatten_dict(dic):
+    new_dic = {}
+    for k, v in dic.items():
+        if isinstance(v, list):
+            v = _flatten_list(v)
+        new_dic[k] = v
+    return new_dic
+
+
 class ConfigDict(dict):
     primary_fields: List
     primary_to_registry: Dict[str, str]
@@ -296,11 +305,16 @@ class ConfigDict(dict):
             if not module_type:
                 continue
             value = node.pop(param_name)
+            is_dict = False
             if isinstance(value, list):
                 value = [self._parse_param(v, module_type) for v in value]
                 value = _flatten_list(value)
             elif isinstance(value, str):
                 value = self._parse_param(value, module_type)
+            elif isinstance(value, dict):
+                value = {k: self._parse_param(v, module_type) for k, v in value.items()}
+                value = _flatten_dict(value)
+                is_dict = True
             else:
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
             if isinstance(value, VariableReference):
@@ -312,7 +326,7 @@ class ConfigDict(dict):
                 else:
                     node[true_name] = ref_name
             else:
-                node[true_name] = ModuleWrapper(value)
+                node[true_name] = ModuleWrapper(value, is_dict)
 
     def _parse_inter_modules(self):
         for name in list(self.keys()):

@@ -204,3 +204,14 @@ class TestConfig:
     def test_ref_error(self):
         with pytest.raises(CoreConfigParseError):
             self._load("./configs/launch/test_ref_error.toml", False)
+
+    def test_dict_param(self):
+        modules, _ = self._load("./configs/launch/test_dict_param.toml", False)
+
+        from source_code.models.nets import VGG, TestClass
+
+        assert modules.Model.cls["a"] == VGG
+        assert modules.Model.cls["b"] == VGG
+
+        assert modules.Model.cls1["a"] == VGG
+        assert modules.Model.cls1["b"] == [VGG, TestClass]

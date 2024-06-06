@@ -211,17 +211,23 @@ class VariableReference:
         return self.value
 
 
+# FIXME: Refactor ModuleWrapper
 class ModuleWrapper(dict):
     def __init__(
-        self, modules: Optional[Union[Dict[str, ModuleNode], List[ModuleNode], ModuleNode]] = None
+        self,
+        modules: Optional[Union[Dict[str, ModuleNode], List[ModuleNode], ModuleNode]] = None,
+        is_dict=False,
     ):
         super().__init__()
         if modules is None:
             return
+        self.is_dict = is_dict
         if isinstance(modules, (ModuleNode, ConfigArgumentHook, ChainedInvocationWrapper)):
             self[modules.name] = modules
         elif isinstance(modules, dict):
             for k, m in modules.items():
+                if isinstance(m, list):
+                    m = ModuleWrapper(m)
                 self[k] = m
         elif isinstance(modules, list):
             for m in modules:
@@ -255,6 +261,8 @@ class ModuleWrapper(dict):
         raise KeyError(__name)
 
     def __call__(self):
+        if self.is_dict:
+            return {k: v() for k, v in self.items()}
         res = [m() for m in self.values()]
         if len(res) == 1:
             return res[0]

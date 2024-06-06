@@ -1,0 +1,12 @@
+[Model.TestClass."$cls"]
+a = "VGG"
+b = "$Sc::VGG"
+
+[Model.TestClass."$cls1"]
+a = "VGG"
+b = "$Sc::*"
+
+[Sc.VGG]
+[Sc.TestClass]
+
+[VGG]
