@@ -41,8 +41,13 @@ pre-commit = "2.21.0"
 ruff = "^0.1.14"
 pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
-torch = "1.13.1"
-torchvision = "0.14.1"
+torch = { version = "1.13.1", source = "torch" }
+torchvision = { version = "0.14.1", source = "torch" }
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu117"
+secondary = true
 
 [tool.poetry.scripts]
 excore = 'excore.cli.launch:app'
