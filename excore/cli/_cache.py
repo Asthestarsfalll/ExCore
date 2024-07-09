@@ -3,8 +3,8 @@ import os
 import typer
 
 from .._constants import _base_name, _cache_base_dir, _cache_dir
-from ..engine.logging import logger
 from .._misc import _create_table
+from ..engine.logging import logger
 from ._app import app
 
 

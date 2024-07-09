@@ -47,7 +47,7 @@ torchvision = { version = "0.14.1", source = "torch" }
 [[tool.poetry.source]]
 name = "torch"
 url = "https://download.pytorch.org/whl/cu117"
-secondary = true
+priority = "supplemental"
 
 [tool.poetry.scripts]
 excore = 'excore.cli.launch:app'

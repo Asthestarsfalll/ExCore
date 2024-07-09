@@ -1,6 +1,6 @@
 [Optimizer.AdamW]
 # both methods can work
-# @params = "FCN.parameters()@ParamsArgHook" 
+# @params = "FCN.parameters()@ParamsArgHook"
 # `$Model` represents get module from field `Model`
 # `.parameters()` represents invoke the method `parameters`
 # `@ParamsArgHook` represents a post-hook for the result of `$Model.parameters()`
@@ -17,4 +17,3 @@ learning_rate = 0.1
 [Loss.CrossEntropyLoss]
 [Loss.OHEM]
 [Loss.BoundaryLoss]
-

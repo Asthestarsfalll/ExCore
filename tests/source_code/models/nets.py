@@ -9,9 +9,7 @@ MODEL.match(segmentation)
 
 
 def _match(name: str, module):
-    if not name.endswith("Outputs"):
-        return True
-    return False
+    return not name.endswith("Outputs")
 
 
 BACKBONE.match(models, force=True, match_func=_match)

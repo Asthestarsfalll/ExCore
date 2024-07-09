@@ -73,6 +73,7 @@ def _str_to_target(module_name):
 @dataclass
 class ModuleNode(dict):
     cls: Any
+    _no_call: bool = False
 
     def _get_params(self, **kwargs):
         params = {}
@@ -105,7 +106,7 @@ class ModuleNode(dict):
         return module
 
     def __call__(self, **kwargs):
-        if hasattr(self, "_no_call"):
+        if self._no_call:
             return self
         params = self._get_params(**kwargs)
         module = self._instantiate(params)

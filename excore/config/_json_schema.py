@@ -147,7 +147,7 @@ def _clean(anno):
     if not hasattr(anno, "__origin__"):
         return anno
     # Optional
-    if anno.__origin__ == type or (anno.__origin__ == Union and anno.__args__[1] == NoneType):
+    if anno.__origin__ is type or (anno.__origin__ is Union and anno.__args__[1] is NoneType):
         return _clean(anno.__args__[0])
     return anno
 

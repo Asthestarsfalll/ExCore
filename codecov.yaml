@@ -1,4 +1,4 @@
-codecov: 
+codecov:
  token: 9240b763-35d2-4f16-ae1b-94f25099a87c
 ignore:
   - "example"
