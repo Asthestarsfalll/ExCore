@@ -1,7 +1,7 @@
 import importlib
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 from .._exceptions import EnvVarParseError, ModuleBuildError, StrToClassError
@@ -73,7 +73,7 @@ def _str_to_target(module_name):
 @dataclass
 class ModuleNode(dict):
     cls: Any
-    _no_call: bool = False
+    _no_call: bool = field(default=False, repr=False)
 
     def _get_params(self, **kwargs):
         params = {}
@@ -120,7 +120,7 @@ class ModuleNode(dict):
 
     def __rshift__(self, __other):
         if not isinstance(__other, ModuleNode):
-            raise TypeError(f"Expect type is dict, but got {type(__other)}")
+            raise TypeError(f"Expect type is `ModuleNode`, but got {type(__other)}")
         __other.update(self)
         return self
 
@@ -148,8 +148,7 @@ class ModuleNode(dict):
         if _other.__class__.__name__ == cls.__name__:
             return _other
         node = cls(_other.cls) << _other
-        if hasattr(_other, "__no_call"):
-            node._no_call = True
+        node._no_call = _other._no_call
         return node
 
 
@@ -212,7 +211,6 @@ class VariableReference:
         return self.value
 
 
-# FIXME: Refactor ModuleWrapper
 class ModuleWrapper(dict):
     def __init__(
         self,
@@ -259,7 +257,7 @@ class ModuleWrapper(dict):
     def __getattr__(self, __name: str) -> Any:
         if __name in self.keys():
             return self[__name]
-        raise KeyError(__name)
+        raise KeyError(f"Invalid key `{__name}`, must be one of `{list(self.keys())}`")
 
     def __call__(self):
         if self.is_dict:

@@ -1,0 +1,6 @@
+[Model.TestClass]
+__no_call__ = true
+$cls = "torch.nn.ReLU"
+
+[Backbone.VGG]
+@x = "TestClass"

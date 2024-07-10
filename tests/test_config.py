@@ -12,7 +12,7 @@ from excore._exceptions import (
     ImplicitModuleParseError,
     ModuleBuildError,
 )
-from excore.config.model import ModuleNode
+from excore.config.model import ModuleNode, ReusedNode
 
 
 class TestConfig:
@@ -116,6 +116,11 @@ class TestConfig:
     def test_no_call(self):
         modules, _ = self._load("./configs/launch/test_no_call.toml", False)
         assert isinstance(modules.Model, ModuleNode)
+
+    def test_no_call_with_reused_node(self):
+        modules, _ = self._load("./configs/launch/test_no_call_reused.toml", False)
+        assert isinstance(modules.Backbone.x, ReusedNode)
+        assert id(modules.Backbone.x) == id(modules.Model)
 
     def test_dict_action(self):
         from init import excute

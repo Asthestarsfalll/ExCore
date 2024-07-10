@@ -10,7 +10,10 @@ class CacheOut:
         @functools.wraps(func)
         def _cache(self):
             if not hasattr(self, "cached_elem"):
-                self.cached_elem = func(self)
+                cached_elem = func(self)
+                if cached_elem != self:
+                    self.cached_elem = cached_elem
+                return cached_elem
             return self.cached_elem
 
         return _cache
