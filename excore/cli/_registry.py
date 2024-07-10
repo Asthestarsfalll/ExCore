@@ -121,7 +121,7 @@ def _parse_registries(reg_and_fields):
                 rev[j] = i[0]
             targets.extend(tar)
     json_schema["isolated_fields"] = isolated_fields
-    return targets, rev, json_schema
+    return set(targets), rev, json_schema
 
 
 def _get_registries(reg_and_fields):

@@ -4,6 +4,11 @@ from rich import print
 
 from excore import Registry, add_logger, config, logger
 
+try:
+    from src.temp_typing import RunInfo, TypedModules
+except ModuleNotFoundError as err:
+    raise RuntimeError("Run `python init.py` first!") from err
+
 Registry.load()
 MODELS = Registry.get_registry("Model")
 print(MODELS)
@@ -35,6 +40,9 @@ logger.info(cfg)
 assert cfg.Optimizer == cfg.LRSche.CosDecay["optimizer"]
 assert cfg.Model.FCN["backbone"] == cfg.Backbone
 modules_dict, cfg_dict = config.build_all(cfg)
+# `excore generate-typehints temp_typing --config ./configs/run.toml`
+modules_dict: TypedModules
+cfg: RunInfo
 assert id(modules_dict.Optimizer) == id(modules_dict.LRSche.optimizer)
 assert id(modules_dict.Model.backbone) == id(modules_dict.Backbone)
 assert modules_dict.Model.head.timer == time

@@ -22,6 +22,7 @@ def excute(command: str, inputs=None):
 
 
 def init():
+    excute("excore --install-completion")
     excute("excore init --force", predefined_inputs.values())
     cfg = toml.load("./.excore.toml")
     cfg["registries"] = [
@@ -40,6 +41,7 @@ def init():
         toml.dump(cfg, f)
     excute("excore update")
     excute("excore auto-register")
+    excute("excore generate-typehints temp_typing --config ./configs/run.toml")
 
 
 if __name__ == "__main__":

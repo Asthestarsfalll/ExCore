@@ -1,5 +1,6 @@
 import os
 import sys
+from typing import Optional
 
 from typer import Argument as CArg
 from typer import Option as COp
@@ -25,7 +26,7 @@ def config_extention():
     _generate_json_schema_and_class_mapping(_workspace_cfg["json_schema_fields"])
 
 
-def _generate_typehints(entry: str, class_name: str, info_class_name: str, config: str):
+def _generate_typehints(entry: str, class_name: str, info_class_name: str, config: Optional[str]):
     if not _workspace_cfg["primary_fields"]:
         logger.critical("Please initialize the workspace first.")
         return
@@ -52,10 +53,12 @@ def _generate_typehints(entry: str, class_name: str, info_class_name: str, confi
 
 @app.command()
 def generate_typehints(
-    entry: Annotated[str, CArg(help="The file to generate.")] = "types",
+    entry: Annotated[str, CArg(help="The file to generate.")] = "module_types",
     class_name: Annotated[str, COp(help="The class name of type hints.")] = "TypedModules",
     info_class_name: Annotated[str, COp(help="The class name of run_info.")] = "RunInfo",
-    config: Annotated[str, COp(help="Used generate type hints for isolated objects.")] = None,
+    config: Annotated[
+        Optional[str], COp(help="Used generate type hints for isolated objects.")
+    ] = None,
 ):
     """
     Generate type hints for modules and isolated objects.
