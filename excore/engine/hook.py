@@ -218,17 +218,18 @@ class ConfigArgumentHook:
     ):
         self.node = node
         self.enabled = enabled
+        self.name = node.name
         self._is_initialized = True
 
-    def hook(self):
+    def hook(self, **kwargs):
         raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
 
     @final
-    def __call__(self):
+    def __call__(self, **kwargs):
         if not getattr(self, "_is_initialized", False):
             raise CoreConfigSupportError(
                 f"Call super().__init__() in class `{self.__class__.__name__}`"
             )
         if self.enabled:
-            return self.hook()
-        return self.node()
+            return self.hook(**kwargs)
+        return self.node(**kwargs)

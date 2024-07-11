@@ -240,7 +240,11 @@ class ConfigDict(dict):
             )
         return list(modules.keys())[0], base
 
-    def _apply_hooks(self, node, hooks):
+    def _apply_hooks(self, node, hooks, attrs):
+        if attrs:
+            node = ChainedInvocationWrapper(node, attrs)
+        if not hooks:
+            return node
         for hook in hooks:
             if hook not in self:
                 raise CoreConfigParseError(f"Unregistered hook {hook}")
@@ -277,13 +281,7 @@ class ConfigDict(dict):
                 f"Error when parsing param `{ori_name}`, "
                 f"target_type is `{target_type}`, but got `{ori_type}`"
             )
-        name = node.name  # for ModuleWrapper
-        if attrs:
-            node = ChainedInvocationWrapper(node, attrs)
-            node.name = name
-        if hooks:
-            node = self._apply_hooks(node, hooks)
-            node.name = name
+        node = self._apply_hooks(node, hooks, attrs)
         return node
 
     def _parse_param(self, ori_name, module_type):

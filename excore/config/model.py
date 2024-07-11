@@ -175,15 +175,12 @@ class ClassNode(InterNode):
         return self.cls
 
 
-@dataclass
-class ChainedInvocationWrapper:
-    node: ModuleNode
-    attrs: Sequence[str]
+class ChainedInvocationWrapper(ConfigArgumentHook):
+    def __init__(self, node: ModuleNode, attrs: Sequence[str]) -> None:
+        super().__init__(node)
+        self.attrs = attrs
 
-    def __getattr__(self, __name):
-        return getattr(self.node, __name)
-
-    def __call__(self, **kwargs):
+    def hook(self, **kwargs):
         target = self.node(**kwargs)
         if isinstance(target, ModuleNode):
             raise ModuleBuildError(f"Do not support `{DO_NOT_CALL_KEY}`")
@@ -221,7 +218,7 @@ class ModuleWrapper(dict):
         if modules is None:
             return
         self.is_dict = is_dict
-        if isinstance(modules, (ModuleNode, ConfigArgumentHook, ChainedInvocationWrapper)):
+        if isinstance(modules, (ModuleNode, ConfigArgumentHook)):
             self[modules.name] = modules
         elif isinstance(modules, dict):
             for k, m in modules.items():
