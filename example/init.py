@@ -41,6 +41,7 @@ def init():
         toml.dump(cfg, f)
     excute("excore update")
     excute("excore auto-register")
+    excute("excore config-extention")
     excute("excore generate-typehints temp_typing --config ./configs/run.toml")
 
 
