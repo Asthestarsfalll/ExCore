@@ -20,7 +20,7 @@ class Tmp2:
 if sys.version_info >= (3, 10, 0):
 
     @S.register()
-    class A:
+    class B:
         def __init__(
             self,
             i: int,
@@ -49,7 +49,7 @@ if sys.version_info >= (3, 10, 0):
 @pytest.mark.skipif(sys.version_info < (3, 10), reason="Python version >= 3.10 required")
 def test_type_parsing():
     properties, _ = parse_registry(S)
-    properties = properties["properties"]["A"]["properties"]
+    properties = properties["properties"]["B"]["properties"]
     for k, v in properties.items():
         print(k, v)
 
@@ -72,3 +72,4 @@ def test_type_parsing():
     _assert(properties, "default_d", "object")
     _assert(properties, "default_tuple", "array")
     _assert(properties, "default_list", "array", "number")
+    S.clear()

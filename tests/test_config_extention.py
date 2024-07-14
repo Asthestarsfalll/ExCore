@@ -83,3 +83,4 @@ def test_type_parsing():
     _assert(properties, "default_list", "array", "number")
     _assert(properties, "args", "array")
     _assert(properties, "kwargs", "object")
+    R.clear()
