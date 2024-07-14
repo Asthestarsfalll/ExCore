@@ -1,5 +1,3 @@
-from typing import Dict, List, Optional, Tuple, Union
-
 from excore import Registry
 from excore.config._json_schema import parse_registry
 
@@ -21,26 +19,22 @@ class A:
         i: int,
         s: str,
         f: float,
-        d: Dict,
-        d1: dict,
+        d: dict,
         obj: Tmp,
-        uni1: Union[int, float],
-        uni2: Union[int, str],
-        uni3: Union[Tmp, Tmp2],
-        tup: Tuple[int, str, float],
-        lis: List[str],
-        test1: Union[str, None],
-        test2: Union[str, None, int],
-        op: Optional[str] = None,
-        op1: Optional[Union[str, int]] = None,
+        uni1: int | float,
+        uni2: int | str,
+        uni3: Tmp | Tmp2,
+        tup: tuple[int, str, float],
+        lis: list[str],
+        test1: str | None | int,
+        op: str | None = None,
+        op1: str | int | None = None,
         default_i=1,
         default_s="",
         default_f=0.0,
         default_d={},  # noqa: B006
         default_tuple=(0, "", 0.0),
         default_list=[0, 1],  # noqa: B006
-        *args,
-        **kwargs,
     ):
         pass
 
@@ -64,15 +58,13 @@ def test_type_parsing():
     _assert(property, "s", "string")
     _assert(property, "f", "number")
     _assert(property, "d", "object")
-    _assert(property, "d1", "object")
     _assert(property, "obj", "string")
     _assert(property, "uni1", "")
     _assert(property, "uni2", "")
     _assert(property, "uni3", "")
     _assert(property, "tup", "array")
     _assert(property, "lis", "array", "string")
-    _assert(property, "test1", "string")
-    _assert(property, "test2", "")
+    _assert(property, "test1", "")
     _assert(property, "op", "string")
     _assert(property, "op1", "")
     _assert(property, "default_i", "number")
@@ -81,8 +73,6 @@ def test_type_parsing():
     _assert(property, "default_d", "object")
     _assert(property, "default_tuple", "array")
     _assert(property, "default_list", "array", "number")
-    _assert(property, "args", "array")
-    _assert(property, "kwargs", "object")
 
 
 test_type_parsing()
