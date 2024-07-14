@@ -39,7 +39,7 @@ if sys.version_info >= (3, 10, 0):
             default_i=1,
             default_s="",
             default_f=0.0,
-            default_d={},  # noqa: B006
+            default_d={},  # noqa: B006 # pylint: disable=W0102
             default_tuple=(0, "", 0.0),
             default_list=[0, 1],  # noqa: B006
         ):
