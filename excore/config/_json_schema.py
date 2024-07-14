@@ -120,14 +120,14 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
         for param_name, param_obj in params.items():
             if param_name == "self" or (is_hook and param_name == "node"):
                 continue
-            # try:
-            is_required, item = parse_single_param(param_obj)
-            # except Exception:
-            #     from rich.console import Console
-            #
-            #     logger.error(f"Skip {param_obj.name} of {name}")
-            #     Console().print_exception()
-            #     continue
+            try:
+                is_required, item = parse_single_param(param_obj)
+            except Exception:
+                from rich.console import Console
+
+                logger.error(f"Skip {param_obj.name} of {name}")
+                Console().print_exception()
+                continue
             items[param_name] = item
             if is_required:
                 required.append(param_name)
