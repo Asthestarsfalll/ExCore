@@ -1,4 +1,6 @@
-from typing import Any, Dict, Generator, List, Optional, Set, Type
+from __future__ import annotations
+
+from typing import Any, Generator
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
@@ -38,8 +40,8 @@ def _check_implicit_module(module: ModuleNode) -> None:
         )
 
 
-def _dict2node(module_type: str, base: str, _dict: Dict):
-    ModuleType: Type[ModuleNode] = _dispatch_module_node[module_type]
+def _dict2node(module_type: str, base: str, _dict: dict):
+    ModuleType: type[ModuleNode] = _dispatch_module_node[module_type]
     return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
@@ -71,12 +73,12 @@ def _flatten_dict(dic):
 
 
 class ConfigDict(dict):
-    primary_fields: List
-    primary_to_registry: Dict[str, str]
-    registered_fields: List
-    all_fields: Set[str]
-    scratchpads_fields: Set[str] = set()
-    current_field: Optional[str] = None
+    primary_fields: list
+    primary_to_registry: dict[str, str]
+    registered_fields: list
+    all_fields: set[str]
+    scratchpads_fields: set[str] = set()
+    current_field: str | None = None
 
     def __new__(cls):
         if not hasattr(cls, "primary_fields"):

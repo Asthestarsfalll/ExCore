@@ -4,6 +4,7 @@ from excore import Registry
 from excore.config._json_schema import parse_registry
 
 R = Registry("R")
+R.unlock_register()
 
 
 class Tmp:
