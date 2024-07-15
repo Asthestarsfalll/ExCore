@@ -77,7 +77,7 @@ def _call_importance(__message: str, *args, **kwargs):
 
 
 def _excore_debug(__message: str, *args, **kwargs):
-    logger.log("EXCORE", __message, *args, **kwargs)
+    logger._log("EXCORE", False, logger._options, __message, args, kwargs)
 
 
 def _enable_excore_debug():
