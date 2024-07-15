@@ -18,7 +18,7 @@ class LazyConfig:
         config.registered_fields = list(Registry._registry_pool.keys())
         config.all_fields = set([*config.registered_fields, *config.primary_fields])
         self._config = deepcopy(config)
-        self._origin_config = deepcopy(config)
+        self._original_config = deepcopy(config)
         self.__is_parsed__ = False
 
     def parse(self):
@@ -27,10 +27,11 @@ class LazyConfig:
         self._config.parse()
         logger.success("Config parsing cost {:.4f}s!", time.time() - st)
         self.__is_parsed__ = True
+        logger.ex(self._config)
 
     @property
     def config(self):
-        return self._origin_config
+        return self._original_config
 
     def update(self, cfg: "LazyConfig"):
         self._config.update(cfg._config)
@@ -75,7 +76,7 @@ class LazyConfig:
         return module_dict, isolated_dict
 
     def dump(self, dump_path: str) -> None:
-        self._origin_config.dump(dump_path)
+        self._original_config.dump(dump_path)
 
     def __str__(self):
         return str(self._config)

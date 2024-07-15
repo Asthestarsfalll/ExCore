@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Set, Type
+from typing import Any, Dict, Generator, List, Optional, Set, Type
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
@@ -104,49 +104,108 @@ class ConfigDict(dict):
         cls.primary_fields = primary_fields
         cls.primary_to_registry = primary_to_registry
 
-    def parse(self):
+    def parse(self) -> None:
+        """
+        Parsing config into some `ModuleNode`s, the procedures are as following:
+
+            1. Convert config nodes in `primary_fields` to `ModuleNode` at first,
+                the field will be regarded as a set of nodes, e.g. `self[Model]`
+                consists of two models.
+
+                i. If the field is registed, the base registry is set to field;
+                ii. If not, search `Registry` to get the base registry of each node.
+
+            2. Convert isolated objects to `ModuleNode`;
+
+                i. If the field is registed, search `Registry` to get the base registry of each node
+                    Raising error if it cannot find;
+                ii. If not, regard the field as a single node, and search `Registry`.
+                iii. If search fail, regard the field as a scratchpads.
+
+            3. Parse all the `ModuleNode` to target type of Node, e.g. `ReusedNode` and `ClassNode`.
+
+                Visit the top level of config dict:
+                i. If the name is in `primary_fields` or `scratchpads_fields`, parse each node of
+                    field;
+                ii. Else if the node is instance of `ModuleNode`, parse it to target node.
+
+            4. Wrap all the nodes of `primary_fields` into ModuleWrapper.
+
+            5. Clean some remain non-primary nodes. Only keep the primary nodes.
+
+        In the 3rd step, it will parse every parameter of each module node
+
+            if its name has a special prefix, e.g. `!`, `@` or `$`.
+            The special parameter should be a string, a list of string or a dict of string.
+            They will be parsed to target module nodes in given format(alone, list or dict).
+
+        According to given string parameters, e.g. `['ResNet', 'SegHead']`,
+
+            1. It will firstly search from the top level of config.
+            2. If it dose not exist, it will search from `primary_fields`,
+                `scratchpads_fields` and `registered_fields`.
+            3. If it still dose not exist, it will be regraded as a implicit module,
+                which must have non-required parameters.
+
+        For the first two situations, the node will be convert to target type of node,
+            then it will be set back to config for cache. For the last situation,
+            it will only be set back when target module type is `ReusedNode`. But if the
+            target module type is `ClassNode`, it will not be set back.
+
+        NOTE: Set converted nodes back to config is necceary for `ReusedNode`.
+
+        NOTE: use `export EXCORE_DEBUG=1` to enable excore debug to
+            get more information when parsing.
+        """
+        logger.ex("Parse primary modules.")
         self._parse_primary_modules()
+        logger.ex("Parse isolated objects.")
         self._parse_isolated_obj()
+        logger.ex("Parse inter modules.")
         self._parse_inter_modules()
         self._wrap()
         self._clean()
 
-    def _wrap(self):
+    def _wrap(self) -> None:
         for name in self.primary_keys():
             self[name] = ModuleWrapper(self[name])
 
-    def _clean(self):
+    def _clean(self) -> None:
         for name in self.non_primary_keys():
             if name in self.registered_fields or isinstance(self[name], ModuleNode):
                 self.pop(name)
 
-    def primary_keys(self):
+    def primary_keys(self) -> Generator[Any, Any, None]:
         for name in self.primary_fields:
             if name in self:
                 yield name
 
-    def non_primary_keys(self):
+    def non_primary_keys(self) -> Generator[Any, Any, None]:
         keys = list(self.keys())
         for k in keys:
             if k not in self.primary_fields:
                 yield k
 
-    def _parse_primary_modules(self):
+    def _parse_primary_modules(self) -> None:
         for name in self.primary_keys():
+            logger.ex(f"parse field {name}.")
             if name in self.registered_fields:
                 base = name
+                logger.ex(f"Find field registed. Base field is {base}.")
             else:
                 reg = Registry.get_registry(self.primary_to_registry.get(name, ""))
                 if reg is None:
-                    raise CoreConfigParseError(f"Undefined registry `{name}`")
+                    raise CoreConfigParseError(f"Undefined registry `{name}`.")
                 for n in self[name]:
                     if n not in reg:
-                        raise CoreConfigParseError(f"Unregistered module `{n}`")
+                        raise CoreConfigParseError(f"Unregistered module `{n}`.")
                 base = reg.name
+                logger.ex(f"Search from Registry. Base field is {base}.")
 
             self[name] = _dict2node(OTHER_FLAG, base, self.pop(name))
+            logger.ex(f"Set ModuleNode to self[{name}].")
 
-    def _parse_isolated_registered_module(self, name):
+    def _parse_isolated_registered_module(self, name) -> None:
         v = _dict2node(OTHER_FLAG, name, self.pop(name))
         for i in v.values():
             _, _ = Registry.find(i.name)
@@ -158,20 +217,25 @@ class ConfigDict(dict):
         _, base = Registry.find(name)
         if not base:
             raise CoreConfigParseError(f"Unregistered module `{name}`")
+        logger.ex(f"Find base {base} with implicit module {name}.")
         node = module_type.from_base_name(base, name)
         _check_implicit_module(node)
         if module_type == ReusedNode:
+            logger.ex("Target type is ReusedNode, set node to top level.")
             self[name] = node
         return node
 
-    def _parse_isolated_module(self, name):
+    def _parse_isolated_module(self, name) -> bool:
+        logger.ex(f"Not a registed field. Parse isolated module {name}.")
         _, base = Registry.find(name)
         if base:
+            logger.ex("Find registed. Convert to `ModuleNode`.")
             self[name] = ModuleNode.from_base_name(base, name) << self[name]
             return True
         return False
 
-    def _parse_scratchpads(self, name):
+    def _parse_scratchpads(self, name) -> None:
+        logger.ex(f"Not a registed node. Regrad as scratchpads {name}.")
         has_module = False
         modules = self[name]
         for k, v in list(modules.items()):
@@ -180,21 +244,25 @@ class ConfigDict(dict):
             _, base = Registry.find(k)
             if base:
                 has_module = True
+                logger.ex("Find item registed. Convert to `ModuleNode`.")
                 modules[k] = ModuleNode.from_base_name(base, k) << v
         if has_module:
+            logger.ex(f"Add `{name}` to scratchpads_fields.")
             self.scratchpads_fields.add(name)
             self.all_fields.add(name)
 
-    def _parse_isolated_obj(self):
+    def _parse_isolated_obj(self) -> None:
         for name in self.non_primary_keys():
+            logger.ex(f"parse module {name}.")
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_fields:
+                    logger.ex("Find module registed.")
                     self._parse_isolated_registered_module(name)
                 elif not self._parse_isolated_module(name):
                     self._parse_scratchpads(name)
 
-    def _contain_module(self, name):
+    def _contain_module(self, name) -> bool:
         is_contain = False
         for k in self.all_fields:
             if k not in self:
@@ -251,46 +319,56 @@ class ConfigDict(dict):
             node = self[hook](node=node)
         return node
 
+    def _convert_node(self, name, source, target_type) -> tuple[ModuleNode, type[ModuleNode]]:
+        ori_type = source[name].__class__
+        logger.ex(f"Original_type is {ori_type}, target_type is {target_type}.")
+        node = source[name]
+        if target_type.priority != ori_type.priority or target_type is ClassNode:
+            node = target_type.from_node(source[name])
+            self._parse_module(node)
+            if target_type.priority > ori_type.priority:
+                source[name] = node
+        return node, ori_type
+
     def _parse_single_param(self, name, ori_name, field, target_type, attrs, hooks):
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
             )
         ori_type = None
+        cache_field = self.current_field
         if not field and name in self:
-            ori_type = self[name].__class__
-            if ori_type in (ModuleNode, ClassNode):
-                node = target_type.from_node(self[name])
-                self._parse_module(node)
-                self[name] = node
-            node = self[name]
+            logger.ex("Find module in top level.")
+            node, ori_type = self._convert_node(name, self, target_type)
         elif field or self._contain_module(name):
             self.current_field = field or self.current_field
-            ori_type = self[self.current_field][name].__class__
-            if ori_type in (ModuleNode, ClassNode):
-                node = target_type.from_node(self[self.current_field][name])
-                base = self.current_field
-                self._parse_module(node)
-                self.current_field = base
-                self[self.current_field][name] = node
-            node = self[self.current_field][name]
+            logger.ex(f"Find module in second level, " f"current_field is {self.current_field}.")
+            node, ori_type = self._convert_node(name, self[self.current_field], target_type)
         else:
+            logger.ex("Implicit module.")
             node = self._parse_implicit_module(name, target_type)
-        if ori_type and ori_type not in (ModuleNode, ClassNode, target_type):
+        self.current_field = cache_field
+
+        # InterNode and ReusedNode
+        if ori_type and ori_type.priority + target_type.priority == 5:
             raise CoreConfigParseError(
                 f"Error when parsing param `{ori_name}`, "
-                f"target_type is `{target_type}`, but got `{ori_type}`"
+                f"target_type is `{target_type}`, but got original_type `{ori_type}`. "
+                f"Please considering using `scratchpads` to avoid conflicts."
             )
         node = self._apply_hooks(node, hooks, attrs)
         return node
 
     def _parse_param(self, ori_name, module_type):
+        logger.ex(f"Parse with {ori_name}, {module_type}")
         if module_type == REFER_FLAG:
             return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
         name, attrs, hooks = _parse_param_name(ori_name)
         name, field = self._get_name_and_field(name, ori_name)
+        logger.ex(f"Get name:{name}, field:{field}, attrs:{attrs}, hooks:{hooks}.")
         if isinstance(name, list):
+            logger.ex(f"Detect output type list {ori_name}.")
             return [
                 self._parse_single_param(n, ori_name, field, target_type, attrs, hooks)
                 for n in name
@@ -298,18 +376,23 @@ class ConfigDict(dict):
         return self._parse_single_param(name, ori_name, field, target_type, attrs, hooks)
 
     def _parse_module(self, node: ModuleNode):
+        logger.ex(f"Parse ModuleNode {node}.")
         for param_name in list(node.keys()):
             true_name, module_type = _is_special(param_name)
             if not module_type:
+                logger.ex(f"Skip parameter {param_name}.")
                 continue
             value = node.pop(param_name)
             is_dict = False
             if isinstance(value, list):
+                logger.ex(f"{param_name}: List parameter {value}.")
                 value = [self._parse_param(v, module_type) for v in value]
                 value = _flatten_list(value)
             elif isinstance(value, str):
+                logger.ex(f"{param_name}: Single parameter {value}.")
                 value = self._parse_param(value, module_type)
             elif isinstance(value, dict):
+                logger.ex(f"{param_name}: Dict parameter {value}.")
                 value = {k: self._parse_param(v, module_type) for k, v in value.items()}
                 value = _flatten_dict(value)
                 is_dict = True
@@ -317,6 +400,7 @@ class ConfigDict(dict):
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
             if isinstance(value, VariableReference):
                 ref_name = value()
+                logger.ex(f"Detect VariableReference, value is parsed to {ref_name}.")
                 if not value.has_env:
                     if ref_name not in self:
                         raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
@@ -328,12 +412,14 @@ class ConfigDict(dict):
 
     def _parse_inter_modules(self):
         for name in list(self.keys()):
+            logger.ex(f"Parse inter module {name}")
             module = self[name]
             if (
                 name in self.primary_fields
                 or name in self.scratchpads_fields
                 and isinstance(module, dict)
             ):
+                logger.ex(f"Parse Dict {name}")
                 for m in module.values():
                     self._parse_module(m)
             elif isinstance(module, ModuleNode):

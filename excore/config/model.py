@@ -74,6 +74,7 @@ def _str_to_target(module_name):
 class ModuleNode(dict):
     cls: Any
     _no_call: bool = field(default=False, repr=False)
+    priority: int = field(default=0, repr=False)
 
     def _get_params(self, **kwargs):
         params = {}
@@ -153,6 +154,7 @@ class ModuleNode(dict):
 
 
 class InterNode(ModuleNode):
+    priority = 2
     pass
 
 
@@ -165,12 +167,16 @@ class ConfigHookNode(ModuleNode):
 
 
 class ReusedNode(InterNode):
+    priority: int = 3
+
     @CacheOut()
     def __call__(self, **kwargs):
         return super().__call__(**kwargs)
 
 
 class ClassNode(InterNode):
+    priority: int = 1
+
     def __call__(self):
         return self.cls
 

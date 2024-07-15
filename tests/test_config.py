@@ -1,4 +1,6 @@
 import os
+import random
+from copy import deepcopy
 
 import pytest
 import torch
@@ -13,11 +15,31 @@ from excore._exceptions import (
     ModuleBuildError,
 )
 from excore.config.model import ModuleNode, ReusedNode
+from excore.engine import logger
+
+
+def shuffle_fields():
+    random.shuffle(config.parse.ConfigDict.primary_fields)
+
+
+def shuffle_dict(d):
+    n = deepcopy(d)
+    n.clear()
+    items = list(d.items())
+    random.shuffle(items)
+    for k, v in items:
+        if isinstance(v, dict):
+            v = shuffle_dict(v)
+        n[k] = v
+    return n
 
 
 class TestConfig:
     def _load(self, path, check=True):
-        cfg = config.load(path)
+        shuffle_fields()
+        cfg = config.load(path, parse_config=False)
+        cfg._config = shuffle_dict(cfg._config)
+        logger.ex(cfg)
         modules, info = config.build_all(cfg)
         if check:
             self.check_info(info)
@@ -189,9 +211,11 @@ class TestConfig:
         from source_code.dataset.data import MockData
         from source_code.models.nets import VGG, TestClass
 
-        assert modules.Model.cls == [VGG, MockData]
+        assert modules.Model.cls == [VGG, MockData] or modules.Model.cls == [MockData, VGG]
         assert modules.Model.cls1 == [VGG, MockData]
-        assert modules.DataModule.train == [VGG, MockData, TestClass]
+        assert VGG in modules.DataModule.train
+        assert MockData in modules.DataModule.train
+        assert TestClass in modules.DataModule.train
         assert modules.DataModule.val == VGG
 
     def test_get_error(self):
@@ -219,4 +243,10 @@ class TestConfig:
         assert modules.Model.cls["b"] == VGG
 
         assert modules.Model.cls1["a"] == VGG
-        assert modules.Model.cls1["b"] == [VGG, TestClass]
+        assert modules.Model.cls1["b"] == [VGG, TestClass] or modules.Model.cls1["b"] == [
+            TestClass,
+            VGG,
+        ]
+
+
+TestConfig().test_scratchpads()

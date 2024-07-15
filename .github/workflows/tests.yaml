@@ -34,8 +34,14 @@ jobs:
       - name: Test with pytest
         run: |
           cd ./tests
+          export EXCORE_DEBUG=1
           poetry run python init.py
           poetry run pytest --cov=../excore
+          poetry run pytest test_config.py
+          poetry run pytest test_config.py
+          poetry run pytest test_config.py
+          poetry run pytest test_config.py
+
 
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3
