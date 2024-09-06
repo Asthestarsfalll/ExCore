@@ -1,22 +1,18 @@
 from __future__ import annotations
 
-from typing import Any, Generator
+from typing import TYPE_CHECKING
 
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
-from .model import (
-    OTHER_FLAG,
-    REFER_FLAG,
-    ChainedInvocationWrapper,
-    ClassNode,
-    ModuleNode,
-    ModuleWrapper,
-    ReusedNode,
-    VariableReference,
-    _dispatch_module_node,
-    _is_special,
-)
+from .model import (OTHER_FLAG, REFER_FLAG, ChainedInvocationWrapper,
+                    ClassNode, ModuleNode, ModuleWrapper, ReusedNode,
+                    VariableReference, _dispatch_module_node, _is_special)
+
+if TYPE_CHECKING:
+    from typing import Any, Generator
+
+    from .model import ConfigNode, NodeType, SpecialFlag
 
 
 def _check_implicit_module(module: ModuleNode) -> None:
@@ -40,8 +36,8 @@ def _check_implicit_module(module: ModuleNode) -> None:
         )
 
 
-def _dict2node(module_type: str, base: str, _dict: dict):
-    ModuleType: type[ModuleNode] = _dispatch_module_node[module_type]
+def _dict2node(module_type: SpecialFlag, base: str, _dict: dict):
+    ModuleType = _dispatch_module_node[module_type]
     return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
@@ -452,8 +448,8 @@ class ConfigDict(dict):
 
 
 def set_primary_fields(cfg):
-    primary_fields = cfg["primary_fields"]
-    primary_to_registry = cfg["primary_to_registry"]
+    primary_fields = cfg.primary_fields
+    primary_to_registry = cfg.primary_to_registry
     if hasattr(ConfigDict, "primary_fields"):
         logger.ex("`primary_fields` will be set to {}", primary_fields)
     if primary_fields:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import Any, Callable, Protocol, Sequence, final
 
@@ -109,7 +111,7 @@ class HookManager(metaclass=MetaHookManager):
         for different applications.
     """
 
-    def __init__(self, hooks: Sequence[Hook]):
+    def __init__(self, hooks: Sequence[Hook]) -> None:
         assert isinstance(hooks, Sequence)
 
         __error_msg = "The hook `{}` must have a valid `{}`, got {}"
@@ -132,7 +134,7 @@ class HookManager(metaclass=MetaHookManager):
             self.hooks[h.__HookType__].append(h)
 
     @staticmethod
-    def check_life_span(hook: Hook):
+    def check_life_span(hook: Hook) -> bool:
         """
         Checks whether a given `Hook` object has exceeded its maximum lifespan.
 
@@ -142,7 +144,7 @@ class HookManager(metaclass=MetaHookManager):
         hook.__LifeSpan__ -= 1
         return hook.__LifeSpan__ <= 0
 
-    def exist(self, stage):
+    def exist(self, stage) -> bool:
         """
         Determines whether any hooks are registered for a given event stage.
 
@@ -154,19 +156,19 @@ class HookManager(metaclass=MetaHookManager):
         """
         return self.hooks[stage] != []
 
-    def pre_call(self):
+    def pre_call(self) -> Any:
         """
         Called before any hooks are executed during an event stage.
         """
         return
 
-    def after_call(self):
+    def after_call(self) -> Any:
         """
         Called after all hooks have been executed during an event stage.
         """
         return
 
-    def __call__(self, stage, *inps):
+    def __call__(self, stage, *inps) -> None:
         """
         Executes all hooks registered for a given event stage.
 
@@ -185,7 +187,7 @@ class HookManager(metaclass=MetaHookManager):
             self.hooks[stage].pop(idx)
         self.calls[stage] = calls + 1
 
-    def call_hooks(self, stage, *inps):
+    def call_hooks(self, stage, *inps) -> None:
         """
         Convenience method for calling all hooks at a given event stage.
 
@@ -199,7 +201,7 @@ class HookManager(metaclass=MetaHookManager):
 
 
 class ConfigHookManager(HookManager):
-    stages = ("pre_build", "every_build", "after_build")
+    stages: tuple[str] = ("pre_build", "every_build", "after_build")
     """A subclass of HookManager that allows hooks to be registered and executed
     at specific points in the build process.
 
@@ -215,17 +217,17 @@ class ConfigArgumentHook:
         self,
         node: Callable,
         enabled: bool = True,
-    ):
+    ) -> None:
         self.node = node
         self.enabled = enabled
         self.name = node.name
         self._is_initialized = True
 
-    def hook(self, **kwargs):
+    def hook(self, **kwargs: Any) -> Any:
         raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
 
     @final
-    def __call__(self, **kwargs):
+    def __call__(self, **kwargs: ANy) -> Any:
         if not getattr(self, "_is_initialized", False):
             raise CoreConfigSupportError(
                 f"Call super().__init__() in class `{self.__class__.__name__}`"

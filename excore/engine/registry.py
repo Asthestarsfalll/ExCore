@@ -1,14 +1,18 @@
+from __future__ import annotations
+
 import fnmatch
 import functools
 import inspect
 import os
 import re
 import sys
-from types import ModuleType
-from typing import Any, Callable, Dict, List, Optional, Sequence, Union
+from types import FunctionType, ModuleType
+from typing import Any, Callable, Literal, Sequence, Type, overload
+
+from filelock import FileLock
 
 from .._constants import _cache_dir, _registry_cache_file, _workspace_config_file
-from .._misc import FileLock, _create_table
+from .._misc import _create_table
 from .logging import logger
 
 _name_re = re.compile(r"^[A-Za-z0-9_]+$")
@@ -16,19 +20,21 @@ _private_flag: str = "__"
 
 __all__ = ["Registry"]
 
+_ClassType = Type[Any]
+
 
 # TODO: Maybe some methods need to be cleared.
 
 
-def _is_pure_ascii(name: str):
+def _is_pure_ascii(name: str) -> None:
     if not _name_re.match(name):
         raise ValueError(
-            f"""Unexpected name, only support ASCII letters, ASCII digits,
-             underscores, and dashes, but got {name}"""
+            "Unexpected name, only support ASCII letters, ASCII digits, "
+            f"underscores, and dashes, but got {name}."
         )
 
 
-def _is_function_or_class(module):
+def _is_function_or_class(module: Any) -> bool:
     return inspect.isfunction(module) or inspect.isclass(module)
 
 
@@ -36,7 +42,7 @@ def _default_filter_func(values: Sequence[Any]) -> bool:
     return all(v for v in values)
 
 
-def _default_match_func(m, base_module):
+def _default_match_func(m: str, base_module: ModuleType) -> bool:
     if not m.startswith("__"):
         m = getattr(base_module, m)
         if inspect.isfunction(m) or inspect.isclass(m):
@@ -44,12 +50,12 @@ def _default_match_func(m, base_module):
     return False
 
 
-def _get_module_name(m):
+def _get_module_name(m: ModuleType | _ClassType | FunctionType) -> str:
     return getattr(m, "__qualname__", m.__name__)
 
 
 class RegistryMeta(type):
-    _registry_pool: Dict[str, "Registry"] = dict()
+    _registry_pool: dict[str, Registry] = {}
     """Metaclass that governs the creation of instances of its subclasses, which are
     `Registry` objects.
 
@@ -65,7 +71,7 @@ class RegistryMeta(type):
             message is logged indicating that the extra arguments will be ignored.
     """
 
-    def __call__(cls, name, **kwargs) -> "Registry":
+    def __call__(cls, name: str, **kwargs: Any) -> Registry:
         r"""Assert only call `__init__` once"""
         _is_pure_ascii(name)
         extra_field = kwargs.get("extra_field", None)
@@ -86,48 +92,46 @@ class RegistryMeta(type):
 
 # Maybe someday we can get rid of Registry?
 class Registry(dict, metaclass=RegistryMeta):
-    _globals: Optional["Registry"] = None
-    _registry_dir = "registry"
+    _globals: Registry | None = None
+    _registry_dir: str = "registry"
     # just a workaround for twice registry
-    _prevent_register = False
+    _prevent_register: bool = False
+
     """A registry that stores functions and classes by name.
 
     Attributes:
         name (str): The name of the registry.
-        extra_field (Optional[Union[str, Sequence[str]]]): A field or fields that can be
+        extra_field (str|Sequence[str]|None): A field or fields that can be
             used to store additional information about each function or class in the
             registry.
-        extra_info (Dict[str, List[Any]]): A dictionary that maps each registered name
+        extra_info (dict[str, list[Any]]): A dictionary that maps each registered name
             to a list of extra values associated with that name (if any).
-        _globals (Optional[Registry]): A static variable that stores a global registry
+        _globals (Registry|None): A static variable that stores a global registry
             containing all functions and classes registered using Registry.
 
     """
 
-    def __init__(
-        self, /, name: str, *, extra_field: Optional[Union[str, Sequence[str]]] = None
-    ) -> None:
+    def __init__(self, /, name: str, *, extra_field: str | Sequence[str] | None = None) -> None:
         super().__init__()
         self.name = name
         if extra_field:
             self.extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
-        self.extra_info = dict()
+        self.extra_info = {}
 
     @classmethod
-    def dump(cls):
+    def dump(cls) -> None:
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):  # noqa: SIM117
-            with open(file_path, "wb") as f:
-                pickle.dump(cls._registry_pool, f)
+        with FileLock(file_path + ".lock", timeout=5), open(file_path, "wb") as f:
+            pickle.dump(cls._registry_pool, f)
 
     @classmethod
-    def load(cls):
+    def load(cls) -> None:
         if not os.path.exists(_workspace_config_file):
             logger.warning("Please run `excore init` in your command line first!")
-            sys.exit(0)
+            sys.exit(1)
         file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
@@ -135,20 +139,19 @@ class Registry(dict, metaclass=RegistryMeta):
                 "Registry cache file do not exist!"
                 " Please run `excore auto-register in your command line first`"
             )
-            sys.exit(0)
+            sys.exit(1)
         import pickle  # pylint: disable=import-outside-toplevel
 
-        with FileLock(file_path):  # noqa: SIM117
-            with open(file_path, "rb") as f:
-                data = pickle.load(f)
+        with FileLock(file_path + ".lock"), open(file_path, "rb") as f:
+            data = pickle.load(f)
         cls._registry_pool.update(data)
 
     @classmethod
-    def lock_register(cls):
+    def lock_register(cls) -> None:
         cls._prevent_register = True
 
     @classmethod
-    def unlock_register(cls):
+    def unlock_register(cls) -> None:
         cls._prevent_register = False
 
     @classmethod
@@ -161,7 +164,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
     @classmethod
     @functools.lru_cache(32)
-    def find(cls, name: str) -> Any:
+    def find(cls, name: str) -> tuple[Any, str] | tuple[None, None]:
         """
         Searches all registries for an element with the given name. If found,
         returns a tuple containing the element and the name of the registry where it
@@ -173,7 +176,7 @@ class Registry(dict, metaclass=RegistryMeta):
         return (None, None)
 
     @classmethod
-    def make_global(cls):
+    def make_global(cls) -> Registry:
         """
         Creates a global `Registry` instance that contains all elements from all
         other registries. If the global registry already exists, returns it instead
@@ -187,7 +190,7 @@ class Registry(dict, metaclass=RegistryMeta):
         cls._globals = reg
         return reg
 
-    def __setitem__(self, k, v) -> None:
+    def __setitem__(self, k: str, v: Any) -> None:
         _is_pure_ascii(k)
         super().__setitem__(k, v)
 
@@ -200,13 +203,40 @@ class Registry(dict, metaclass=RegistryMeta):
 
     __str__ = __repr__
 
+    @overload
     def register_module(
         self,
-        module: Union[Callable, ModuleType],
-        force: bool = False,
-        _is_str: bool = False,
+        module: Callable[..., Any],
+        force: bool = ...,
+        _is_str: bool = ...,
+        **extra_info: Any,
+    ) -> Callable[..., Any]: ...
+
+    @overload
+    def register_module(
+        self,
+        module: ModuleType,
+        force: bool = ...,
+        _is_str: bool = ...,
+        **extra_info: Any,
+    ) -> ModuleType: ...
+
+    @overload
+    def register_module(
+        self,
+        module: str,
+        force: bool = ...,
+        _is_str: Literal[True] = ...,
+        **extra_info: Any,
+    ) -> str: ...
+
+    def register_module(
+        self,
+        module,
+        force=False,
+        _is_str=False,
         **extra_info,
-    ) -> Union[Callable, ModuleType]:
+    ):
         if Registry._prevent_register:
             logger.ex("Registry has been locked!!!")
             return module
@@ -216,6 +246,7 @@ class Registry(dict, metaclass=RegistryMeta):
             name = _get_module_name(module)
         else:
             name = module.split(".")[-1]
+
         if not force and name in self:
             raise ValueError(f"The name {name} exists")
 
@@ -238,6 +269,8 @@ class Registry(dict, metaclass=RegistryMeta):
             )
         else:
             target = module
+
+        logger.ex(f"Register {name} with {target}.")
         self[name] = target
 
         # update to globals
@@ -246,7 +279,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
         return module
 
-    def register(self, force: bool = False, **extra_info) -> Callable:
+    def register(self, force: bool = False, **extra_info: Any) -> Callable[..., Any]:
         """
         Decorator that registers a function or class with the current `Registry`.
         Any keyword arguments provided are added to the `extra_info` list for the
@@ -257,8 +290,8 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def register_all(
         self,
-        modules: Sequence[Callable],
-        extra_info: Optional[Sequence[Dict[str, Any]]] = None,
+        modules: Sequence[Callable[..., Any]],
+        extra_info: Sequence[dict[str, Any]] | None = None,
         force: bool = False,
         _is_str: bool = False,
     ) -> None:
@@ -274,14 +307,14 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def merge(
         self,
-        others: Union["Registry", List["Registry"]],
+        others: Registry | Sequence[Registry],
         force: bool = False,
     ) -> None:
         """
         Merge the contents of one or more other registries into the current one.
         If `force` is True, overwrites any existing elements with the same names.
         """
-        if not isinstance(others, list):
+        if not isinstance(others, (list, tuple, Sequence)):
             others = [others]
         for other in others:
             if not isinstance(other, Registry):
@@ -291,9 +324,9 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def filter(
         self,
-        filter_field: Union[Sequence[str], str],
-        filter_func: Callable = _default_filter_func,
-    ) -> List[str]:
+        filter_field: Sequence[str] | str,
+        filter_func: Callable[[Sequence[Any]], bool] = _default_filter_func,
+    ) -> list[str]:
         """
         Returns a sorted list of all names in the registry for which the values of
         the given extra field(s) pass a filtering function.
@@ -310,7 +343,12 @@ class Registry(dict, metaclass=RegistryMeta):
         out = list(sorted(out))
         return out
 
-    def match(self, base_module, match_func=_default_match_func, force=False):
+    def match(
+        self,
+        base_module: ModuleType,
+        match_func: Callable[[str, ModuleType], bool] = _default_match_func,
+        force: bool = False,
+    ) -> None:
         """
         Registers all functions or classes from the given module that pass a matching
         function. If `match_func` is not provided, uses `_default_match_func`.
@@ -328,11 +366,11 @@ class Registry(dict, metaclass=RegistryMeta):
 
     def module_table(
         self,
-        filter: Optional[Union[Sequence[str], str]] = None,
-        select_info: Optional[Union[Sequence[str], str]] = None,
-        module_list: Optional[Sequence[str]] = None,
-        **table_kwargs,
-    ) -> Any:
+        filter: Sequence[str] | str | None = None,
+        select_info: Sequence[str] | str | None = None,
+        module_list: Sequence[str] | None = None,
+        **table_kwargs: Any,
+    ) -> str:
         """
         Returns a table containing information about each registered function or
         class, filtered by name and/or extra info fields. `select_info` specifies
@@ -378,7 +416,7 @@ class Registry(dict, metaclass=RegistryMeta):
         return table
 
     @classmethod
-    def registry_table(cls, **table_kwargs) -> Any:
+    def registry_table(cls, **table_kwargs) -> str:
         """
         Returns a table containing the names of all available registries.
         """
@@ -393,7 +431,7 @@ class Registry(dict, metaclass=RegistryMeta):
         return table
 
 
-def load_registries():
+def load_registries() -> None:
     if not os.path.exists(os.path.join(_cache_dir, Registry._registry_dir, _registry_cache_file)):
         logger.warning("Please run `excore auto-register` in your command line first!")
         return
@@ -406,4 +444,4 @@ def load_registries():
             "No module has been registered, \
                            you may need to call `excore.registry.auto_register` first"
         )
-        sys.exit(0)
+        sys.exit(1)

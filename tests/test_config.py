@@ -247,6 +247,3 @@ class TestConfig:
             TestClass,
             VGG,
         ]
-
-
-TestConfig().test_scratchpads()

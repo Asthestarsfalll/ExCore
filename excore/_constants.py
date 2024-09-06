@@ -1,5 +1,11 @@
+from __future__ import annotations
+
 import os
 import os.path as osp
+from dataclasses import dataclass, field
+from typing import Any
+
+import toml
 
 from .engine.logging import logger
 
@@ -13,7 +19,7 @@ _json_schema_file = "excore_schema.json"
 _class_mapping_file = "class_mapping.json"
 
 
-def _load_workspace_config():
+def _load_workspace_config() -> None:
     if osp.exists(_workspace_config_file):
         _workspace_cfg.update(toml.load(_workspace_config_file))
         logger.ex("load `.excore.toml`")
@@ -21,7 +27,7 @@ def _load_workspace_config():
         logger.warning("Please use `excore init` in your command line first")
 
 
-def _update_name(base_name):
+def _update_name(base_name: str) -> str:
     name = base_name
 
     suffix = 1
@@ -36,24 +42,34 @@ if not osp.exists(_workspace_config_file):
     _base_name = osp.basename(osp.normpath(os.getcwd()))
     _base_name = _update_name(_base_name)
 else:
-    import toml  # pylint: disable=import-outside-toplevel
-
     cfg = toml.load(_workspace_config_file)
     _base_name = cfg["name"]
 
 _cache_dir = osp.join(_cache_base_dir, _base_name)
 
-# TODO: Use a data class to store this
-_workspace_cfg = dict(
-    name="",
-    src_dir="",
-    base_dir=os.getcwd(),
-    registries=[],
-    primary_fields=[],
-    primary_to_registry={},
-    json_schema_fields={},
-    props={},
-)
+
+@dataclass
+class _WorkspaceConfig:
+    name: str = field(default="")
+    src_dir: str = field(default="")
+    base_dir: str = field(default_factory=os.getcwd)
+    registries: list[str] = field(default_factory=list)
+    primary_fields: list[str] = field(default_factory=list)
+    primary_to_registry: dict[str, str] = field(default_factory=dict)
+    json_schema_fields: dict[str, str | list[str]] = field(default_factory=dict)
+    props: dict[Any, Any] = field(default_factory=dict)
+
+    def update(self, _cfg: dict[Any, Any]) -> None:
+        self.__dict__.update(_cfg)
+
+    def dump(self, path: str) -> None:
+        with open(path, "w") as f:
+            d = self.__dict__
+            d.pop("base_dir", None)
+            toml.dump(d, f)
+
+
+_workspace_cfg = _WorkspaceConfig()
 
 LOGO = r"""
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 
 import typer
@@ -8,7 +10,7 @@ from ..engine.logging import logger
 from ._app import app
 
 
-def _clear_cache(cache_dir):
+def _clear_cache(cache_dir: str) -> None:
     if os.path.exists(cache_dir):
         import shutil  # pylint: disable=import-outside-toplevel
 
@@ -19,7 +21,7 @@ def _clear_cache(cache_dir):
 
 
 @app.command()
-def clear_cache():
+def clear_cache() -> None:
     """
     Remove the cache folder which belongs to current workspace.
     """
@@ -31,7 +33,7 @@ def clear_cache():
 
 
 @app.command()
-def clear_all_cache():
+def clear_all_cache() -> None:
     """
     Remove the whole cache folder.
     """
@@ -41,7 +43,7 @@ def clear_all_cache():
 
 
 @app.command()
-def cache_list():
+def cache_list() -> None:
     """
     Show cache folders.
     """
@@ -50,7 +52,5 @@ def cache_list():
 
 
 @app.command()
-def cache_dir():
-    # if not os.path.exists(_workspace_config_file):
-    #     raise RuntimeError("Not in ExCore project")
+def cache_dir() -> None:
     print(_cache_dir)

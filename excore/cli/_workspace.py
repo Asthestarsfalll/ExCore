@@ -1,7 +1,6 @@
 import os
 import os.path as osp
 
-import toml
 import typer
 from typer import Argument as CArg
 from typer import Option as COp
@@ -20,15 +19,13 @@ from ._app import app
 from ._registry import _update
 
 
-def _dump_workspace_config():
+def _dump_workspace_config() -> None:
     logger.info("Dump config to {}", _workspace_config_file)
-    _workspace_cfg.pop("base_dir", None)
-    with open(_workspace_config_file, "w", encoding="UTF-8") as f:
-        toml.dump(_workspace_cfg, f)
+    _workspace_cfg.dump(_workspace_config_file)
 
 
 @app.command()
-def update():
+def update() -> None:
     """
     Update workspace config file.
     """
@@ -42,7 +39,7 @@ def init(
     entry: Annotated[
         str, CArg(help="Used for detect or generate Registry definition code")
     ] = "__init__",
-):
+) -> None:
     """
     Initialize workspace and generate a config file.
     """
@@ -65,8 +62,8 @@ def init(
     logger.opt(colors=True).info("Source Code Directory(relative path):")
     src_dir = typer.prompt("", prompt_suffix="")
 
-    _workspace_cfg["name"] = name
-    _workspace_cfg["src_dir"] = src_dir
+    _workspace_cfg.name = name
+    _workspace_cfg.src_dir = src_dir
 
     _update(True, entry)
     _dump_workspace_config()

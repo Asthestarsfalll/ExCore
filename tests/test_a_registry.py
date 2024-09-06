@@ -6,18 +6,15 @@ from excore import Registry, load_registries
 
 load_registries()
 
-Registry.unlock_register()
+
+import source_code as S
 
 
 def test_print():
-    import source_code as S
-
     print(S.MODEL)
 
 
 def test_find():
-    import source_code as S
-
     tar, base = S.BACKBONE.find("ResNet")
     assert base == "Backbone"
     assert tar.split(".")[-1] == "ResNet"
@@ -30,8 +27,6 @@ def test_register_module():
 
 
 def test_global():
-    import source_code as S
-
     g = Registry.make_global()
     assert g["time"] == "time"
     assert g["ResNet"] == "torchvision.models.resnet.ResNet"
@@ -41,13 +36,9 @@ def test_global():
 
 
 def test_module_table():
-    import source_code as S
-
     print(S.MODEL.module_table())
     print(S.MODEL.module_table("*resnet*"))
 
 
 def test_id():
-    import source_code as S
-
     assert Registry.get_registry("Head") == S.HEAD
