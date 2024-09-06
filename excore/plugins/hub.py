@@ -21,7 +21,7 @@ from zipfile import ZipFile
 import requests
 from tqdm import tqdm
 
-from .._constants import __version__, _cache_dir
+from .._constants import __version__, workspace
 from .._exceptions import (
     GitCheckoutError,
     GitPullError,
@@ -289,7 +289,7 @@ def _get_repo(
         raise InvalidProtocol(
             "Invalid protocol, the value should be one of {}.".format(", ".join(PROTOCOLS.keys()))
         )
-    cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
+    cache_dir = os.path.expanduser(os.path.join(workspace.cache_dir, "hub"))
     with cd(cache_dir):
         fetcher = PROTOCOLS[protocol]
         repo_dir = fetcher.fetch(git_host, repo_info, use_cache, commit)
@@ -323,7 +323,7 @@ def _init_hub(
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
 ):
-    cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
+    cache_dir = os.path.expanduser(os.path.join(workspace.cache_dir, "hub"))
     os.makedirs(cache_dir, exist_ok=True)
     absolute_repo_dir = _get_repo(
         git_host, repo_info, use_cache=use_cache, commit=commit, protocol=protocol
@@ -412,7 +412,7 @@ class pretrained:  # noqa pylint: disable=redefined-outer-name
                 digest = sha256.hexdigest()[:6]
                 filename = digest + "_" + filename
 
-                cached_file = os.path.join(_cache_dir, filename)
+                cached_file = os.path.join(workspace.cache_dir, filename)
                 download_from_url(self.url, cached_file)
                 self.load_func(cached_file, model)
             return model

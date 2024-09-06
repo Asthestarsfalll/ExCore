@@ -1,6 +1,8 @@
+from __future__ import annotations
+
 import os
 import time
-from typing import Dict, Optional, Tuple
+from typing import Any
 
 import toml
 
@@ -12,10 +14,6 @@ from .model import ModuleWrapper
 from .parse import ConfigDict
 
 __all__ = ["load", "build_all", "load_config"]
-
-
-# TODO: Improve error messages. high priority.
-# TODO: Support multiple same modules parsing.
 
 
 BASE_CONFIG_KEY = "__base__"
@@ -39,7 +37,7 @@ def load_config(filename: str, base_key: str = "__base__") -> ConfigDict:
     return base_cfg
 
 
-def _merge_config(base_cfg, new_cfg):
+def _merge_config(base_cfg: ConfigDict, new_cfg: dict) -> None:
     for k, v in new_cfg.items():
         if k in base_cfg and isinstance(v, dict):
             _merge_config(base_cfg[k], v)
@@ -50,8 +48,8 @@ def _merge_config(base_cfg, new_cfg):
 def load(
     filename: str,
     *,
-    dump_path: Optional[str] = None,
-    update_dict: Optional[Dict] = None,
+    dump_path: str | None = None,
+    update_dict: dict[str, Any] | None = None,
     base_key: str = BASE_CONFIG_KEY,
     parse_config: bool = True,
 ) -> LazyConfig:
@@ -89,7 +87,7 @@ def load(
     return lazy_config
 
 
-def build_all(cfg: LazyConfig) -> Tuple[ModuleWrapper, dict]:
+def build_all(cfg: LazyConfig) -> tuple[ModuleWrapper, dict[str, Any]]:
     st = time.time()
     modules = cfg.build_all()
     logger.success("Modules building costs {:.4f}s!", time.time() - st)

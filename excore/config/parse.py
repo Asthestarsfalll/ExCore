@@ -5,12 +5,21 @@ from typing import TYPE_CHECKING
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
-from .model import (OTHER_FLAG, REFER_FLAG, ChainedInvocationWrapper,
-                    ClassNode, ModuleNode, ModuleWrapper, ReusedNode,
-                    VariableReference, _dispatch_module_node, _is_special)
+from .model import (
+    OTHER_FLAG,
+    REFER_FLAG,
+    ChainedInvocationWrapper,
+    ClassNode,
+    ModuleNode,
+    ModuleWrapper,
+    ReusedNode,
+    VariableReference,
+    _dispatch_module_node,
+    _is_special,
+)
 
 if TYPE_CHECKING:
-    from typing import Any, Generator
+    from typing import Generator, Self, Sequence
 
     from .model import ConfigNode, NodeType, SpecialFlag
 
@@ -41,7 +50,7 @@ def _dict2node(module_type: SpecialFlag, base: str, _dict: dict):
     return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
-def _parse_param_name(name):
+def _parse_param_name(name) -> tuple[str, list[str], list[str]]:
     names = name.split("@")
     attrs = names.pop(0).split(".")
     attrs = [i for i in attrs if i]
@@ -49,7 +58,9 @@ def _parse_param_name(name):
     return attrs.pop(0), attrs, hooks
 
 
-def _flatten_list(lis):
+def _flatten_list(
+    lis: list[ConfigNode | list[ConfigNode] | VariableReference],
+) -> list[ConfigNode]:
     new_lis = []
     for i in lis:
         if isinstance(i, list):
@@ -57,15 +68,6 @@ def _flatten_list(lis):
         else:
             new_lis.append(i)
     return new_lis
-
-
-def _flatten_dict(dic):
-    new_dic = {}
-    for k, v in dic.items():
-        if isinstance(v, list):
-            v = _flatten_list(v)
-        new_dic[k] = v
-    return new_dic
 
 
 class ConfigDict(dict):
@@ -76,7 +78,7 @@ class ConfigDict(dict):
     scratchpads_fields: set[str] = set()
     current_field: str | None = None
 
-    def __new__(cls):
+    def __new__(cls) -> Self:
         if not hasattr(cls, "primary_fields"):
             raise RuntimeError("Call `set_primary_fields` before `load`")
 
@@ -91,7 +93,9 @@ class ConfigDict(dict):
         return inst
 
     @classmethod
-    def set_primary_fields(cls, primary_fields, primary_to_registry):
+    def set_primary_fields(
+        cls, primary_fields: Sequence[str], primary_to_registry: dict[str, str]
+    ) -> None:
         """
         Sets the `primary_fields` attribute to the specified list of module names,
             and `registered_fields` attributes based on the current state
@@ -99,7 +103,7 @@ class ConfigDict(dict):
 
         Note that `set_primary_fields` must be called before `config.load`.
         """
-        cls.primary_fields = primary_fields
+        cls.primary_fields = list(primary_fields)
         cls.primary_to_registry = primary_to_registry
 
     def parse(self) -> None:
@@ -173,12 +177,12 @@ class ConfigDict(dict):
             if name in self.registered_fields or isinstance(self[name], ModuleNode):
                 self.pop(name)
 
-    def primary_keys(self) -> Generator[Any, Any, None]:
+    def primary_keys(self) -> Generator[str, None, None]:
         for name in self.primary_fields:
             if name in self:
                 yield name
 
-    def non_primary_keys(self) -> Generator[Any, Any, None]:
+    def non_primary_keys(self) -> Generator[str, None, None]:
         keys = list(self.keys())
         for k in keys:
             if k not in self.primary_fields:
@@ -203,7 +207,7 @@ class ConfigDict(dict):
             self[name] = _dict2node(OTHER_FLAG, base, self.pop(name))
             logger.ex(f"Set ModuleNode to self[{name}].")
 
-    def _parse_isolated_registered_module(self, name) -> None:
+    def _parse_isolated_registered_module(self, name: str) -> None:
         v = _dict2node(OTHER_FLAG, name, self.pop(name))
         for i in v.values():
             _, _ = Registry.find(i.name)
@@ -211,7 +215,7 @@ class ConfigDict(dict):
                 raise CoreConfigParseError(f"Unregistered module `{i.name}`")
         self[name] = v
 
-    def _parse_implicit_module(self, name, module_type):
+    def _parse_implicit_module(self, name: str, module_type: NodeType) -> ModuleNode:
         _, base = Registry.find(name)
         if not base:
             raise CoreConfigParseError(f"Unregistered module `{name}`")
@@ -223,7 +227,7 @@ class ConfigDict(dict):
             self[name] = node
         return node
 
-    def _parse_isolated_module(self, name) -> bool:
+    def _parse_isolated_module(self, name: str) -> bool:
         logger.ex(f"Not a registed field. Parse isolated module {name}.")
         _, base = Registry.find(name)
         if base:
@@ -232,7 +236,7 @@ class ConfigDict(dict):
             return True
         return False
 
-    def _parse_scratchpads(self, name) -> None:
+    def _parse_scratchpads(self, name: str) -> None:
         logger.ex(f"Not a registed node. Regrad as scratchpads {name}.")
         has_module = False
         modules = self[name]
@@ -260,7 +264,7 @@ class ConfigDict(dict):
                 elif not self._parse_isolated_module(name):
                     self._parse_scratchpads(name)
 
-    def _contain_module(self, name) -> bool:
+    def _contain_module(self, name: str) -> bool:
         is_contain = False
         for k in self.all_fields:
             if k not in self:
@@ -278,7 +282,9 @@ class ConfigDict(dict):
                     self.current_field = k
         return is_contain
 
-    def _get_name_and_field(self, name, ori_name):
+    def _get_name_and_field(
+        self, name: str, ori_name: str
+    ) -> tuple[str, str | None] | tuple[list[str], str]:
         if not name.startswith("$"):
             return name, None
         names = name[1:].split("::")
@@ -291,6 +297,10 @@ class ConfigDict(dict):
             raise CoreConfigParseError(f"Cannot find field `{base}` with `{ori_name}`")
         if len(spec_name) > 0:
             if spec_name[0] == "*":
+                logger.warning(
+                    f"`The results of {names} "
+                    "depend on their definition in config files when using `*`."
+                )
                 return [k.name for k in modules.values()], base
             if spec_name[0] not in modules:
                 raise CoreConfigParseError(
@@ -306,7 +316,7 @@ class ConfigDict(dict):
             )
         return list(modules.keys())[0], base
 
-    def _apply_hooks(self, node, hooks, attrs):
+    def _apply_hooks(self, node: ModuleNode, hooks: list[str], attrs: list[str]) -> ConfigNode:
         if attrs:
             node = ChainedInvocationWrapper(node, attrs)
         if not hooks:
@@ -317,7 +327,9 @@ class ConfigDict(dict):
             node = self[hook](node=node)
         return node
 
-    def _convert_node(self, name, source, target_type) -> tuple[ModuleNode, type[ModuleNode]]:
+    def _convert_node(
+        self, name: str, source: ConfigDict, target_type: NodeType
+    ) -> tuple[ModuleNode, NodeType]:
         ori_type = source[name].__class__
         logger.ex(f"Original_type is {ori_type}, target_type is {target_type}.")
         node = source[name]
@@ -328,7 +340,15 @@ class ConfigDict(dict):
                 source[name] = node
         return node, ori_type
 
-    def _parse_single_param(self, name, ori_name, field, target_type, attrs, hooks):
+    def _parse_single_param(
+        self,
+        name: str,
+        ori_name: str,
+        field: str | None,
+        target_type: NodeType,
+        attrs: list[str],
+        hooks: list[str],
+    ) -> ConfigNode:
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
@@ -357,7 +377,9 @@ class ConfigDict(dict):
         node = self._apply_hooks(node, hooks, attrs)
         return node
 
-    def _parse_param(self, ori_name, module_type):
+    def _parse_param(
+        self, ori_name: str, module_type: SpecialFlag
+    ) -> ConfigNode | list[ConfigNode] | VariableReference:
         logger.ex(f"Parse with {ori_name}, {module_type}")
         if module_type == REFER_FLAG:
             return VariableReference(ori_name)
@@ -373,7 +395,7 @@ class ConfigDict(dict):
             ]
         return self._parse_single_param(name, ori_name, field, target_type, attrs, hooks)
 
-    def _parse_module(self, node: ModuleNode):
+    def _parse_module(self, node: ModuleNode) -> None:
         logger.ex(f"Parse ModuleNode {node}.")
         for param_name in list(node.keys()):
             true_name, module_type = _is_special(param_name)
@@ -392,7 +414,6 @@ class ConfigDict(dict):
             elif isinstance(value, dict):
                 logger.ex(f"{param_name}: Dict parameter {value}.")
                 value = {k: self._parse_param(v, module_type) for k, v in value.items()}
-                value = _flatten_dict(value)
                 is_dict = True
             else:
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
@@ -406,9 +427,10 @@ class ConfigDict(dict):
                 else:
                     node[true_name] = ref_name
             else:
+                # FIXME: Parsing inner VariableReference
                 node[true_name] = ModuleWrapper(value, is_dict)
 
-    def _parse_inter_modules(self):
+    def _parse_inter_modules(self) -> None:
         for name in list(self.keys()):
             logger.ex(f"Parse inter module {name}")
             module = self[name]
@@ -423,7 +445,7 @@ class ConfigDict(dict):
             elif isinstance(module, ModuleNode):
                 self._parse_module(module)
 
-    def __str__(self):
+    def __str__(self) -> str:
         _dict = {}
         for k, v in self.items():
             self._flatten(_dict, k, v)
@@ -433,21 +455,21 @@ class ConfigDict(dict):
             False,
         )
 
-    def _flatten(self, _dict, k, v):
+    def _flatten(self, _dict: dict, k: str, v: dict) -> None:
         if isinstance(v, dict) and not isinstance(v, ModuleNode):
             for _k, _v in v.items():
                 _dict[".".join([k, _k])] = _v
         else:
             _dict[k] = v
 
-    def dump(self, path: str):
+    def dump(self, path: str) -> None:
         import toml
 
         with open(path, "w", encoding="UTF-8") as f:
             toml.dump(self, f)
 
 
-def set_primary_fields(cfg):
+def set_primary_fields(cfg) -> None:
     primary_fields = cfg.primary_fields
     primary_to_registry = cfg.primary_to_registry
     if hasattr(ConfigDict, "primary_fields"):

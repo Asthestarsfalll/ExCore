@@ -4,7 +4,7 @@ import importlib
 import os
 import re
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Type, Union
 
 from .._exceptions import EnvVarParseError, ModuleBuildError, StrToClassError
 from .._misc import CacheOut
@@ -14,7 +14,7 @@ from ..engine.registry import Registry
 
 if TYPE_CHECKING:
     from types import FunctionType, ModuleType
-    from typing import Any, Self, Sequence, Type, Literal
+    from typing import Any, Literal, Self
 
     NodeClassType = Type[Any]
     NodeParams = dict[Any, Any]
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     NoCallSkipFlag = Self
     ConfigHookSkipFlag = Type[None]
 
-    SpecialFlag = Literal['@', '!', '$', '&', '']
+    SpecialFlag = Literal["@", "!", "$", "&", ""]
 
 
 __all__ = ["silent"]
@@ -198,7 +198,7 @@ class ClassNode(InterNode):
 
 
 class ChainedInvocationWrapper(ConfigArgumentHook):
-    def __init__(self, node: ModuleNode, attrs: Sequence[str]) -> None:
+    def __init__(self, node: ModuleNode, attrs: list[str]) -> None:
         super().__init__(node)
         self.attrs = attrs
 
@@ -230,10 +230,16 @@ class VariableReference:
         return self.value
 
 
+ConfigNode = Union[ModuleNode, ConfigArgumentHook]
+NodeType = Type[ModuleNode]
+
+
 class ModuleWrapper(dict):
     def __init__(
         self,
-        modules: dict[str, ModuleNode] | list[ModuleNode] | ModuleNode | None = None,
+        modules: (
+            dict[str, ConfigNode] | list[ConfigNode] | ConfigNode | VariableReference | None
+        ) = None,
         is_dict: bool = False,
     ) -> None:
         super().__init__()
@@ -290,13 +296,9 @@ class ModuleWrapper(dict):
         return f"ModuleWrapper{list(self.values())}"
 
 
-ConfigNode = ModuleNode | VariableReference
-NodeType = Type[ConfigNode]
-
 _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     OTHER_FLAG: ModuleNode,
     REUSE_FLAG: ReusedNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
-    REFER_FLAG: VariableReference,
 }

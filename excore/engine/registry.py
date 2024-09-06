@@ -11,7 +11,7 @@ from typing import Any, Callable, Literal, Sequence, Type, overload
 
 from filelock import FileLock
 
-from .._constants import _cache_dir, _registry_cache_file, _workspace_config_file
+from .._constants import _workspace_config_file, workspace
 from .._misc import _create_table
 from .logging import logger
 
@@ -93,7 +93,6 @@ class RegistryMeta(type):
 # Maybe someday we can get rid of Registry?
 class Registry(dict, metaclass=RegistryMeta):
     _globals: Registry | None = None
-    _registry_dir: str = "registry"
     # just a workaround for twice registry
     _prevent_register: bool = False
 
@@ -120,19 +119,19 @@ class Registry(dict, metaclass=RegistryMeta):
 
     @classmethod
     def dump(cls) -> None:
-        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
-        os.makedirs(os.path.join(_cache_dir, cls._registry_dir), exist_ok=True)
+        file_path = workspace.registry_cache_file
         import pickle  # pylint: disable=import-outside-toplevel
 
         with FileLock(file_path + ".lock", timeout=5), open(file_path, "wb") as f:
             pickle.dump(cls._registry_pool, f)
+        logger.success(f"Dump registry cache to {workspace.registry_cache_file}!")
 
     @classmethod
     def load(cls) -> None:
         if not os.path.exists(_workspace_config_file):
             logger.warning("Please run `excore init` in your command line first!")
             sys.exit(1)
-        file_path = os.path.join(_cache_dir, cls._registry_dir, _registry_cache_file)
+        file_path = workspace.registry_cache_file
         if not os.path.exists(file_path):
             # shall we need to be silent? Or raise error?
             logger.critical(
@@ -210,7 +209,8 @@ class Registry(dict, metaclass=RegistryMeta):
         force: bool = ...,
         _is_str: bool = ...,
         **extra_info: Any,
-    ) -> Callable[..., Any]: ...
+    ) -> Callable[..., Any]:
+        pass
 
     @overload
     def register_module(
@@ -219,7 +219,8 @@ class Registry(dict, metaclass=RegistryMeta):
         force: bool = ...,
         _is_str: bool = ...,
         **extra_info: Any,
-    ) -> ModuleType: ...
+    ) -> ModuleType:
+        pass
 
     @overload
     def register_module(
@@ -228,7 +229,8 @@ class Registry(dict, metaclass=RegistryMeta):
         force: bool = ...,
         _is_str: Literal[True] = ...,
         **extra_info: Any,
-    ) -> str: ...
+    ) -> str:
+        pass
 
     def register_module(
         self,
@@ -432,7 +434,7 @@ class Registry(dict, metaclass=RegistryMeta):
 
 
 def load_registries() -> None:
-    if not os.path.exists(os.path.join(_cache_dir, Registry._registry_dir, _registry_cache_file)):
+    if not os.path.exists(workspace.registry_cache_file):
         logger.warning("Please run `excore auto-register` in your command line first!")
         return
     Registry.load()

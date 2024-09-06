@@ -1,14 +1,15 @@
+from __future__ import annotations
+
 import functools
-import threading
-import time
+from typing import Any, Callable
 
 from tabulate import tabulate
 
 
 class CacheOut:
-    def __call__(self, func):
+    def __call__(self, func: Callable[..., Any]):
         @functools.wraps(func)
-        def _cache(self):
+        def _cache(self) -> Any:
             if not hasattr(self, "cached_elem"):
                 cached_elem = func(self)
                 if cached_elem != self:
@@ -19,7 +20,13 @@ class CacheOut:
         return _cache
 
 
-def _create_table(header, contents, split=True, prefix="\n", **tabel_kwargs):
+def _create_table(
+    header: str | list[str] | tuple[str, ...],
+    contents: list[str | tuple[str, ...] | list[str]],
+    split: bool = True,
+    prefix: str = "\n",
+    **tabel_kwargs: Any,
+) -> str:
     if split:
         contents = [(i,) for i in contents]
     if header is None:

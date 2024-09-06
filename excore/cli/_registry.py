@@ -12,7 +12,7 @@ import typer
 from typer import Argument as CArg
 from typing_extensions import Annotated
 
-from .._constants import _cache_base_dir, _workspace_cfg, _workspace_config_file
+from .._constants import _workspace_config_file, workspace
 from .._misc import _create_table
 from ..engine.logging import logger
 from ..engine.registry import Registry
@@ -44,10 +44,10 @@ def _build_ast(name: str) -> ast.Assign:
 
 
 def _generate_registries(entry="__init__"):
-    if not _workspace_cfg.primary_fields:
+    if not workspace.primary_fields:
         return
     logger.info("Generating Registry definition code.")
-    target_file = osp.join(_workspace_cfg.src_dir, entry + ".py")
+    target_file = osp.join(workspace.src_dir, entry + ".py")
 
     if not osp.exists(target_file):
         with open(target_file, "w", encoding="UTF-8") as f:
@@ -62,7 +62,7 @@ def _generate_registries(entry="__init__"):
         name = [ast.alias("Registry", None)]
         source_code.body.insert(0, ast.ImportFrom("excore", name, 0))
 
-    for name in _get_registries(_workspace_cfg.registries):
+    for name in _get_registries(workspace.registries):
         if name.startswith("*"):
             name = name[1:]
         source_code.body.append(_build_ast(name))
@@ -72,7 +72,7 @@ def _generate_registries(entry="__init__"):
     logger.success("Generate Registry definition in {} according to `primary_fields`", target_file)
 
 
-def _detect_assign(node, definition):
+def _detect_assign(node: ast.AST, definition: list) -> None:
     if isinstance(node, ast.Module):
         for child in node.body:
             _detect_assign(child, definition)
@@ -86,7 +86,7 @@ def _detect_assign(node, definition):
 
 
 def _detect_registy_difinition() -> bool:
-    target_file = osp.join(_workspace_cfg.src_dir, "__init__.py")
+    target_file = osp.join(workspace.src_dir, "__init__.py")
     logger.info("Detect Registry definition in {}", target_file)
     definition = []
     with open(target_file, encoding="UTF-8") as f:
@@ -94,7 +94,7 @@ def _detect_registy_difinition() -> bool:
     _detect_assign(source_code, definition)
     if len(definition) > 0:
         logger.info("Find Registry definition: {}", definition)
-        _workspace_cfg.registries = definition
+        workspace.registries = definition
         return True
     return False
 
@@ -107,7 +107,9 @@ def _format(reg_and_fields: str) -> str:
     return splits[0] + ": " + ", ".join(fields)
 
 
-def _parse_registries(reg_and_fields) -> tuple[list[str], dict[Any, Any], dict[Any, Any]]:
+def _parse_registries(
+    reg_and_fields: list[str],
+) -> tuple[list[str], dict[Any, Any], dict[Any, Any]]:
     fields = [i[1:].split(":") for i in reg_and_fields if i.startswith("*")]
     targets = []
     rev = {}
@@ -131,9 +133,8 @@ def _get_registries(reg_and_fields) -> list[str]:
     return [i.split(":")[0] for i in reg_and_fields]
 
 
-def _update(is_init=True, entry="__init__") -> None:
-    target_dir = osp.join(_cache_base_dir, _workspace_cfg.name)
-    os.makedirs(target_dir, exist_ok=True)
+def _update(is_init: bool = True, entry: str = "__init__") -> None:
+    os.makedirs(workspace.cache_dir, exist_ok=True)
     logger.success("Generate `.taplo.toml`")
     if is_init:
         if not _detect_registy_difinition():
@@ -145,14 +146,14 @@ def _update(is_init=True, entry="__init__") -> None:
                         regs.append(_format(inp))
                     else:
                         break
-                _workspace_cfg.registries = regs
+                workspace.registries = regs
             else:
                 logger.imp("You can define fields later.")
             (
-                _workspace_cfg.primary_fields,
-                _workspace_cfg.primary_to_registry,
-                _workspace_cfg.json_schema_fields,
-            ) = _parse_registries(_workspace_cfg.registries)
+                workspace.primary_fields,
+                workspace.primary_to_registry,
+                workspace.json_schema_fields,
+            ) = _parse_registries(workspace.registries)
             _generate_registries(entry)
         else:
             logger.imp(
@@ -161,10 +162,10 @@ def _update(is_init=True, entry="__init__") -> None:
             )
     else:
         (
-            _workspace_cfg.primary_fields,
-            _workspace_cfg.primary_to_registry,
-            _workspace_cfg.json_schema_fields,
-        ) = _parse_registries([_format(i) for i in _workspace_cfg.registries])
+            workspace.primary_fields,
+            workspace.primary_to_registry,
+            workspace.json_schema_fields,
+        ) = _parse_registries([_format(i) for i in workspace.registries])
         logger.success("Update primary_fields")
 
 
@@ -200,9 +201,8 @@ def auto_register() -> None:
     if not os.path.exists(_workspace_config_file):
         logger.critical("Please run `excore init` in your command line first!")
         sys.exit(0)
-    target_dir = osp.abspath(_workspace_cfg.src_dir)
+    target_dir = osp.abspath(workspace.src_dir)
     module_name = _get_default_module_name(target_dir)
-    sys.path.append(os.getcwd())
     _auto_register(target_dir, module_name)
     Registry.dump()
 
@@ -212,7 +212,7 @@ def primary_fields() -> None:
     """
     Show primary_fields.
     """
-    table = _create_table("FIELDS", _parse_registries(_workspace_cfg.registries)[0])
+    table = _create_table("FIELDS", _parse_registries(workspace.registries)[0])
     logger.info(table)
 
 
@@ -221,7 +221,7 @@ def registries() -> None:
     """
     Show registries.
     """
-    table = _create_table("Registry", [_format(i) for i in _workspace_cfg.registries])
+    table = _create_table("Registry", [_format(i) for i in workspace.registries])
     logger.info(table)
 
 

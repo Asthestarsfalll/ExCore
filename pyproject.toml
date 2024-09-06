@@ -30,10 +30,9 @@ requests = "2.28.1"
 toml = "0.10.2"
 tabulate = "*"
 tqdm = "*"
-pynvml = "*"
 rich = "*"
 astor = "*"
-typer = "^0.12.4" 
+typer = "^0.12.4"
 filelock = "^3.15.4"
 
 [tool.poetry.group.dev.dependencies]

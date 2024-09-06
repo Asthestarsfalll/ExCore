@@ -12,64 +12,69 @@ from .engine.logging import logger
 __author__ = "Asthestarsfalll"
 __version__ = "0.1.1beta"
 
-_cache_base_dir = osp.expanduser("~/.cache/excore/")
 _workspace_config_file = "./.excore.toml"
 _registry_cache_file = "registry_cache.pkl"
 _json_schema_file = "excore_schema.json"
 _class_mapping_file = "class_mapping.json"
 
 
-def _load_workspace_config() -> None:
-    if osp.exists(_workspace_config_file):
-        _workspace_cfg.update(toml.load(_workspace_config_file))
-        logger.ex("load `.excore.toml`")
-    else:
-        logger.warning("Please use `excore init` in your command line first")
-
-
-def _update_name(base_name: str) -> str:
-    name = base_name
-
-    suffix = 1
-    while osp.exists(osp.join(_cache_base_dir, name)):
-        name = f"{_base_name}_{suffix}"
-        suffix += 1
-
-    return name
-
-
-if not osp.exists(_workspace_config_file):
-    _base_name = osp.basename(osp.normpath(os.getcwd()))
-    _base_name = _update_name(_base_name)
-else:
-    cfg = toml.load(_workspace_config_file)
-    _base_name = cfg["name"]
-
-_cache_dir = osp.join(_cache_base_dir, _base_name)
-
-
 @dataclass
 class _WorkspaceConfig:
     name: str = field(default="")
     src_dir: str = field(default="")
-    base_dir: str = field(default_factory=os.getcwd)
+    base_dir: str = field(default="")
+    cache_base_dir: str = field(default=osp.expanduser("~/.cache/excore/"))
+    cache_dir: str = field(default="")
+    registry_cache_file: str = field(default="")
+    json_schema_file: str = field(default="")
+    class_mapping_file: str = field(default="")
     registries: list[str] = field(default_factory=list)
     primary_fields: list[str] = field(default_factory=list)
     primary_to_registry: dict[str, str] = field(default_factory=dict)
     json_schema_fields: dict[str, str | list[str]] = field(default_factory=dict)
     props: dict[Any, Any] = field(default_factory=dict)
 
+    @property
+    def base_name(self):
+        return osp.split(self.cache_dir)[-1]
+
+    def __post_init__(self) -> None:
+        if not osp.exists(_workspace_config_file):
+            self.base_dir = os.getcwd()
+            self.cache_dir = self._get_cache_dir()
+            self.registry_cache_file = osp.join(self.cache_dir, _registry_cache_file)
+            self.json_schema_file = osp.join(self.cache_dir, _json_schema_file)
+            self.class_mapping_file = osp.join(self.cache_dir, _class_mapping_file)
+            logger.warning("Please use `excore init` in your command line first")
+        else:
+            self.update(toml.load(_workspace_config_file))
+
+    def _get_cache_dir(self) -> str:
+        base_name = osp.basename(osp.normpath(os.getcwd()))
+        base_name = self._update_name(base_name)
+        return osp.join(self.cache_base_dir, base_name)
+
+    def _update_name(self, base_name: str) -> str:
+        name = base_name
+
+        suffix = 1
+        while osp.exists(osp.join(self.cache_base_dir, name)):
+            name = f"{base_name}_{suffix}"
+            suffix += 1
+
+        return name
+
     def update(self, _cfg: dict[Any, Any]) -> None:
         self.__dict__.update(_cfg)
 
     def dump(self, path: str) -> None:
         with open(path, "w") as f:
-            d = self.__dict__
-            d.pop("base_dir", None)
-            toml.dump(d, f)
+            cfg = self.__dict__
+            cfg.pop("base_dir", None)
+            toml.dump(cfg, f)
 
 
-_workspace_cfg = _WorkspaceConfig()
+workspace = _WorkspaceConfig()
 
 LOGO = r"""
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████

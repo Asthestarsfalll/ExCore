@@ -3,7 +3,7 @@ import sys
 from rich.traceback import install
 
 from . import config, plugins
-from ._constants import __author__, __version__, _load_workspace_config, _workspace_cfg
+from ._constants import __author__, __version__, workspace
 from .config.action import DictAction
 from .config.config import build_all, load
 from .config.parse import set_primary_fields
@@ -43,7 +43,6 @@ __all__ = [
 
 install()
 init_logger()
-_load_workspace_config()
-set_primary_fields(_workspace_cfg)
+set_primary_fields(workspace)
 _enable_excore_debug()
-sys.path.append(_workspace_cfg.base_dir)
+sys.path.append(workspace.base_dir)

@@ -11,6 +11,15 @@ if TYPE_CHECKING:
 
     from loguru import FilterDict, FilterFunction, FormatFunction, Message, Record, Writable
     from loguru._handler import Handler
+    from loguru._logger import Logger
+
+    class PatchedLogger(Logger):
+        def ex(self, __message: str, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def imp(self, __message: str, *args: Any, **kwargs: Any) -> None:
+            pass
+
 
 __all__ = ["logger", "add_logger", "remove_logger", "debug_only", "log_to_file_only"]
 
@@ -31,7 +40,7 @@ def _trace_patcher(log_record):
         log_record["function"] = "\b"
 
 
-logger = _logger.patch(_trace_patcher)
+logger: PatchedLogger = _logger.patch(_trace_patcher)
 
 
 def add_logger(

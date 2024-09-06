@@ -201,7 +201,7 @@ class HookManager(metaclass=MetaHookManager):
 
 
 class ConfigHookManager(HookManager):
-    stages: tuple[str] = ("pre_build", "every_build", "after_build")
+    stages: tuple[str, ...] = ("pre_build", "every_build", "after_build")
     """A subclass of HookManager that allows hooks to be registered and executed
     at specific points in the build process.
 
@@ -227,7 +227,7 @@ class ConfigArgumentHook:
         raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
 
     @final
-    def __call__(self, **kwargs: ANy) -> Any:
+    def __call__(self, **kwargs: Any) -> Any:
         if not getattr(self, "_is_initialized", False):
             raise CoreConfigSupportError(
                 f"Call super().__init__() in class `{self.__class__.__name__}`"

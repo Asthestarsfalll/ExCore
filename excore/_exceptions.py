@@ -56,3 +56,7 @@ class HookManagerBuildError(BaseException):
 
 class HookBuildError(BaseException):
     pass
+
+
+class AnnotationsFutureError(Exception):
+    pass

@@ -4,7 +4,8 @@ import os
 
 import typer
 
-from .._constants import _base_name, _cache_base_dir, _cache_dir
+from excore import workspace
+
 from .._misc import _create_table
 from ..engine.logging import logger
 from ._app import app
@@ -25,11 +26,12 @@ def clear_cache() -> None:
     """
     Remove the cache folder which belongs to current workspace.
     """
-    if not typer.confirm(f"Are you sure you want to clear cache of {_base_name}?"):
+    if not typer.confirm(
+        f"Are you sure you want to clear cache of {workspace.name}?"
+        f" Cache dir is {workspace.cache_dir}."
+    ):
         return
-
-    target = os.path.join(_cache_dir, _base_name)
-    _clear_cache(target)
+    _clear_cache(workspace.cache_dir)
 
 
 @app.command()
@@ -37,9 +39,10 @@ def clear_all_cache() -> None:
     """
     Remove the whole cache folder.
     """
+    print(_create_table("Cache Names", os.listdir(workspace.cache_base_dir)))
     if not typer.confirm("Are you sure you want to clear all cache?"):
         return
-    _clear_cache(_cache_base_dir)
+    _clear_cache(workspace.cache_base_dir)
 
 
 @app.command()
@@ -47,10 +50,10 @@ def cache_list() -> None:
     """
     Show cache folders.
     """
-    tabel = _create_table("NAMES", os.listdir(_cache_base_dir))
+    tabel = _create_table("Cache Names", os.listdir(workspace.cache_base_dir))
     logger.info(tabel)
 
 
 @app.command()
 def cache_dir() -> None:
-    print(_cache_dir)
+    print(workspace.cache_dir)
