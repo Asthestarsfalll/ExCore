@@ -91,7 +91,7 @@ class ModuleNode(dict):
     def _get_params(self, **params: NodeParams) -> NodeParams:
         return_params = {}
         for k, v in self.items():
-            if isinstance(v, ModuleWrapper):
+            if isinstance(v, (ModuleNode, ModuleWrapper)):
                 v = v()
             return_params[k] = v
         return_params.update(params)
