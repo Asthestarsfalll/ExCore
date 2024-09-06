@@ -57,14 +57,10 @@ def _is_special(k: str) -> tuple[str, SpecialFlag]:
     Returns:
         Tuple[str, str]: A tuple containing the modified string and the special character.
     """
-    if k.startswith(REUSE_FLAG):
-        return k[1:], REUSE_FLAG
-    if k.startswith(INTER_FLAG):
-        return k[1:], INTER_FLAG
-    if k.startswith(CLASS_FLAG):
-        return k[1:], CLASS_FLAG
-    if k.startswith(REFER_FLAG):
-        return k[1:], REFER_FLAG
+    pattern = re.compile(r"^([@!$&])(.*)$")
+    match = pattern.match(k)
+    if match:
+        return match.group(2), match.group(1)
     return k, ""
 
 
