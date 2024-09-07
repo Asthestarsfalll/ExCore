@@ -110,11 +110,11 @@ class ModuleNode(dict):
             module = self.cls(**params)
         except Exception as exc:
             raise ModuleBuildError(
-                f"Build Error with module {self.cls} and arguments {params}"
+                f"Instantiate Error with module {self.cls} and arguments {params}"
             ) from exc
         if LOG_BUILD_MESSAGE:
             logger.success(
-                f"Successfully build module: {self.cls.__name__}, with arguments {params}"
+                f"Successfully instantiate module: {self.cls.__name__}, with arguments {params}"
             )
         return module
 
