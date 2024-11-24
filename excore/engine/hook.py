@@ -33,7 +33,7 @@ class Hook(Protocol):
 
 
 class MetaHookManager(type):
-    stages = None
+    stages: tuple[str, ...] = ()
     """
     A metaclass that is used to validate the `stages` attribute of a `HookManager` subclass.
 
@@ -68,7 +68,7 @@ class MetaHookManager(type):
         """
         inst = type.__new__(cls, name, bases, attrs)
         stages = inst.stages
-        if inst.__name__ != "HookManager" and stages is None:
+        if inst.__name__ != "HookManager" and not stages:
             raise HookManagerBuildError(
                 f"The hook manager `{inst.__name__}` must have valid stages"
             )
@@ -77,7 +77,7 @@ class MetaHookManager(type):
 
 
 class HookManager(metaclass=MetaHookManager):
-    stages = tuple()
+    stages: tuple[str, ...] = tuple()
     """
     Manages a set of hooks that can be triggered by events that occur during program execution.
 
@@ -129,7 +129,7 @@ class HookManager(metaclass=MetaHookManager):
                     __error_msg.format(h.__class__.__name__, "__CallInter__", h.__CallInter__)
                 )
         self.hooks = defaultdict(list)
-        self.calls = defaultdict(int)
+        self.calls: dict[str, int] = defaultdict(int)
         for h in hooks:
             self.hooks[h.__HookType__].append(h)
 
@@ -176,7 +176,7 @@ class HookManager(metaclass=MetaHookManager):
             stage (str): The name of the event stage to trigger.
             *inps: Input arguments to pass to the hook functions.
         """
-        dead_hook_idx = []
+        dead_hook_idx: list[int] = []
         calls = self.calls[stage]
         for idx, hook in enumerate(self.hooks[stage]):
             if calls % hook.__CallInter__ == 0:
@@ -220,6 +220,8 @@ class ConfigArgumentHook:
     ) -> None:
         self.node = node
         self.enabled = enabled
+        if not hasattr(node, "name"):
+            raise ValueError("The `node` must have name attribute.")
         self.name = node.name
         self._is_initialized = True
 

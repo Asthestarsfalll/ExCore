@@ -1,8 +1,12 @@
+from __future__ import annotations
+
 import shutil
 import time
 from dataclasses import is_dataclass
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Protocol, Union
+from typing import Callable, Protocol
+
+from typing_extensions import Self
 
 from ..engine.logging import logger
 
@@ -10,9 +14,9 @@ __all__ = ["PathManager", "DataclassProtocol"]
 
 
 class DataclassProtocol(Protocol):
-    __dataclass_fields__: Dict
-    __dataclass_params__: Dict
-    __post_init__: Optional[Callable]
+    __dataclass_fields__: dict
+    __dataclass_params__: dict
+    __post_init__: Callable | None
 
 
 class PathManager:
@@ -59,9 +63,9 @@ class PathManager:
         self,
         /,
         base_path: str,
-        sub_folders: Union[List[str], DataclassProtocol],
+        sub_folders: list[str] | DataclassProtocol,
         config_name: str,
-        instance_name: Optional[str] = None,
+        instance_name: str | None = None,
         *,
         remove_if_fail: bool = False,
         sub_folder_exist_ok: bool = False,
@@ -76,9 +80,9 @@ class PathManager:
         self.sub_exist_ok = sub_folder_exist_ok
         self.config_first = config_name_first
         self.return_str = return_str
-        self._info = {}
+        self._info: dict[str, Path] = {}
 
-    def _get_sub_folders(self, sub_folders):
+    def _get_sub_folders(self, sub_folders) -> None:
         if not isinstance(sub_folders, list):
             if not is_dataclass(sub_folders):
                 raise TypeError("Only Support dataclass or list of str")
@@ -101,7 +105,7 @@ class PathManager:
             sub.mkdir(parents=True, exist_ok=self.sub_exist_ok)
             self._info[str(f)] = sub
 
-    def get(self, name: str) -> Union[Path, str]:
+    def get(self, name: str) -> Path | str | None:
         """
         Retrieve the path for a specific sub-folder by name.
         """
@@ -131,11 +135,11 @@ class PathManager:
             logger.info(f"Remove sub_folders {f}")
             shutil.rmtree(str(f))
 
-    def __enter__(self):
+    def __enter__(self) -> Self:
         self.init()
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(self, exc_type, exc_value, traceback) -> bool:
         if exc_type is not None:
             self.final()
             return False

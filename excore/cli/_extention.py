@@ -55,7 +55,7 @@ def _generate_typehints(
 
 @app.command()
 def generate_typehints(
-    entry: Annotated[str, CArg(help="The file to generate.")] = "module_types",
+    entry: str = CArg(default="module_types", help="The file to generate."),
     class_name: Annotated[str, COp(help="The class name of type hints.")] = "TypedModules",
     info_class_name: Annotated[str, COp(help="The class name of run_info.")] = "RunInfo",
     config: Annotated[str, COp(help="Used generate type hints for isolated objects.")] = "",
@@ -67,7 +67,7 @@ def generate_typehints(
 
 
 def _quote(config: str, override: bool) -> None:
-    config_paths = []
+    config_paths: list[str] = []
 
     def _get_path(path, paths):
         if not os.path.isdir(path):

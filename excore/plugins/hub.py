@@ -153,7 +153,7 @@ class GitSSHFetcher(RepoFetcherBase):
         kwargs = {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
         if commit is None:
             # shallow clone repo by branch/tag
-            p = subprocess.Popen(
+            p = subprocess.Popen(  # type: ignore
                 [
                     "git",
                     "clone",
@@ -169,14 +169,16 @@ class GitSSHFetcher(RepoFetcherBase):
         else:
             # clone repo and checkout to commit_id
             p = subprocess.Popen(  # pylint: disable=consider-using-with
-                ["git", "clone", git_url, repo_dir], **kwargs
+                ["git", "clone", git_url, repo_dir],
+                **kwargs,  # type: ignore
             )
             cls._check_clone_pipe(p)
 
             with cd(repo_dir):
                 logger.debug("git checkout to {}", commit)
                 p = subprocess.Popen(  # pylint: disable=consider-using-with
-                    ["git", "checkout", commit], **kwargs
+                    ["git", "checkout", commit],
+                    **kwargs,  # type: ignore
                 )
                 _, err = p.communicate()
                 if p.returncode:
@@ -303,14 +305,14 @@ def _check_dependencies(module: types.ModuleType) -> None:
     dependencies = getattr(module, HUBDEPENDENCY)
     if not dependencies:
         return
-    missing_deps = [m for m in dependencies if importlib.util.find_spec(m)]
+    missing_deps = [m for m in dependencies if importlib.util.find_spec(m)]  # type: ignore
     if len(missing_deps):
         raise RuntimeError("Missing dependencies: {}".format(", ".join(missing_deps)))
 
 
 def load_module(name: str, path: str) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
+    spec = importlib.util.spec_from_file_location(name, path)  # type: ignore
+    module = importlib.util.module_from_spec(spec)  # type: ignore
     spec.loader.exec_module(module)
     return module
 

@@ -19,7 +19,9 @@ from .model import (
 )
 
 if TYPE_CHECKING:
-    from typing import Generator, Self, Sequence
+    from typing import Generator, Sequence
+
+    from typing_extensions import Self
 
     from .model import ConfigNode, NodeType, SpecialFlag
 
@@ -59,14 +61,14 @@ def _parse_param_name(name) -> tuple[str, list[str], list[str]]:
 
 
 def _flatten_list(
-    lis: list[ConfigNode | list[ConfigNode] | VariableReference],
-) -> list[ConfigNode]:
+    lis: Sequence[ConfigNode | VariableReference | list[ConfigNode]],
+) -> Sequence[ConfigNode | VariableReference]:
     new_lis = []
     for i in lis:
         if isinstance(i, list):
             new_lis.extend(i)
         else:
-            new_lis.append(i)
+            new_lis.append(i)  # type: ignore
     return new_lis
 
 
@@ -89,8 +91,8 @@ class ConfigDict(dict):
             primary_to_registry = ConfigDict.primary_to_registry
             scratchpads_fields = ConfigDict.scratchpads_fields
 
-        inst = super().__new__(ConfigDictImpl)
-        return inst
+        inst = super().__new__(ConfigDictImpl)  # type: ignore
+        return inst  # type: ignore
 
     @classmethod
     def set_primary_fields(
@@ -318,12 +320,12 @@ class ConfigDict(dict):
 
     def _apply_hooks(self, node: ModuleNode, hooks: list[str], attrs: list[str]) -> ConfigNode:
         if attrs:
-            node = ChainedInvocationWrapper(node, attrs)
+            node = ChainedInvocationWrapper(node, attrs)  # type: ignore
         if not hooks:
             return node
         for hook in hooks:
             if hook not in self:
-                raise CoreConfigParseError(f"Unregistered hook {hook}")
+                raise CoreConfigParseError(f"Unregistered hook `{hook}`")
             node = self[hook](node=node)
         return node
 
@@ -331,7 +333,7 @@ class ConfigDict(dict):
         self, name: str, source: ConfigDict, target_type: NodeType
     ) -> tuple[ModuleNode, NodeType]:
         ori_type = source[name].__class__
-        logger.ex(f"Original_type is {ori_type}, target_type is {target_type}.")
+        logger.ex(f"Original_type is `{ori_type}`, target_type is `{target_type}`.")
         node = source[name]
         if target_type.priority != ori_type.priority or target_type is ClassNode:
             node = target_type.from_node(source[name])
@@ -374,7 +376,7 @@ class ConfigDict(dict):
                 f"target_type is `{target_type}`, but got original_type `{ori_type}`. "
                 f"Please considering using `scratchpads` to avoid conflicts."
             )
-        node = self._apply_hooks(node, hooks, attrs)
+        node = self._apply_hooks(node, hooks, attrs)  # type: ignore
         return node
 
     def _parse_param(
@@ -385,15 +387,15 @@ class ConfigDict(dict):
             return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
         name, attrs, hooks = _parse_param_name(ori_name)
-        name, field = self._get_name_and_field(name, ori_name)
-        logger.ex(f"Get name:{name}, field:{field}, attrs:{attrs}, hooks:{hooks}.")
-        if isinstance(name, list):
+        names, field = self._get_name_and_field(name, ori_name)
+        logger.ex(f"Get name:{names}, field:{field}, attrs:{attrs}, hooks:{hooks}.")
+        if isinstance(names, list):
             logger.ex(f"Detect output type list {ori_name}.")
             return [
                 self._parse_single_param(n, ori_name, field, target_type, attrs, hooks)
-                for n in name
+                for n in names
             ]
-        return self._parse_single_param(name, ori_name, field, target_type, attrs, hooks)
+        return self._parse_single_param(names, ori_name, field, target_type, attrs, hooks)
 
     def _parse_module(self, node: ModuleNode) -> None:
         logger.ex(f"Parse ModuleNode {node}.")
@@ -446,13 +448,12 @@ class ConfigDict(dict):
                 self._parse_module(module)
 
     def __str__(self) -> str:
-        _dict = {}
+        _dict: dict = {}
         for k, v in self.items():
             self._flatten(_dict, k, v)
         return _create_table(
             None,
             [(k, v) for k, v in _dict.items()],
-            False,
         )
 
     def _flatten(self, _dict: dict, k: str, v: dict) -> None:

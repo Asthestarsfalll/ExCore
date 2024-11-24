@@ -75,7 +75,6 @@ class _WorkspaceConfig:
 
 
 workspace = _WorkspaceConfig()
-
 LOGO = r"""
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████
 ▓█   ▀ ▒▒ █ █ ▒░▒██▀ ▀█  ▒██▒  ██▒▓██ ▒ ██▒▓█   ▀

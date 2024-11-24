@@ -8,13 +8,15 @@ from typing import TYPE_CHECKING, Type, Union
 
 from .._exceptions import EnvVarParseError, ModuleBuildError, StrToClassError
 from .._misc import CacheOut
-from ..engine.hook import ConfigArgumentHook
+from ..engine.hook import ConfigArgumentHook, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
 
 if TYPE_CHECKING:
     from types import FunctionType, ModuleType
-    from typing import Any, Literal, Self
+    from typing import Any, Literal
+
+    from typing_extensions import Self
 
     NodeClassType = Type[Any]
     NodeParams = dict[Any, Any]
@@ -28,11 +30,11 @@ if TYPE_CHECKING:
 
 __all__ = ["silent"]
 
-REUSE_FLAG = "@"
-INTER_FLAG = "!"
-CLASS_FLAG = "$"
-REFER_FLAG = "&"
-OTHER_FLAG = ""
+REUSE_FLAG: Literal["@"] = "@"
+INTER_FLAG: Literal["!"] = "!"
+CLASS_FLAG: Literal["$"] = "$"
+REFER_FLAG: Literal["&"] = "&"
+OTHER_FLAG: Literal[""] = ""
 
 LOG_BUILD_MESSAGE = True
 DO_NOT_CALL_KEY = "__no_call__"
@@ -60,7 +62,7 @@ def _is_special(k: str) -> tuple[str, SpecialFlag]:
     pattern = re.compile(r"^([@!$&])(.*)$")
     match = pattern.match(k)
     if match:
-        return match.group(2), match.group(1)
+        return match.group(2), match.group(1)  # type: ignore
     return k, ""
 
 
@@ -91,7 +93,7 @@ class ModuleNode(dict):
     def _get_params(self, **params: NodeParams) -> NodeParams:
         return_params = {}
         for k, v in self.items():
-            if isinstance(v, (ModuleNode, ModuleWrapper)):
+            if isinstance(v, (ModuleWrapper, ModuleNode)):
                 v = v()
             return_params[k] = v
         return_params.update(params)
@@ -118,7 +120,7 @@ class ModuleNode(dict):
             )
         return module
 
-    def __call__(self, **params: NodeParams) -> NoCallSkipFlag | NodeInstance:
+    def __call__(self, **params: NodeParams) -> NoCallSkipFlag | NodeInstance:  # type: ignore
         if self._no_call:
             return self
         params = self._get_params(**params)
@@ -171,7 +173,7 @@ class InterNode(ModuleNode):
 
 
 class ConfigHookNode(ModuleNode):
-    def __call__(self, **params: NodeParams) -> NodeInstance | ConfigHookSkipFlag:
+    def __call__(self, **params: NodeParams) -> NodeInstance | ConfigHookSkipFlag | Hook:
         if issubclass(self.cls, ConfigArgumentHook):
             return None
         params = self._get_params(**params)
@@ -182,14 +184,14 @@ class ReusedNode(InterNode):
     priority: int = 3
 
     @CacheOut()
-    def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:
+    def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:  # type: ignore
         return super().__call__(**params)
 
 
 class ClassNode(InterNode):
     priority: int = 1
 
-    def __call__(self) -> NodeClassType | FunctionType:
+    def __call__(self) -> NodeClassType | FunctionType:  # type: ignore
         return self.cls
 
 

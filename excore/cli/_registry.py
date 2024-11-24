@@ -7,10 +7,9 @@ import os.path as osp
 import sys
 from typing import Any
 
-import astor
+import astor  # type: ignore
 import typer
 from typer import Argument as CArg
-from typing_extensions import Annotated
 
 from .._constants import _workspace_config_file, workspace
 from .._misc import _create_table
@@ -36,11 +35,11 @@ def _has_import_excore(node) -> bool:
 
 
 def _build_ast(name: str) -> ast.Assign:
-    targets = [ast.Name(name.upper(), ast.Store)]
-    func = ast.Name("Registry", ast.Load)
+    targets = [ast.Name(name.upper(), ast.Store)]  # type: ignore
+    func = ast.Name("Registry", ast.Load)  # type: ignore
     args = [ast.Constant(name)]
-    value = ast.Call(func, args, [])
-    return ast.Assign(targets, value)
+    value = ast.Call(func, args, [])  # type: ignore
+    return ast.Assign(targets, value)  # type: ignore
 
 
 def _generate_registries(entry="__init__"):
@@ -82,13 +81,13 @@ def _detect_assign(node: ast.AST, definition: list) -> None:
         and hasattr(node.value.func, "id")
         and node.value.func.id == "Registry"
     ):
-        definition.append(node.value.args[0].value)
+        definition.append(node.value.args[0].value)  # type: ignore
 
 
 def _detect_registy_difinition() -> bool:
     target_file = osp.join(workspace.src_dir, "__init__.py")
     logger.info("Detect Registry definition in {}", target_file)
-    definition = []
+    definition: list[Any] = []
     with open(target_file, encoding="UTF-8") as f:
         source_code = ast.parse(f.read())
     _detect_assign(source_code, definition)
@@ -227,9 +226,9 @@ def registries() -> None:
 
 @app.command()
 def generate_registries(
-    entry: Annotated[
-        str, CArg(help="Used for detect or generate Registry definition code")
-    ] = "__init__",
+    entry: str = CArg(
+        default="__init__", help="Used for detect or generate Registry definition code"
+    ),
 ) -> None:
     """
     Generate registries definition code according to workspace config.

@@ -2,10 +2,11 @@ import time
 
 import pytest
 
-from excore import Registry, load_registries
+from excore import Registry, load_registries, _enable_excore_debug
 
 load_registries()
 
+_enable_excore_debug()
 
 import source_code as S
 
@@ -21,6 +22,7 @@ def test_find():
 
 
 def test_register_module():
+    Registry.unlock_register()
     reg = Registry("__test")
     reg.register_module(time)
     assert reg["time"] == "time"
@@ -33,6 +35,7 @@ def test_global():
     with pytest.raises(ValueError):
         S.MODEL.register_module(time)
     assert id(S.MODEL) == id(Registry.get_registry("Model"))
+    Registry.lock_register()
 
 
 def test_module_table():

@@ -5,7 +5,7 @@ import json
 import sys
 from inspect import Parameter, _empty, _ParameterKind, isclass
 from types import ModuleType
-from typing import Any, Callable, Dict, Sequence, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union, get_args, get_origin
 
 import toml
 
@@ -20,11 +20,25 @@ from .model import _str_to_target
 if sys.version_info >= (3, 10, 0):
     from types import NoneType, UnionType
 else:
-    NoneType = type(None)
+    NoneType = type(None)  # type: ignore
 
     # just a placeholder
-    class UnionType:
+    class UnionType:  # type: ignore
         pass
+
+
+if TYPE_CHECKING:
+    from typing import TypedDict
+
+    from typing_extensions import NotRequired
+
+    class Property(TypedDict):
+        properties: NotRequired[Property]
+        type: NotRequired[str]
+        items: NotRequired[dict]
+        value: NotRequired[str]
+        description: NotRequired[str]
+        required: NotRequired[list[str]]
 
 
 TYPE_MAPPER: dict[type, str] = {
@@ -95,14 +109,14 @@ def _check(bases) -> bool:
     return False
 
 
-def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
-    props = {
+def parse_registry(reg: Registry) -> tuple[Property, dict[str, list[str | int]]]:
+    props: Property = {
         "type": "object",
         "properties": {},
     }
-    class_mapping = {}
+    class_mapping: dict[str, list[str | int]] = {}
     for name, item_dir in reg.items():
-        func = _str_to_target(item_dir)
+        func = _str_to_target(item_dir)  # type: ignore
         if isinstance(func, ModuleType):
             continue
         class_mapping[name] = [inspect.getfile(func), inspect.getsourcelines(func)[1]]
@@ -110,7 +124,7 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
         is_hook = isclass(func) and issubclass(func, ConfigArgumentHook)
         if isclass(func) and _check(func.__bases__):
             func = func.__init__
-        params = inspect.signature(func).parameters
+        params = inspect.signature(func).parameters  # type: ignore
         param_props = {"type": "object", "properties": {}}
         if doc_string:
             # TODO: parse doc string to each parameters
@@ -140,7 +154,7 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
             param_props["properties"] = items
         if required:
             param_props["required"] = required
-        props["properties"][name] = param_props
+        props["properties"][name] = param_props  # type: ignore
     return props, class_mapping
 
 
@@ -157,7 +171,7 @@ def _remove_optional(anno):
     return anno
 
 
-def _parse_inner_types(prop: dict, inner_types: Sequence[type]) -> None:
+def _parse_inner_types(prop: Property, inner_types: Sequence[type]) -> None:
     first_type = inner_types[0]
     is_all_the_same = True
     for t in inner_types:
@@ -166,7 +180,7 @@ def _parse_inner_types(prop: dict, inner_types: Sequence[type]) -> None:
         prop["items"] = {"type": TYPE_MAPPER.get(first_type)}
 
 
-def _parse_typehint(prop: dict, anno: type) -> str | None:
+def _parse_typehint(prop: Property, anno: type) -> str | None:
     potential_type = TYPE_MAPPER.get(anno)
     if potential_type is not None:
         return potential_type
@@ -187,8 +201,8 @@ def _parse_typehint(prop: dict, anno: type) -> str | None:
     return potential_type or "string"
 
 
-def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
-    prop = {}
+def parse_single_param(param: Parameter) -> tuple[bool, Property]:
+    prop: Property = {}
     anno = param.annotation
     potential_type = None
 
@@ -196,7 +210,7 @@ def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
 
     #  hardcore for torch.optim
     if param.default.__class__.__name__ == "_RequiredParameter":
-        param._default = _empty
+        param._default = _empty  # type: ignore
 
     if isinstance(anno, str):
         raise AnnotationsFutureError(
@@ -212,9 +226,9 @@ def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
         if isinstance(param.default, (list, tuple)):
             types = [type(t) for t in param.default]
             _parse_inner_types(prop, types)
-    elif param._kind is _ParameterKind.VAR_POSITIONAL:
+    elif param.kind is _ParameterKind.VAR_POSITIONAL:
         return False, {"type": "array"}
-    elif param._kind is _ParameterKind.VAR_KEYWORD:
+    elif param.kind is _ParameterKind.VAR_KEYWORD:
         return False, {"type": "object"}
     if anno is _empty and param.default is _empty:
         potential_type = "number"

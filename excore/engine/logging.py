@@ -40,7 +40,7 @@ def _trace_patcher(log_record):
         log_record["function"] = "\b"
 
 
-logger: PatchedLogger = _logger.patch(_trace_patcher)
+logger: PatchedLogger = _logger.patch(_trace_patcher)  # type: ignore
 
 
 def add_logger(
@@ -112,5 +112,5 @@ def init_logger() -> None:
     logger.level("WARNING", color="<red>")
     logger.level("IMPORT", no=45, color="<YELLOW><red><bold>")
     logger.level("EXCORE", no=9, color="<GREEN><cyan>")
-    logger.imp = _call_importance
-    logger.ex = _excore_debug
+    logger.imp = _call_importance  # type: ignore
+    logger.ex = _excore_debug  # type: ignore

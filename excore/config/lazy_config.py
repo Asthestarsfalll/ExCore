@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 from typing import Any
 
-from ..engine.hook import ConfigHookManager
+from ..engine.hook import ConfigHookManager, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
 from .model import ConfigHookNode, InterNode, ModuleWrapper
@@ -45,9 +45,10 @@ class LazyConfig:
         hooks = []
         if hook_cfgs:
             _, base = Registry.find(list(hook_cfgs.keys())[0])
+            assert base is not None, hook_cfgs
             reg = Registry.get_registry(base)
             for name, params in hook_cfgs.items():
-                hook = ConfigHookNode.from_str(reg[name], params)()
+                hook: Hook = ConfigHookNode.from_str(reg[name], params)()  # type: ignore
                 if hook:
                     hooks.append(hook)
                 else:
@@ -64,7 +65,9 @@ class LazyConfig:
     def build_all(self) -> tuple[ModuleWrapper, dict[str, Any]]:
         if not self.__is_parsed__:
             self.parse()
-        module_dict, isolated_dict = ModuleWrapper(), {}
+        module_dict = ModuleWrapper()
+        isolated_dict: dict[str, Any] = {}
+
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:
             if name not in self._config:

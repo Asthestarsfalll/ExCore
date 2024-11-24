@@ -91,10 +91,12 @@ class RegistryMeta(type):
 
 
 # Maybe someday we can get rid of Registry?
-class Registry(dict, metaclass=RegistryMeta):
+class Registry(dict, metaclass=RegistryMeta):  # type: ignore
     _globals: Registry | None = None
     # just a workaround for twice registry
     _prevent_register: bool = False
+
+    extra_info: dict[str, str]
 
     """A registry that stores functions and classes by name.
 
@@ -197,7 +199,6 @@ class Registry(dict, metaclass=RegistryMeta):
         return _create_table(
             ["NAEM", "DIR"],
             [(k, v) for k, v in self.items()],
-            False,
         )
 
     __str__ = __repr__
@@ -387,16 +388,16 @@ class Registry(dict, metaclass=RegistryMeta):
         else:
             select_info = []
 
-        all_modules = module_list if module_list else self.keys()
+        all_modules = module_list if module_list else list(self.keys())
         if filter:
-            modules = set()
+            set_modules: set[str] = set()
             filters = [filter] if isinstance(filter, str) else filter
             for f in filters:
                 include_models = fnmatch.filter(all_modules, f)
                 if len(include_models):
-                    modules = modules.union(include_models)
+                    modules = list(set_modules.union(include_models))
         else:
-            modules = all_modules
+            modules = all_modules  # type: ignore
 
         modules = list(sorted(modules))
 
@@ -411,7 +412,6 @@ class Registry(dict, metaclass=RegistryMeta):
         table = _create_table(
             table_headers,
             [(i, *[self.extra_info[i][idx] for idx in select_idx]) for i in modules],
-            False,
             **table_kwargs,
         )
         table = "\n" + table
@@ -426,7 +426,6 @@ class Registry(dict, metaclass=RegistryMeta):
         table = _create_table(
             table_headers,
             list(sorted([[i] for i in cls._registry_pool])),
-            False,
             **table_kwargs,
         )
         table = "\n" + table

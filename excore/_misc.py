@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import functools
-from typing import Any, Callable
+from typing import Any, Callable, Sequence
 
 from tabulate import tabulate
 
@@ -21,14 +21,13 @@ class CacheOut:
 
 
 def _create_table(
-    header: str | list[str] | tuple[str, ...],
-    contents: list[str | tuple[str, ...] | list[str]],
-    split: bool = True,
+    header: str | list[str] | tuple[str, ...] | None,
+    contents: Sequence[str] | Sequence[Sequence[str]],
     prefix: str = "\n",
     **tabel_kwargs: Any,
 ) -> str:
-    if split:
-        contents = [(i,) for i in contents]
+    if len(contents) > 0 and isinstance(contents[0], str):
+        contents = [(i,) for i in contents]  # type: ignore
     if header is None:
         header = ()
     if not isinstance(header, (list, tuple)):

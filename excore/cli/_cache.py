@@ -39,6 +39,9 @@ def clear_all_cache() -> None:
     """
     Remove the whole cache folder.
     """
+    if not os.path.exists(workspace.cache_base_dir):
+        logger.warning("Cache dir {} does not exist", workspace.cache_base_dir)
+        return
     print(_create_table("Cache Names", os.listdir(workspace.cache_base_dir)))
     if not typer.confirm("Are you sure you want to clear all cache?"):
         return
