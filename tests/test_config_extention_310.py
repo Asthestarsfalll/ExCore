@@ -1,4 +1,5 @@
 import sys
+from typing import Callable
 
 import pytest
 from test_config_extention import _assert
@@ -17,6 +18,8 @@ class Tmp2:
     pass
 
 
+t = Tmp()
+
 if sys.version_info >= (3, 10, 0):
 
     @S.register()
@@ -28,6 +31,7 @@ if sys.version_info >= (3, 10, 0):
             f: float,
             d: dict,
             obj: Tmp,
+            c: Callable,
             uni1: int | float,
             uni2: int | str,
             uni3: Tmp | Tmp2,
@@ -42,6 +46,9 @@ if sys.version_info >= (3, 10, 0):
             default_d={},  # noqa: B006 # pylint: disable=W0102
             default_tuple=(0, "", 0.0),
             default_list=[0, 1],  # noqa: B006
+            e=t,
+            *args,
+            **kwargs,
         ):
             pass
 
@@ -58,6 +65,8 @@ def test_type_parsing():
     _assert(properties, "f", "number")
     _assert(properties, "d", "object")
     _assert(properties, "obj", "string")
+    _assert(properties, "c", "string")
+    _assert(properties, "e", "number")
     _assert(properties, "uni1", "")
     _assert(properties, "uni2", "")
     _assert(properties, "uni3", "")
@@ -72,4 +81,6 @@ def test_type_parsing():
     _assert(properties, "default_d", "object")
     _assert(properties, "default_tuple", "array")
     _assert(properties, "default_list", "array", "number")
+    _assert(properties, "args", "array")
+    _assert(properties, "kwargs", "object")
     S.clear()

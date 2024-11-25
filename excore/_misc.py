@@ -1,14 +1,15 @@
+from __future__ import annotations
+
 import functools
-import threading
-import time
+from typing import Any, Callable, Sequence
 
 from tabulate import tabulate
 
 
 class CacheOut:
-    def __call__(self, func):
+    def __call__(self, func: Callable[..., Any]):
         @functools.wraps(func)
-        def _cache(self):
+        def _cache(self) -> Any:
             if not hasattr(self, "cached_elem"):
                 cached_elem = func(self)
                 if cached_elem != self:
@@ -19,27 +20,14 @@ class CacheOut:
         return _cache
 
 
-class FileLock:
-    def __init__(self, file_path, timeout=15):
-        self.file_path = file_path
-        self.timeout = timeout
-        self.lock = threading.Lock()
-
-    def __enter__(self):
-        start_time = time.time()
-        while not self.lock.acquire(False):
-            if time.time() - start_time >= self.timeout:
-                raise TimeoutError("Failed to acquire lock on file")
-            time.sleep(0.1)
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.lock.release()
-
-
-def _create_table(header, contents, split=True, prefix="\n", **tabel_kwargs):
-    if split:
-        contents = [(i,) for i in contents]
+def _create_table(
+    header: str | list[str] | tuple[str, ...] | None,
+    contents: Sequence[str] | Sequence[Sequence[str]],
+    prefix: str = "\n",
+    **tabel_kwargs: Any,
+) -> str:
+    if len(contents) > 0 and isinstance(contents[0], str):
+        contents = [(i,) for i in contents]  # type: ignore
     if header is None:
         header = ()
     if not isinstance(header, (list, tuple)):

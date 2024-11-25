@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "excore"
-version = "0.1.1beta"
+version = "0.1.1beta1"
 description = "Build your own development toolkit efficiently."
 authors = ["Asthestarsfalll <1186454801@qq.com>"]
 license = "MIT"
@@ -30,10 +30,10 @@ requests = "2.28.1"
 toml = "0.10.2"
 tabulate = "*"
 tqdm = "*"
-pynvml = "*"
 rich = "*"
 astor = "*"
-typer = { extras = ["all"], version = "^0.9.0" }
+typer = "^0.13.1"
+filelock = "^3.15.4"
 
 [tool.poetry.group.dev.dependencies]
 black = "23.1.0"
@@ -43,6 +43,10 @@ pytest = "^7.4.4"
 pytest-cov = "^4.1.0"
 torch = { version = "1.13.1", source = "torch" }
 torchvision = { version = "0.14.1", source = "torch" }
+mypy = "^1.13.0"
+types-toml = "^0.10.8.20240310"
+types-tqdm = "^4.67.0.20241119"
+types-tabulate = "^0.9.0.20240106"
 
 [[tool.poetry.source]]
 name = "torch"

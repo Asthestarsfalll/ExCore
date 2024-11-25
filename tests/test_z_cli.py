@@ -8,6 +8,7 @@ def test_init_force():
 
 
 def test_generate_registries():
+    # FIXME(typer): Argument
     excute("excore generate-registries temp")
     assert os.path.exists("./source_code/temp.py")
     from source_code import temp  # noqa: F401
@@ -26,6 +27,7 @@ def test_primary():
 
 
 def test_typehints():
+    # FIXME(typer): Argument
     excute(
         "excore generate-typehints temp_typing --class-name "
         "TypedWrapper --info-class-name Info --config ./configs/launch/test_optim.toml"
@@ -42,3 +44,5 @@ def test_quote():
     excute("excore quote ./configs/lrsche")
     assert os.path.exists("./configs/lrsche/lrsche_overrode.toml")
     assert os.path.exists("./configs/lrsche/lrsche_error_overrode.toml")
+    os.remove("./configs/lrsche/lrsche_overrode.toml")
+    os.remove("./configs/lrsche/lrsche_error_overrode.toml")

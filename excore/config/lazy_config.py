@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 import time
 from copy import deepcopy
-from typing import Any, Dict, Tuple
+from typing import Any
 
-from ..engine.hook import ConfigHookManager
+from ..engine.hook import ConfigHookManager, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
 from .model import ConfigHookNode, InterNode, ModuleWrapper
@@ -10,7 +12,9 @@ from .parse import ConfigDict
 
 
 class LazyConfig:
-    hook_key = "ConfigHook"
+    hook_key: str = "ConfigHook"
+    modules_dict: dict[str, ModuleWrapper]
+    isolated_dict: dict[str, Any]
 
     def __init__(self, config: ConfigDict) -> None:
         self.modules_dict, self.isolated_dict = {}, {}
@@ -21,29 +25,30 @@ class LazyConfig:
         self._original_config = deepcopy(config)
         self.__is_parsed__ = False
 
-    def parse(self):
+    def parse(self) -> None:
         st = time.time()
         self.build_config_hooks()
         self._config.parse()
         logger.success("Config parsing cost {:.4f}s!", time.time() - st)
         self.__is_parsed__ = True
-        logger.ex(self._config)
+        logger.ex(str(self._config))
 
     @property
-    def config(self):
+    def config(self) -> ConfigDict:
         return self._original_config
 
-    def update(self, cfg: "LazyConfig"):
+    def update(self, cfg: LazyConfig) -> None:
         self._config.update(cfg._config)
 
-    def build_config_hooks(self):
+    def build_config_hooks(self) -> None:
         hook_cfgs = self._config.pop(LazyConfig.hook_key, [])
         hooks = []
         if hook_cfgs:
             _, base = Registry.find(list(hook_cfgs.keys())[0])
+            assert base is not None, hook_cfgs
             reg = Registry.get_registry(base)
             for name, params in hook_cfgs.items():
-                hook = ConfigHookNode.from_str(reg[name], params)()
+                hook: Hook = ConfigHookNode.from_str(reg[name], params)()  # type: ignore
                 if hook:
                     hooks.append(hook)
                 else:
@@ -57,10 +62,12 @@ class LazyConfig:
             return self._config[__name]
         raise AttributeError(__name)
 
-    def build_all(self) -> Tuple[ModuleWrapper, Dict]:
+    def build_all(self) -> tuple[ModuleWrapper, dict[str, Any]]:
         if not self.__is_parsed__:
             self.parse()
-        module_dict, isolated_dict = ModuleWrapper(), {}
+        module_dict = ModuleWrapper()
+        isolated_dict: dict[str, Any] = {}
+
         self.hooks.call_hooks("pre_build", self, module_dict, isolated_dict)
         for name in self.target_modules:
             if name not in self._config:
@@ -78,5 +85,5 @@ class LazyConfig:
     def dump(self, dump_path: str) -> None:
         self._original_config.dump(dump_path)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return str(self._config)

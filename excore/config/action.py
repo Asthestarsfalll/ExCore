@@ -2,9 +2,11 @@
 Copy and adapt from mmengine/config/config.py
 """
 
+from __future__ import annotations
+
 import copy
 from argparse import Action, ArgumentParser, Namespace
-from typing import Any, Sequence, Union
+from typing import Any, Sequence
 
 __all__ = ["DictAction"]
 
@@ -37,7 +39,7 @@ class DictAction(Action):
         self._dict = {}
 
     @staticmethod
-    def _parse_int_float_bool(val: str) -> Union[int, float, bool, Any]:
+    def _parse_int_float_bool(val: str) -> int | float | bool | Any:
         """parse int/float/bool value in the string."""
         try:
             return int(val)
@@ -54,7 +56,7 @@ class DictAction(Action):
         return val
 
     @staticmethod
-    def _parse_iterable(val: str) -> Union[list, tuple, Any]:
+    def _parse_iterable(val: str) -> list | tuple | Any:
         """Parse iterable values in the string.
 
         All elements inside '()' or '[]' are treated as iterable values.
@@ -137,8 +139,8 @@ class DictAction(Action):
         self,
         parser: ArgumentParser,
         namespace: Namespace,
-        values: Union[str, Sequence[Any], None],
-        option_string: str = None,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
     ):
         """Parse Variables in string and add them into argparser.
 

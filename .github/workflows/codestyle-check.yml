@@ -9,7 +9,11 @@ on:
 jobs:
   code-style-check:
     runs-on: ubuntu-latest
-    name: CodeStyle Check (Python 3.8)
+    strategy:
+      matrix:
+        python-version: [3.8, 3.9, '3.10']
+
+    name: CodeStyle Check ${{ matrix.python-version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -17,7 +21,7 @@ jobs:
       - name: Install python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.8
+          python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
         run: |

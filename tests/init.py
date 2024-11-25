@@ -1,3 +1,4 @@
+import os
 import subprocess
 
 import toml
@@ -18,6 +19,8 @@ def excute(command: str, inputs=None):
             command.split(" "),
             capture_output=True,
         )
+    print(result.stdout)
+    print(result.stderr)
     assert result.returncode == 0, result.stderr
 
 
@@ -40,6 +43,9 @@ def init():
         toml.dump(cfg, f)
     excute("excore update")
     excute("excore auto-register")
+    import excore
+
+    assert os.path.exists(os.path.join(excore.workspace.cache_base_dir, "tests"))
 
 
 if __name__ == "__main__":

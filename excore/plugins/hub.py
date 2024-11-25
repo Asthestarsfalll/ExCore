@@ -21,7 +21,7 @@ from zipfile import ZipFile
 import requests
 from tqdm import tqdm
 
-from .._constants import __version__, _cache_dir
+from .._constants import __version__, workspace
 from .._exceptions import (
     GitCheckoutError,
     GitPullError,
@@ -153,7 +153,7 @@ class GitSSHFetcher(RepoFetcherBase):
         kwargs = {"stderr": subprocess.PIPE, "stdout": subprocess.PIPE} if silent else {}
         if commit is None:
             # shallow clone repo by branch/tag
-            p = subprocess.Popen(
+            p = subprocess.Popen(  # type: ignore
                 [
                     "git",
                     "clone",
@@ -169,14 +169,16 @@ class GitSSHFetcher(RepoFetcherBase):
         else:
             # clone repo and checkout to commit_id
             p = subprocess.Popen(  # pylint: disable=consider-using-with
-                ["git", "clone", git_url, repo_dir], **kwargs
+                ["git", "clone", git_url, repo_dir],
+                **kwargs,  # type: ignore
             )
             cls._check_clone_pipe(p)
 
             with cd(repo_dir):
                 logger.debug("git checkout to {}", commit)
                 p = subprocess.Popen(  # pylint: disable=consider-using-with
-                    ["git", "checkout", commit], **kwargs
+                    ["git", "checkout", commit],
+                    **kwargs,  # type: ignore
                 )
                 _, err = p.communicate()
                 if p.returncode:
@@ -289,7 +291,7 @@ def _get_repo(
         raise InvalidProtocol(
             "Invalid protocol, the value should be one of {}.".format(", ".join(PROTOCOLS.keys()))
         )
-    cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
+    cache_dir = os.path.expanduser(os.path.join(workspace.cache_dir, "hub"))
     with cd(cache_dir):
         fetcher = PROTOCOLS[protocol]
         repo_dir = fetcher.fetch(git_host, repo_info, use_cache, commit)
@@ -303,14 +305,14 @@ def _check_dependencies(module: types.ModuleType) -> None:
     dependencies = getattr(module, HUBDEPENDENCY)
     if not dependencies:
         return
-    missing_deps = [m for m in dependencies if importlib.util.find_spec(m)]
+    missing_deps = [m for m in dependencies if importlib.util.find_spec(m)]  # type: ignore
     if len(missing_deps):
         raise RuntimeError("Missing dependencies: {}".format(", ".join(missing_deps)))
 
 
 def load_module(name: str, path: str) -> types.ModuleType:
-    spec = importlib.util.spec_from_file_location(name, path)
-    module = importlib.util.module_from_spec(spec)
+    spec = importlib.util.spec_from_file_location(name, path)  # type: ignore
+    module = importlib.util.module_from_spec(spec)  # type: ignore
     spec.loader.exec_module(module)
     return module
 
@@ -323,7 +325,7 @@ def _init_hub(
     commit: Optional[str] = None,
     protocol: str = DEFAULT_PROTOCOL,
 ):
-    cache_dir = os.path.expanduser(os.path.join(_cache_dir, "hub"))
+    cache_dir = os.path.expanduser(os.path.join(workspace.cache_dir, "hub"))
     os.makedirs(cache_dir, exist_ok=True)
     absolute_repo_dir = _get_repo(
         git_host, repo_info, use_cache=use_cache, commit=commit, protocol=protocol
@@ -412,7 +414,7 @@ class pretrained:  # noqa pylint: disable=redefined-outer-name
                 digest = sha256.hexdigest()[:6]
                 filename = digest + "_" + filename
 
-                cached_file = os.path.join(_cache_dir, filename)
+                cached_file = os.path.join(workspace.cache_dir, filename)
                 download_from_url(self.url, cached_file)
                 self.load_func(cached_file, model)
             return model

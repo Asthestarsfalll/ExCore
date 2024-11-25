@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections import defaultdict
 from typing import Any, Callable, Protocol, Sequence, final
 
@@ -31,7 +33,7 @@ class Hook(Protocol):
 
 
 class MetaHookManager(type):
-    stages = None
+    stages: tuple[str, ...] = ()
     """
     A metaclass that is used to validate the `stages` attribute of a `HookManager` subclass.
 
@@ -66,7 +68,7 @@ class MetaHookManager(type):
         """
         inst = type.__new__(cls, name, bases, attrs)
         stages = inst.stages
-        if inst.__name__ != "HookManager" and stages is None:
+        if inst.__name__ != "HookManager" and not stages:
             raise HookManagerBuildError(
                 f"The hook manager `{inst.__name__}` must have valid stages"
             )
@@ -75,7 +77,7 @@ class MetaHookManager(type):
 
 
 class HookManager(metaclass=MetaHookManager):
-    stages = tuple()
+    stages: tuple[str, ...] = tuple()
     """
     Manages a set of hooks that can be triggered by events that occur during program execution.
 
@@ -109,7 +111,7 @@ class HookManager(metaclass=MetaHookManager):
         for different applications.
     """
 
-    def __init__(self, hooks: Sequence[Hook]):
+    def __init__(self, hooks: Sequence[Hook]) -> None:
         assert isinstance(hooks, Sequence)
 
         __error_msg = "The hook `{}` must have a valid `{}`, got {}"
@@ -127,12 +129,12 @@ class HookManager(metaclass=MetaHookManager):
                     __error_msg.format(h.__class__.__name__, "__CallInter__", h.__CallInter__)
                 )
         self.hooks = defaultdict(list)
-        self.calls = defaultdict(int)
+        self.calls: dict[str, int] = defaultdict(int)
         for h in hooks:
             self.hooks[h.__HookType__].append(h)
 
     @staticmethod
-    def check_life_span(hook: Hook):
+    def check_life_span(hook: Hook) -> bool:
         """
         Checks whether a given `Hook` object has exceeded its maximum lifespan.
 
@@ -142,7 +144,7 @@ class HookManager(metaclass=MetaHookManager):
         hook.__LifeSpan__ -= 1
         return hook.__LifeSpan__ <= 0
 
-    def exist(self, stage):
+    def exist(self, stage) -> bool:
         """
         Determines whether any hooks are registered for a given event stage.
 
@@ -154,19 +156,19 @@ class HookManager(metaclass=MetaHookManager):
         """
         return self.hooks[stage] != []
 
-    def pre_call(self):
+    def pre_call(self) -> Any:
         """
         Called before any hooks are executed during an event stage.
         """
         return
 
-    def after_call(self):
+    def after_call(self) -> Any:
         """
         Called after all hooks have been executed during an event stage.
         """
         return
 
-    def __call__(self, stage, *inps):
+    def __call__(self, stage, *inps) -> None:
         """
         Executes all hooks registered for a given event stage.
 
@@ -174,7 +176,7 @@ class HookManager(metaclass=MetaHookManager):
             stage (str): The name of the event stage to trigger.
             *inps: Input arguments to pass to the hook functions.
         """
-        dead_hook_idx = []
+        dead_hook_idx: list[int] = []
         calls = self.calls[stage]
         for idx, hook in enumerate(self.hooks[stage]):
             if calls % hook.__CallInter__ == 0:
@@ -185,7 +187,7 @@ class HookManager(metaclass=MetaHookManager):
             self.hooks[stage].pop(idx)
         self.calls[stage] = calls + 1
 
-    def call_hooks(self, stage, *inps):
+    def call_hooks(self, stage, *inps) -> None:
         """
         Convenience method for calling all hooks at a given event stage.
 
@@ -199,7 +201,7 @@ class HookManager(metaclass=MetaHookManager):
 
 
 class ConfigHookManager(HookManager):
-    stages = ("pre_build", "every_build", "after_build")
+    stages: tuple[str, ...] = ("pre_build", "every_build", "after_build")
     """A subclass of HookManager that allows hooks to be registered and executed
     at specific points in the build process.
 
@@ -215,17 +217,19 @@ class ConfigArgumentHook:
         self,
         node: Callable,
         enabled: bool = True,
-    ):
+    ) -> None:
         self.node = node
         self.enabled = enabled
+        if not hasattr(node, "name"):
+            raise ValueError("The `node` must have name attribute.")
         self.name = node.name
         self._is_initialized = True
 
-    def hook(self, **kwargs):
+    def hook(self, **kwargs: Any) -> Any:
         raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
 
     @final
-    def __call__(self, **kwargs):
+    def __call__(self, **kwargs: Any) -> Any:
         if not getattr(self, "_is_initialized", False):
             raise CoreConfigSupportError(
                 f"Call super().__init__() in class `{self.__class__.__name__}`"

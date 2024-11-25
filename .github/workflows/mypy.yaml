@@ -1,4 +1,4 @@
-name: Tests
+name: MYPY Check
 
 on:
   push:
@@ -31,22 +31,5 @@ jobs:
       - name: Install Dependencies
         run: poetry install --with dev
 
-      - name: Initialize ExCore
-        run: |
-          cd ./tests
-          export EXCORE_DEBUG=1
-          poetry run python init.py
-
-      - name: Test with pytest
-        run: |
-          cd ./tests
-          poetry run pytest --cov=../excore
-          poetry run python init.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+      - name: Mypy Check
+        run: poetry run mypy excore

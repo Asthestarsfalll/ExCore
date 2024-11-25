@@ -2,29 +2,43 @@ from __future__ import annotations
 
 import inspect
 import json
-import os
-import os.path as osp
 import sys
 from inspect import Parameter, _empty, _ParameterKind, isclass
 from types import ModuleType
-from typing import Any, Dict, Sequence, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union, get_args, get_origin
 
 import toml
 
-from .._constants import _cache_dir, _class_mapping_file, _json_schema_file
+from excore import workspace
+
+from .._exceptions import AnnotationsFutureError
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry, load_registries
 from .model import _str_to_target
 
 if sys.version_info >= (3, 10, 0):
-    from types import NoneType, UnionType
+    from types import NoneType, UnionType  # type: ignore
 else:
-    NoneType = type(None)
+    NoneType = type(None)  # type: ignore
 
     # just a placeholder
-    class UnionType:
+    class UnionType:  # type: ignore
         pass
+
+
+if TYPE_CHECKING:
+    from typing import TypedDict
+
+    from typing_extensions import NotRequired
+
+    class Property(TypedDict):
+        properties: NotRequired[Property]
+        type: NotRequired[str]
+        items: NotRequired[dict]
+        value: NotRequired[str]
+        description: NotRequired[str]
+        required: NotRequired[list[str]]
 
 
 TYPE_MAPPER: dict[type, str] = {
@@ -76,8 +90,8 @@ def _generate_json_schema_and_class_mapping(
             for name, v in props["properties"].items():
                 schema["properties"][name] = v
     json_str = json.dumps(schema, indent=2)
-    save_path = save_path or _json_schema_path()
-    class_mapping_save_path = class_mapping_save_path or _class_mapping_path()
+    save_path = save_path or workspace.json_schema_file
+    class_mapping_save_path = class_mapping_save_path or workspace.class_mapping_file
     with open(save_path, "w", encoding="UTF-8") as f:
         f.write(json_str)
     logger.success("json schema has been written to {}", save_path)
@@ -95,14 +109,14 @@ def _check(bases) -> bool:
     return False
 
 
-def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
-    props = {
+def parse_registry(reg: Registry) -> tuple[Property, dict[str, list[str | int]]]:
+    props: Property = {
         "type": "object",
         "properties": {},
     }
-    class_mapping = {}
+    class_mapping: dict[str, list[str | int]] = {}
     for name, item_dir in reg.items():
-        func = _str_to_target(item_dir)
+        func = _str_to_target(item_dir)  # type: ignore
         if isinstance(func, ModuleType):
             continue
         class_mapping[name] = [inspect.getfile(func), inspect.getsourcelines(func)[1]]
@@ -110,7 +124,7 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
         is_hook = isclass(func) and issubclass(func, ConfigArgumentHook)
         if isclass(func) and _check(func.__bases__):
             func = func.__init__
-        params = inspect.signature(func).parameters
+        params = inspect.signature(func).parameters  # type: ignore
         param_props = {"type": "object", "properties": {}}
         if doc_string:
             # TODO: parse doc string to each parameters
@@ -122,11 +136,16 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
                 continue
             try:
                 is_required, item = parse_single_param(param_obj)
-            except Exception:
+            except Exception as e:
                 from rich.console import Console
 
-                logger.error(f"Skip {param_obj.name} of {name}")
                 Console().print_exception()
+                if isinstance(e, AnnotationsFutureError):
+                    logger.error(
+                        f"Skip {name} due to mismatch of python version and annotations future."
+                    )
+                    break
+                logger.error(f"Skip parameter {param_obj.name} of {name}")
                 continue
             items[param_name] = item
             if is_required:
@@ -135,14 +154,16 @@ def parse_registry(reg: Registry) -> tuple[dict, dict[str, list[str | int]]]:
             param_props["properties"] = items
         if required:
             param_props["required"] = required
-        props["properties"][name] = param_props
+        props["properties"][name] = param_props  # type: ignore
     return props, class_mapping
 
 
 def _remove_optional(anno):
     origin = get_origin(anno)
+    if origin is not Union:
+        return anno
     inner_types = get_args(anno)
-    if origin is not Union and len(inner_types) != 2:
+    if len(inner_types) != 2:
         return anno
     filter_types = [i for i in inner_types if i is not NoneType]
     if len(filter_types) == 1:
@@ -150,7 +171,7 @@ def _remove_optional(anno):
     return anno
 
 
-def _parse_inner_types(prop: dict, inner_types: Sequence[type]) -> None:
+def _parse_inner_types(prop: Property, inner_types: Sequence[type]) -> None:
     first_type = inner_types[0]
     is_all_the_same = True
     for t in inner_types:
@@ -159,11 +180,13 @@ def _parse_inner_types(prop: dict, inner_types: Sequence[type]) -> None:
         prop["items"] = {"type": TYPE_MAPPER.get(first_type)}
 
 
-def _parse_typehint(prop: dict, anno: type) -> str | None:
+def _parse_typehint(prop: Property, anno: type) -> str | None:
     potential_type = TYPE_MAPPER.get(anno)
     if potential_type is not None:
         return potential_type
     origin = get_origin(anno)
+    if anno is Callable:
+        return "string"
     inner_types = get_args(anno)
     if origin in (Sequence, list, tuple):
         potential_type = "array"
@@ -178,8 +201,8 @@ def _parse_typehint(prop: dict, anno: type) -> str | None:
     return potential_type or "string"
 
 
-def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
-    prop = {}
+def parse_single_param(param: Parameter) -> tuple[bool, Property]:
+    prop: Property = {}
     anno = param.annotation
     potential_type = None
 
@@ -187,24 +210,25 @@ def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
 
     #  hardcore for torch.optim
     if param.default.__class__.__name__ == "_RequiredParameter":
-        param._default = _empty
+        param._default = _empty  # type: ignore
 
     if isinstance(anno, str):
-        raise RuntimeError(
+        raise AnnotationsFutureError(
             "Use a higher version of python, e.g. 3.10, "
             "and remove `from __future__ import annotations`."
         )
     elif anno is not _empty:
         potential_type = _parse_typehint(prop, anno)
     # determine type by default value
-    elif param.default is not _empty:
-        potential_type = TYPE_MAPPER[type(param.default)]
+    elif param.default is not _empty and param.default is not None:
+        # TODO: Allow user to add more type mapper.
+        potential_type = TYPE_MAPPER.get(type(param.default), "number")
         if isinstance(param.default, (list, tuple)):
             types = [type(t) for t in param.default]
             _parse_inner_types(prop, types)
-    elif param._kind is _ParameterKind.VAR_POSITIONAL:
+    elif param.kind is _ParameterKind.VAR_POSITIONAL:
         return False, {"type": "array"}
-    elif param._kind is _ParameterKind.VAR_KEYWORD:
+    elif param.kind is _ParameterKind.VAR_KEYWORD:
         return False, {"type": "object"}
     if anno is _empty and param.default is _empty:
         potential_type = "number"
@@ -213,18 +237,10 @@ def parse_single_param(param: Parameter) -> tuple[bool, dict[str, Any]]:
     return param.default is _empty, prop
 
 
-def _json_schema_path() -> str:
-    return os.path.join(_cache_dir, _json_schema_file)
-
-
-def _class_mapping_path() -> str:
-    return os.path.join(_cache_dir, _class_mapping_file)
-
-
-def _generate_taplo_config(path: str) -> None:
+def _generate_taplo_config() -> None:
     cfg = dict(
         schema=dict(
-            path=osp.join(osp.expanduser(path), _json_schema_file),
+            path=workspace.json_schema_file,
             enabled=True,
         ),
         formatting=dict(align_entries=False),
