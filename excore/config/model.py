@@ -14,12 +14,12 @@ from ..engine.registry import Registry
 
 if TYPE_CHECKING:
     from types import FunctionType, ModuleType
-    from typing import Any, Literal
+    from typing import Any, Dict, Literal
 
     from typing_extensions import Self
 
     NodeClassType = Type[Any]
-    NodeParams = dict[Any, Any]
+    NodeParams = Dict[Any, Any]
     NodeInstance = object
 
     NoCallSkipFlag = Self

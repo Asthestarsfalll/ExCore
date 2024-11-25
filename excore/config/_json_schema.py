@@ -18,7 +18,7 @@ from ..engine.registry import Registry, load_registries
 from .model import _str_to_target
 
 if sys.version_info >= (3, 10, 0):
-    from types import NoneType, UnionType
+    from types import NoneType, UnionType  # type: ignore
 else:
     NoneType = type(None)  # type: ignore
 
