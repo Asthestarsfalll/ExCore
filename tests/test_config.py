@@ -14,7 +14,7 @@ from excore._exceptions import (
     ImplicitModuleParseError,
     ModuleBuildError,
 )
-from excore.config.model import ModuleNode, ReusedNode
+from excore.config.models import ModuleNode, ReusedNode
 from excore.engine import logger
 
 

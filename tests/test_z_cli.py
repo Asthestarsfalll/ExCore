@@ -27,7 +27,6 @@ def test_primary():
 
 
 def test_typehints():
-    # FIXME(typer): Argument
     excute(
         "excore generate-typehints temp_typing --class-name "
         "TypedWrapper --info-class-name Info --config ./configs/launch/test_optim.toml"

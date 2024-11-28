@@ -36,7 +36,7 @@ def _generate_typehints(
     logger.info(f"Generating module type hints in {target_file}.")
     with open(target_file, "w", encoding="UTF-8") as f:
         f.write(f"from typing import Union{', Any' if config else ''}\n")
-        f.write("from excore.config.model import ModuleNode, ModuleWrapper\n\n")
+        f.write("from excore.config.models import ModuleNode, ModuleWrapper\n\n")
         f.write(f"class {class_name}:\n")
         for i in workspace.primary_fields:
             f.write(f"    {i}: Union[ModuleNode, ModuleWrapper]\n")

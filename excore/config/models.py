@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     NoCallSkipFlag = Self
     ConfigHookSkipFlag = Type[None]
 
-    SpecialFlag = Literal["@", "!", "$", "&", ""]
+    SpecialFlag = Literal["@", "!", "$", "&", "*", ""]
 
 
 __all__ = ["silent"]
@@ -34,6 +34,7 @@ REUSE_FLAG: Literal["@"] = "@"
 INTER_FLAG: Literal["!"] = "!"
 CLASS_FLAG: Literal["$"] = "$"
 REFER_FLAG: Literal["&"] = "&"
+DETAI_FLAG: Literal["*"] = "*"
 OTHER_FLAG: Literal[""] = ""
 
 LOG_BUILD_MESSAGE = True
@@ -59,7 +60,7 @@ def _is_special(k: str) -> tuple[str, SpecialFlag]:
     Returns:
         Tuple[str, str]: A tuple containing the modified string and the special character.
     """
-    pattern = re.compile(r"^([@!$&])(.*)$")
+    pattern = re.compile(r"^([@!$&*])(.*)$")
     match = pattern.match(k)
     if match:
         return match.group(2), match.group(1)  # type: ignore
@@ -169,7 +170,6 @@ class ModuleNode(dict):
 
 class InterNode(ModuleNode):
     priority = 2
-    pass
 
 
 class ConfigHookNode(ModuleNode):

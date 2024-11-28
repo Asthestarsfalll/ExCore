@@ -328,7 +328,7 @@ model = modules.Model
 
 ExCore同样支持python形式的配置文件，与detectron2基本一致，不过实例化时只需调用`__call__`方法即可，如下：
 ```python
-from excore.config.model import ModuleNode
+from excore.config.models import ModuleNode
 from xxx import Module
 
 cfg = ModuleNode(Module) << dict(arg1=1, arg2=2)

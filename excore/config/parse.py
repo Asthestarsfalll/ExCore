@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from .._exceptions import CoreConfigParseError, ImplicitModuleParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
-from .model import (
+from .models import (
     OTHER_FLAG,
     REFER_FLAG,
     ChainedInvocationWrapper,
@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 
     from typing_extensions import Self
 
-    from .model import ConfigNode, NodeType, SpecialFlag
+    from .models import ConfigNode, NodeType, SpecialFlag
 
 
 def _check_implicit_module(module: ModuleNode) -> None:

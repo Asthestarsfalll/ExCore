@@ -10,7 +10,7 @@ from .._exceptions import CoreConfigSupportError
 from ..engine.logging import logger
 from ..engine.registry import load_registries
 from .lazy_config import LazyConfig
-from .model import ModuleWrapper
+from .models import ModuleWrapper
 from .parse import ConfigDict
 
 __all__ = ["load", "build_all", "load_config"]

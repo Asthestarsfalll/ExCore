@@ -1,6 +1,6 @@
 import pytest
 
-from excore.config.model import ModuleNode
+from excore.config.models import ModuleNode
 
 
 def test_lshift():

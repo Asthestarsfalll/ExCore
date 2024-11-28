@@ -7,7 +7,7 @@ from typing import Any
 from ..engine.hook import ConfigHookManager, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
-from .model import ConfigHookNode, InterNode, ModuleWrapper
+from .models import ConfigHookNode, InterNode, ModuleWrapper
 from .parse import ConfigDict
 
 

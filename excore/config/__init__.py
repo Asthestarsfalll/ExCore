@@ -1,6 +1,6 @@
 from .action import DictAction
 from .config import build_all, load, load_config
-from .model import (
+from .models import (
     ChainedInvocationWrapper,
     ClassNode,
     InterNode,

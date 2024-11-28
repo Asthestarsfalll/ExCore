@@ -15,7 +15,7 @@ from .._exceptions import AnnotationsFutureError
 from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry, load_registries
-from .model import _str_to_target
+from .models import _str_to_target
 
 if sys.version_info >= (3, 10, 0):
     from types import NoneType, UnionType  # type: ignore
