@@ -370,7 +370,8 @@ class ConfigDict(dict):
         self.current_field = cache_field
 
         # InterNode and ReusedNode
-        if ori_type and ori_type.priority + target_type.priority == 5:
+        # if ori_type and ori_type.priority + target_type.priority == 5:
+        if ori_type and ori_type.__excore_check_target_type__(target_type):
             raise CoreConfigParseError(
                 f"Error when parsing param `{ori_name}`, "
                 f"target_type is `{target_type}`, but got original_type `{ori_type}`. "
