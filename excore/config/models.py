@@ -63,7 +63,9 @@ def _is_special(k: str) -> tuple[str, SpecialFlag]:
     """
     match = FLAG_PATTERN.match(k)
     if match:
+        logger.ex(f"Find match `{match}`.")
         return match.group(2), match.group(1)  # type: ignore
+    logger.ex("No Match.")
     return k, ""
 
 
@@ -329,3 +331,4 @@ def register_special_flag(flag: str, target_module: NodeType, force: bool = Fals
     global FLAG_PATTERN
     FLAG_PATTERN = re.compile(rf"^([{''.join(SPECIAL_FLAGS)}])(.*)$")
     _dispatch_module_node[flag] = target_module  # type: ignore
+    logger.ex(f"Register new module node `{target_module}` with special flag `{flag}.`")
