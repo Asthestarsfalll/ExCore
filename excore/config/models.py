@@ -141,7 +141,11 @@ class ModuleNode(dict):
         return self
 
     @classmethod
-    def __excore_check_target_type__(cls, target_type) -> bool:
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return False
+
+    @classmethod
+    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
         return False
 
     @classmethod
@@ -173,11 +177,11 @@ class ModuleNode(dict):
 
 
 class InterNode(ModuleNode):
-    priority = 2
+    priority: int = 2
 
     @classmethod
-    def __excore_check__(cls, target_type) -> bool:
-        return cls.priority + target_type.priority == 5
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return target_type is ReusedNode
 
 
 class ConfigHookNode(ModuleNode):
@@ -195,16 +199,20 @@ class ReusedNode(InterNode):
     def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:  # type: ignore
         return super().__call__(**params)
 
+    @classmethod
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return target_type is InterNode
 
-class ClassNode(InterNode):
+
+class ClassNode(ModuleNode):
     priority: int = 1
 
     def __call__(self) -> NodeClassType | FunctionType:  # type: ignore
         return self.cls
 
     @classmethod
-    def __excore_check__(cls, target_type) -> bool:
-        return cls.priority + target_type.priority == 5
+    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
+        return True
 
 
 class ChainedInvocationWrapper(ConfigArgumentHook):

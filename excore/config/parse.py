@@ -9,7 +9,6 @@ from .models import (
     OTHER_FLAG,
     REFER_FLAG,
     ChainedInvocationWrapper,
-    ClassNode,
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
@@ -335,7 +334,9 @@ class ConfigDict(dict):
         ori_type = source[name].__class__
         logger.ex(f"Original_type is `{ori_type}`, target_type is `{target_type}`.")
         node = source[name]
-        if target_type.priority != ori_type.priority or target_type is ClassNode:
+        if target_type.priority != ori_type.priority or target_type.__excore_should_convert__(
+            ori_type
+        ):
             node = target_type.from_node(source[name])
             self._parse_module(node)
             if target_type.priority > ori_type.priority:
@@ -370,7 +371,6 @@ class ConfigDict(dict):
         self.current_field = cache_field
 
         # InterNode and ReusedNode
-        # if ori_type and ori_type.priority + target_type.priority == 5:
         if ori_type and ori_type.__excore_check_target_type__(target_type):
             raise CoreConfigParseError(
                 f"Error when parsing param `{ori_name}`, "
