@@ -18,5 +18,5 @@ register_special_flag("*", FoolModuleNode)
 
 def test_module_node_registry():
     cfg = load("./configs/launch/test_module_registry.toml")
-    module, info = cfg.build_all()
+    module, _ = cfg.build_all()
     assert module.Model.classifier[0].in_channels == 513
