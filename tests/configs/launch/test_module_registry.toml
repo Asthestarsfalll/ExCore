@@ -1,0 +1,7 @@
+[Model.FCN]
+*classifier = "$Head"
+backbone = "$resnet"
+
+[Head.FCNHead]
+in_channels = 512
+channels = 10

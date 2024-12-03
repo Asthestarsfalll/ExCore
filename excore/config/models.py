@@ -322,7 +322,7 @@ _dispatch_module_node: dict[SpecialFlag, NodeType] = {
 }
 
 
-def register_special_flag(flag: str, target_module: ModuleNode, force: bool = False) -> None:
+def register_special_flag(flag: str, target_module: NodeType, force: bool = False) -> None:
     if not force and flag in SPECIAL_FLAGS:
         raise ValueError(f"Special flag `{flag}` already exist.")
     SPECIAL_FLAGS.append(flag)
