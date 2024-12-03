@@ -7,6 +7,7 @@ from .models import (
     ModuleNode,
     ReusedNode,
     VariableReference,
+    register_special_flag,
     silent,
 )
 from .parse import ConfigDict, set_primary_fields
@@ -24,5 +25,6 @@ __all__ = [
     "InterNode",
     "ModuleNode",
     "ReusedNode",
+    "register_special_flag",
     "VariableReference",
 ]

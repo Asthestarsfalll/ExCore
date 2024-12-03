@@ -25,7 +25,7 @@ if TYPE_CHECKING:
     NoCallSkipFlag = Self
     ConfigHookSkipFlag = Type[None]
 
-    SpecialFlag = Literal["@", "!", "$", "&", "*", ""]
+    SpecialFlag = Literal["@", "!", "$", "&", ""]
 
 
 __all__ = ["silent"]
@@ -34,11 +34,12 @@ REUSE_FLAG: Literal["@"] = "@"
 INTER_FLAG: Literal["!"] = "!"
 CLASS_FLAG: Literal["$"] = "$"
 REFER_FLAG: Literal["&"] = "&"
-DETAI_FLAG: Literal["*"] = "*"
 OTHER_FLAG: Literal[""] = ""
 
+FLAG_PATTERN = re.compile(r"^([@!$&])(.*)$")
 LOG_BUILD_MESSAGE = True
 DO_NOT_CALL_KEY = "__no_call__"
+SPECIAL_FLAGS = [OTHER_FLAG, INTER_FLAG, REUSE_FLAG, CLASS_FLAG, REFER_FLAG]
 
 
 def silent() -> None:
@@ -60,10 +61,11 @@ def _is_special(k: str) -> tuple[str, SpecialFlag]:
     Returns:
         Tuple[str, str]: A tuple containing the modified string and the special character.
     """
-    pattern = re.compile(r"^([@!$&*])(.*)$")
-    match = pattern.match(k)
+    match = FLAG_PATTERN.match(k)
     if match:
+        logger.ex(f"Find match `{match}`.")
         return match.group(2), match.group(1)  # type: ignore
+    logger.ex("No Match.")
     return k, ""
 
 
@@ -141,6 +143,14 @@ class ModuleNode(dict):
         return self
 
     @classmethod
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return False
+
+    @classmethod
+    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
+        return False
+
+    @classmethod
     def from_str(cls, str_target: str, params: NodeParams | None = None) -> ModuleNode:
         node = cls(_str_to_target(str_target))
         if params:
@@ -169,7 +179,11 @@ class ModuleNode(dict):
 
 
 class InterNode(ModuleNode):
-    priority = 2
+    priority: int = 2
+
+    @classmethod
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return target_type is ReusedNode
 
 
 class ConfigHookNode(ModuleNode):
@@ -187,12 +201,20 @@ class ReusedNode(InterNode):
     def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:  # type: ignore
         return super().__call__(**params)
 
+    @classmethod
+    def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+        return target_type is InterNode
 
-class ClassNode(InterNode):
+
+class ClassNode(ModuleNode):
     priority: int = 1
 
     def __call__(self) -> NodeClassType | FunctionType:  # type: ignore
         return self.cls
+
+    @classmethod
+    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
+        return True
 
 
 class ChainedInvocationWrapper(ConfigArgumentHook):
@@ -300,3 +322,13 @@ _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
 }
+
+
+def register_special_flag(flag: str, target_module: NodeType, force: bool = False) -> None:
+    if not force and flag in SPECIAL_FLAGS:
+        raise ValueError(f"Special flag `{flag}` already exist.")
+    SPECIAL_FLAGS.append(flag)
+    global FLAG_PATTERN
+    FLAG_PATTERN = re.compile(rf"^([{''.join(SPECIAL_FLAGS)}])(.*)$")
+    _dispatch_module_node[flag] = target_module  # type: ignore
+    logger.ex(f"Register new module node `{target_module}` with special flag `{flag}.`")
