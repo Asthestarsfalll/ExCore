@@ -403,7 +403,7 @@ module_dict, run_info = config.build_all(layz_cfg)
 <details>
   <summary>:sparkles:Module validation and lazy assignment</summary>
 
-Validate parameters of modules before their initialization and call, which will save time from some serial long initialization.  
+Validate parameters of modules before their initialization and call, which will save time from some serial long initialization.
 
 If there is any parameter missing, you can manually assign it to avoid crushing. It will be parsed to str, int, list, tuple, or dict.
 
