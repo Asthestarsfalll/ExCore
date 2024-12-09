@@ -1,4 +1,4 @@
-## Mannuly setup
+## Manually setup
 
 1. Run `excore init`
 2. Edit `registries` in `.excore.toml` to `registries = [ "*Model: Model, Backbone", "*Data: TrainData, TestData", "Hook", "*Loss", "*LRSche", "*Optimizer", "Transform", "module"]`
