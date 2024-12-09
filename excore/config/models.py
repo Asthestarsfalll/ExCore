@@ -233,8 +233,8 @@ class ConfigHookNode(ModuleNode):
     def __call__(self, **params: NodeParams) -> NodeInstance | ConfigHookSkipFlag | Hook:
         if issubclass(self.cls, ConfigArgumentHook):
             return None
-        params = self._update_params(**params)
-        return self._instantiate(params)
+        self._update_params(**params)
+        return self._instantiate()
 
 
 class ReusedNode(InterNode):
