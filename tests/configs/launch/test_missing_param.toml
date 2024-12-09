@@ -1,0 +1,12 @@
+[Model.TestClass]
+$cls = "VGG"
+$cls1 = "$Backbone"
+
+[Backbone.VGG]
+x = ""
+
+[VGG]
+
+[DataModule.DataModule]
+@train = "VGG"
+@val = "$Backbone"

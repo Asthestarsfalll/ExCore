@@ -22,7 +22,7 @@ Config System in `ExCore` is specifically designed for deeplearning training (ge
 2. `Intermediate` objects are those which are **indirectly** used in training, e.g. backbone of the model, parameters of model that will pass to optimizer. `ExCore` will instantiate them, and pass them to target `Primary` objects as arguments according some rules.
 3. `Isolated` objects refer to python built-in objects which will be parsed when loading toml, e.g. int, string, list and dict.
 
-`ExCore` extends the syntax of toml file, introducing some special prefix characters -- `!`, `@`, `$` and '&' to simplify the config defination.
+`ExCore` extends the syntax of toml file, introducing some special prefix characters -- `!`, `@`, `$` and `&` to simplify the config defination.
 
 The config system has following features.
 
@@ -397,6 +397,17 @@ lazy_cfg.Model.add(pre_trained='./')
 
 module_dict, run_info = config.build_all(layz_cfg)
 ```
+
+</details>
+
+<details>
+  <summary>:sparkles:Module validation and lazy assignment</summary>
+
+Validate parameters of modules before their initialization and call, which will save time from some serial long initialization.
+
+If there is any parameter missing, you can manually assign it to avoid crushing. It will be parsed to str, int, list, tuple, or dict.
+
+Use environment variable `EXCORE_VALIDATE` and `EXCORE_MANUAL_SET` to control whether validate and assign.
 
 </details>
 

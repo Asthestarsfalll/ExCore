@@ -1,3 +1,4 @@
+import builtins
 import os
 import random
 from copy import deepcopy
@@ -6,13 +7,13 @@ import pytest
 import torch
 from torchvision.models import ResNet
 
-from excore import config
+from excore import config, workspace
 from excore._exceptions import (
     CoreConfigParseError,
     CoreConfigSupportError,
     EnvVarParseError,
-    ImplicitModuleParseError,
     ModuleBuildError,
+    ModuleValidateError,
 )
 from excore.config.models import ModuleNode, ReusedNode
 from excore.engine import logger
@@ -75,6 +76,7 @@ class TestConfig:
         optim.step()
 
     def test_argument_hook(self):
+        workspace.excore_manual_set = False
         self._load("./configs/launch/test_optim_hook.toml")
 
     def test_lr_sche(self):
@@ -87,6 +89,7 @@ class TestConfig:
         self._load("./configs/dataset/data.toml", check=False)
 
     def test_argument_error(self):
+        workspace.excore_validate = False
         with pytest.raises(ModuleBuildError):
             self._load("./configs/dataset/data_error.toml")
 
@@ -173,7 +176,9 @@ class TestConfig:
         assert id(modules.Model.FCN.classifier) != id(modules.Model.DeepLabV3.classifier)
 
     def test_implicit_module_parse(self):
-        with pytest.raises(ImplicitModuleParseError):
+        workspace.excore_validate = True
+        workspace.excore_manual_set = False
+        with pytest.raises(ModuleValidateError):
             self._load("./configs/launch/test_implicit.toml", False)
 
     def test_reused_conflict(self):
@@ -247,3 +252,16 @@ class TestConfig:
             TestClass,
             VGG,
         ]
+
+    def test_missing_param(self):
+        workspace.excore_manual_set = True
+        workspace.excore_validate = True
+
+        def input():
+            return "[1,2,3,[1,2]]"
+
+        ori_input = builtins.input
+        builtins.input = input
+        modules, _ = self._load("./configs/launch/test_missing_param.toml", False)
+        assert modules.DataModule.train.x == [1, 2, 3, [1, 2]]
+        builtins.input = ori_input

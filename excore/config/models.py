@@ -1,16 +1,20 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import os
 import re
 from dataclasses import dataclass, field
+from inspect import Parameter, isclass
 from typing import TYPE_CHECKING, Type, Union
 
-from .._exceptions import EnvVarParseError, ModuleBuildError, StrToClassError
+from .._constants import workspace
+from .._exceptions import EnvVarParseError, ModuleBuildError, ModuleValidateError, StrToClassError
 from .._misc import CacheOut
 from ..engine.hook import ConfigArgumentHook, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
+from .action import DictAction
 
 if TYPE_CHECKING:
     from types import FunctionType, ModuleType
@@ -19,7 +23,7 @@ if TYPE_CHECKING:
     from typing_extensions import Self
 
     NodeClassType = Type[Any]
-    NodeParams = Dict[Any, Any]
+    NodeParams = Dict[str, Any]
     NodeInstance = object
 
     NoCallSkipFlag = Self
@@ -37,14 +41,12 @@ REFER_FLAG: Literal["&"] = "&"
 OTHER_FLAG: Literal[""] = ""
 
 FLAG_PATTERN = re.compile(r"^([@!$&])(.*)$")
-LOG_BUILD_MESSAGE = True
 DO_NOT_CALL_KEY = "__no_call__"
 SPECIAL_FLAGS = [OTHER_FLAG, INTER_FLAG, REUSE_FLAG, CLASS_FLAG, REFER_FLAG]
 
 
 def silent() -> None:
-    global LOG_BUILD_MESSAGE  # pylint: disable=global-statement
-    LOG_BUILD_MESSAGE = False
+    workspace.excore_log_build_message = False
 
 
 def _is_special(k: str) -> tuple[str, SpecialFlag]:
@@ -93,14 +95,14 @@ class ModuleNode(dict):
     _no_call: bool = field(default=False, repr=False)
     priority: int = field(default=0, repr=False)
 
-    def _get_params(self, **params: NodeParams) -> NodeParams:
+    def _update_params(self, **params: NodeParams) -> None:
         return_params = {}
         for k, v in self.items():
             if isinstance(v, (ModuleWrapper, ModuleNode)):
                 v = v()
             return_params[k] = v
-        return_params.update(params)
-        return return_params
+        self.update(params)
+        self.update(return_params)
 
     @property
     def name(self) -> str:
@@ -110,24 +112,25 @@ class ModuleNode(dict):
         self.update(params)
         return self
 
-    def _instantiate(self, params: NodeParams) -> NodeInstance:
+    def _instantiate(self) -> NodeInstance:
         try:
-            module = self.cls(**params)
+            module = self.cls(**self)
         except Exception as exc:
             raise ModuleBuildError(
-                f"Instantiate Error with module {self.cls} and arguments {params}"
+                f"Instantiate Error with module {self.cls} and arguments {self}"
             ) from exc
-        if LOG_BUILD_MESSAGE:
+        if workspace.excore_log_build_message:
             logger.success(
-                f"Successfully instantiate module: {self.cls.__name__}, with arguments {params}"
+                f"Successfully instantiate module: {self.cls.__name__}, with arguments {self}"
             )
         return module
 
     def __call__(self, **params: NodeParams) -> NoCallSkipFlag | NodeInstance:  # type: ignore
         if self._no_call:
             return self
-        params = self._get_params(**params)
-        module = self._instantiate(params)
+        self._update_params(**params)
+        self.validate()
+        module = self._instantiate()
         return module
 
     def __lshift__(self, params: NodeParams) -> Self:
@@ -177,6 +180,39 @@ class ModuleNode(dict):
         node._no_call = _other._no_call
         return node
 
+    def validate(self) -> None:
+        if not workspace.excore_validate:
+            return
+        signature = inspect.signature(self.cls.__init__)
+        missing = []
+        params = list(signature.parameters.values())
+        if isclass(self.cls):  # skip self
+            params = params[1:]
+
+        for param in params:
+            if (
+                param.default == param.empty
+                and param.kind
+                not in [
+                    Parameter.VAR_POSITIONAL,
+                    Parameter.VAR_KEYWORD,
+                ]
+                and param.name not in self
+            ):
+                missing.append(param.name)
+        message = (
+            f"Validating `{self.cls.__name__}` , "
+            f"finding missing parameters: `{missing}` without default values."
+        )
+        if not workspace.excore_manual_set and missing:
+            raise ModuleValidateError(message)
+        if missing:
+            logger.info(message)
+        for param_name in missing:
+            logger.info(f"Input value of paramter `{param_name}`:")
+            value = input()
+            self[param_name] = DictAction._parse_iterable(value)
+
 
 class InterNode(ModuleNode):
     priority: int = 2
@@ -187,11 +223,18 @@ class InterNode(ModuleNode):
 
 
 class ConfigHookNode(ModuleNode):
+    def validate(self) -> None:
+        if "node" in self:
+            raise ModuleValidateError(
+                f"Parameter `node:{self['node']}` should not exist in `ConfigHookNode`."
+            )
+        super().validate()
+
     def __call__(self, **params: NodeParams) -> NodeInstance | ConfigHookSkipFlag | Hook:
         if issubclass(self.cls, ConfigArgumentHook):
             return None
-        params = self._get_params(**params)
-        return self._instantiate(params)
+        self._update_params(**params)
+        return self._instantiate()
 
 
 class ReusedNode(InterNode):

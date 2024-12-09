@@ -5,12 +5,11 @@ class FoolModuleNode(ModuleNode):
     priority = 2
 
     def __call__(self, **params):
-        p = {}
         for k, v in self.items():
             if isinstance(v, int):
                 v += 1
-            p[k] = v
-        return super().__call__(**p)
+            self[k] = v
+        return super().__call__()
 
 
 register_special_flag("*", FoolModuleNode)

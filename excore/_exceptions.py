@@ -42,10 +42,6 @@ class EnvVarParseError(BaseException):
     pass
 
 
-class ImplicitModuleParseError(BaseException):
-    pass
-
-
 class ModuleBuildError(BaseException):
     pass
 
@@ -59,4 +55,8 @@ class HookBuildError(BaseException):
 
 
 class AnnotationsFutureError(Exception):
+    pass
+
+
+class ModuleValidateError(Exception):
     pass

@@ -2,13 +2,13 @@ import time
 
 import pytest
 
-from excore import Registry, load_registries, _enable_excore_debug
+from excore import Registry, _enable_excore_debug, load_registries
 
 load_registries()
 
 _enable_excore_debug()
 
-import source_code as S
+import source_code as S  # noqa
 
 
 def test_print():

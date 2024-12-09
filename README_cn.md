@@ -354,6 +354,61 @@ TODO
 </details>
 
 <details>
+  <summary>:sparkles:Lazy Config with simple API</summary>
+LazyConfig 的核心概念是 `Lazy`，它代表一种延迟的状态。在实例化之前，所有参数都会存储在一个特殊的字典中，该字典还包含了目标类/函数是什么。因此，可以很容易地更改模块的任何参数，并控制应该实例化哪个模块，不应该实例化哪个模块。
+
+它还用于通过Python语言服务（LSP）解决纯文本配置的缺陷，Python LSP能够提供代码导航、自动补全等功能。
+
+`ExCore` 实现了一些节点—— `ModuleNode`、`InternNode`、`ReusedNode`、`ClassNode`、`ConfigHookNode`、`ChainedInvocationWrapper` 和 `VariableReference`，以及一个 `LazyConfig` 来管理所有节点。
+
+`ExCore` 只提供了两个简单的 API 来构建模块—— `load` 和 `build_all` 。
+
+通常情况下，使用以下代码一键创建所有对象：
+
+```python
+from excore import config
+layz_cfg = config.load('xxx.toml')
+module_dict, run_info = config.build_all(layz_cfg)
+```
+
+`build_all` 的结果分别是 `Primary` 模块和 `Isolated` 对象。
+
+如果你只想使用某个特定的模块：
+
+```python
+from excore import config
+layz_cfg = config.load('xxx.toml')
+model = layz_cfg.Model() # Model是`PrimaryFields`之一
+# 或者
+model = layz_cfg['Model']()
+```
+
+如果你想按照其他逻辑构建模块，你仍然可以使用 `LazyConfig` 来调整 `node`s 的参数和其他事情。
+
+```python
+from excore import config
+layz_cfg = config.load('xxx.toml')
+lazy_cfg.Model << dict(pre_trained='./')
+# 或者
+lazy_cfg.Model.add(pre_trained='./')
+
+module_dict, run_info = config.build_all(layz_cfg)
+```
+
+</details>
+
+<details>
+  <summary>:sparkles:模块参数验证及延迟赋参</summary>
+
+在模块初始化和调用之前验证参数，这将节省一些连续的耗时初始化的时间。
+
+可以手动设置任何缺少的参数值，其会被解析为字符串、整数、列表、元组或字典。
+
+使用环境变量 `EXCORE_VALIDATE` 和 `EXCORE_MANUAL_SET` 来控制是否进行验证和分配。
+
+</details>
+
+<details>
   <summary>配置打印</summary>
 
 ```python
