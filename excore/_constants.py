@@ -33,6 +33,9 @@ class _WorkspaceConfig:
     primary_to_registry: dict[str, str] = field(default_factory=dict)
     json_schema_fields: dict[str, str | list[str]] = field(default_factory=dict)
     props: dict[Any, Any] = field(default_factory=dict)
+    excore_validate: bool = field(default=True)
+    excore_manual_set: bool = field(default=True)
+    excore_log_build_message: bool = field(default=False)
 
     @property
     def base_name(self):
@@ -48,6 +51,12 @@ class _WorkspaceConfig:
             logger.warning("Please use `excore init` in your command line first")
         else:
             self.update(toml.load(_workspace_config_file))
+        if os.environ.get("EXCORE_VALIDATE", "1") == "0":
+            self.excore_validate = False
+        if os.environ.get("EXCORE_LOG_BUILD_MESSAGE", "0") == "1":
+            self.excore_log_build_message = True
+        if os.environ.get("EXCORE_MANUAL_SET", "1") == "0":
+            self.excore_manual_set = False
 
     def _get_cache_dir(self) -> str:
         base_name = osp.basename(osp.normpath(os.getcwd()))
