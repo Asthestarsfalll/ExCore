@@ -33,12 +33,12 @@ Assume you have a project with the structure:
 
 1. Use `excore init` in your command line to initialize your workspace.
     1. Enter your workspace name(default to current folder name)
-    2. Enter your source code path(`src` in this case, need ralative path)
+    2. Enter your source code path(`src` in this case, need relative path)
 
     If you already define `Registry` in your `src/__init__.py`, it will automatically set all the Registry names as `PrimaryFields`. Otherwise You can enter the `PrimaryFields`, `ExCore` will automatically generate the definition in `src/__init__.py` according to your inputs.
 2. Edit registries field in `.excore.toml`. Then run `excore update` to generate some fields in config.
 3. Run `excore auto-register` to register all modules in `src`.
-4. **[Optional]** Run `exocre config-extention` to support editing features.
+4. **[Optional]** Run `exocre config-extension` to support editing features.
 
 ## workspace config fields
 

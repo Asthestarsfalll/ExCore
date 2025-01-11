@@ -53,8 +53,8 @@ def cache_list() -> None:
     """
     Show cache folders.
     """
-    tabel = _create_table("Cache Names", os.listdir(workspace.cache_base_dir))
-    logger.info(tabel)
+    table = _create_table("Cache Names", os.listdir(workspace.cache_base_dir))
+    logger.info(table)
 
 
 @app.command()

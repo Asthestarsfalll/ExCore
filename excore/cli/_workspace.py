@@ -28,7 +28,7 @@ def update() -> None:
 
 @app.command()
 def init(
-    force: Annotated[bool, COp(help="Whther forcely initialize workspace")] = False,
+    force: Annotated[bool, COp(help="Whether forcibly initialize workspace")] = False,
     entry: Annotated[
         str, CArg(help="Used for detect or generate Registry definition code")
     ] = "__init__",

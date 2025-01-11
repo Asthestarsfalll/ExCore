@@ -2,7 +2,7 @@ import sys
 from typing import Callable
 
 import pytest
-from test_config_extention import _assert
+from test_config_extension import _assert
 
 from excore import Registry
 from excore.config._json_schema import parse_registry

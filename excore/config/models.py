@@ -209,7 +209,7 @@ class ModuleNode(dict):
         if missing:
             logger.info(message)
         for param_name in missing:
-            logger.info(f"Input value of paramter `{param_name}`:")
+            logger.info(f"Input value of parameter `{param_name}`:")
             value = input()
             self[param_name] = DictAction._parse_iterable(value)
 

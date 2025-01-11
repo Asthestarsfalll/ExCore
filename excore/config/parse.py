@@ -96,13 +96,13 @@ class ConfigDict(dict):
                 the field will be regarded as a set of nodes, e.g. `self[Model]`
                 consists of two models.
 
-                i. If the field is registed, the base registry is set to field;
+                i. If the field is registered, the base registry is set to field;
                 ii. If not, search `Registry` to get the base registry of each node.
 
             2. Convert isolated objects to `ModuleNode`;
 
-                i. If the field is registed, search `Registry` to get the base registry of each node
-                    Raising error if it cannot find;
+                i. If the field is registered, search `Registry` to get the base registry
+                    of each node. Raising error if it cannot find;
                 ii. If not, regard the field as a single node, and search `Registry`.
                 iii. If search fail, regard the field as a scratchpads.
 
@@ -173,7 +173,7 @@ class ConfigDict(dict):
             logger.ex(f"\tParse primary field {name}.")
             if name in self.registered_fields:
                 base = name
-                logger.ex(f"\t\tFind field registed. Base field is `{base}`.")
+                logger.ex(f"\t\tFind field registered. Base field is `{base}`.")
             else:
                 reg = Registry.get_registry(self.primary_to_registry.get(name, ""))
                 if reg is None:
@@ -209,16 +209,16 @@ class ConfigDict(dict):
         return node
 
     def _parse_isolated_module(self, name: str) -> bool:
-        logger.ex(f"\t\tNot a registed field. Parse as isolated module `{name}`.")
+        logger.ex(f"\t\tNot a registered field. Parse as isolated module `{name}`.")
         _, base = Registry.find(name)
         if base:
-            logger.ex("\t\tFind registed. Convert to `ModuleNode`.")
+            logger.ex("\t\tFind registered. Convert to `ModuleNode`.")
             self[name] = ModuleNode.from_base_name(base, name) << self[name]
             return True
         return False
 
     def _parse_scratchpads(self, name: str) -> None:
-        logger.ex(f"\t\tNot a registed node. Regrad as scratchpads `{name}`.")
+        logger.ex(f"\t\tNot a registered node. Regrad as scratchpads `{name}`.")
         has_module = False
         modules = self[name]
         for k, v in list(modules.items()):
@@ -227,7 +227,7 @@ class ConfigDict(dict):
             _, base = Registry.find(k)
             if base:
                 has_module = True
-                logger.ex("\t\t\tFind item registed. Convert to `ModuleNode`.")
+                logger.ex("\t\t\tFind item registered. Convert to `ModuleNode`.")
                 modules[k] = ModuleNode.from_base_name(base, k) << v
         if has_module:
             logger.ex(f"\t\tAdd `{name}` to scratchpads_fields.")
@@ -241,7 +241,7 @@ class ConfigDict(dict):
             modules = self[name]
             if isinstance(modules, dict):
                 if name in self.registered_fields:
-                    logger.ex("\t\tFind module registed.")
+                    logger.ex("\t\tFind module registered.")
                     self._parse_isolated_registered_module(name)
                 elif not self._parse_isolated_module(name):
                     self._parse_scratchpads(name)
@@ -293,7 +293,7 @@ class ConfigDict(dict):
         elif len(modules) > 1:
             raise CoreConfigParseError(
                 f"More than one candidates are found: {[k.name for k in modules.values()]}"
-                f" with `{ori_name}`, please redifine the field `{base}` in config files, "
+                f" with `{ori_name}`, please redefine the field `{base}` in config files, "
                 f"or get module with format `$field.name`."
             )
         return list(modules.keys())[0], base

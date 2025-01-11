@@ -15,7 +15,7 @@ The config system is a bit complicated. Be patient.
 
 ## Beyond `LazyConfig`
 
-Config system is the **core** of deeplearning projects which enable us to manage and adjust hyperparameters and expriments. There are attemps of pure python configs because the whole community has been suffering from the plain text config files for a long while. But the pure python style configs also have its own defects. For example, `MMEngine` uses `type` to specify class and config always nesting, `detectron2` uses `LazyConfig` to store the arguments to lazily instantiate. But both of them only provides code navigation and auto-completion for the class. The arguments are still aches for community.
+Config system is the **core** of deeplearning projects which enable us to manage and adjust hyperparameters and expriments. There are attempts of pure python configs because the whole community has been suffering from the plain text config files for a long while. But the pure python style configs also have its own defects. For example, `MMEngine` uses `type` to specify class and config always nesting, `detectron2` uses `LazyConfig` to store the arguments to lazily instantiate. But both of them only provides code navigation and auto-completion for the class. The arguments are still aches for community.
 
 Config System in `ExCore` is designed specifically for deeplearning training (generally refers to all similar part, e.g. testing, evaluating) procedure. _The core premise is to categorize the objects to be created in the config into three classes - `Primary`, `Intermediate`, and `Isolated` objects_
 
@@ -56,7 +56,7 @@ Model:
 
 ### Eliminate modules nesting
 
-Nesting is a terrible exprience especially when you don't know how many indentations or brackets in configs. `ExCore` use some special prefix characters to specify certain arguments are modules as well. More prefixes will be introduced later.
+Nesting is a terrible experience especially when you don't know how many indentations or brackets in configs. `ExCore` use some special prefix characters to specify certain arguments are modules as well. More prefixes will be introduced later.
 
 <Tabs groupId="config">
 
@@ -70,7 +70,7 @@ mode = 'train'
 # Error
 !transforms = ["ResizeStepScale", "RandomPaddingCrop", "Normalize"]
 
-# `PrimaryFields` can be omitted in defination of `Intermediate` module
+# `PrimaryFields` can be omitted in definition of `Intermediate` module
 [ResizeStepScale]
 min_scale_factor = 0.5
 max_scale_factor = 2.0
@@ -112,7 +112,7 @@ TrainData:
 
 ### ✨Auto-complement for config files
 
-The ols-style design of plain text configs has been criticized for being difficult to write (without auto-completion) and not allowing navigation to the corresponding class. However, Language Server Protocol can be leveraged to support various code editing features, such as auto-completion, type-hinting, and code navigation. By utilizing lsp and json schema, it's able to provide the ability of auto-completion, some weak type-hinting (If code is well annotated, such as standard type hint in python, it will acheive more) and docstring of corresponding class.
+The ols-style design of plain text configs has been criticized for being difficult to write (without auto-completion) and not allowing navigation to the corresponding class. However, Language Server Protocol can be leveraged to support various code editing features, such as auto-completion, type-hinting, and code navigation. By utilizing lsp and json schema, it's able to provide the ability of auto-completion, some weak type-hinting (If code is well annotated, such as standard type hint in python, it will achieve more) and docstring of corresponding class.
 
 ![](https://user-images.githubusercontent.com/72954905/267884541-56e75031-48a2-4768-8a6c-fc7b83ed977e.gif)
 
@@ -197,7 +197,7 @@ ResNet(block=BasicBlock, layers=50, in_channel=3)
 </TabItem>
 </Tabs>
 
-In order to refer module accross files, `$` can be used before `PrimaryFields`. For example:
+In order to refer module across files, `$` can be used before `PrimaryFields`. For example:
 
 File A:
 
@@ -337,7 +337,7 @@ It also can be chained invoke.
 !channel = "$Block.last_conv.out_channels"
 ```
 
-This way requsts you to define such methods or attributes in target class and can not pass arguments. So `ExCore` provides `ConfigArgumentHook`.
+This way requests you to define such methods or attributes in target class and can not pass arguments. So `ExCore` provides `ConfigArgumentHook`.
 
 ```python
 class ConfigArgumentHook(node, enabled)
@@ -395,7 +395,7 @@ The core conception of LazyConfig is 'Lazy', which represents a status of delay.
 
 It's also used to address the defects of plain text configs through python lsp which is able to provide code navigation, auto-completion and more.
 
-`ExCore` implements some nodes - `MoudleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
+`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
 
 Typically, we follow the following procedure.
 
