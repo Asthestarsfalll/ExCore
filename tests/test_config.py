@@ -109,7 +109,7 @@ class TestConfig:
 
     def test_registered_error(self):
         with pytest.raises(ModuleBuildError):
-            self._load("./configs/launch/test_regitered_error.toml", False)
+            self._load("./configs/launch/test_registered_error.toml", False)
 
     def test_hidden_error(self):
         with pytest.raises(CoreConfigParseError):
