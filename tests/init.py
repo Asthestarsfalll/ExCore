@@ -9,7 +9,7 @@ predefined_inputs = {
 }
 
 
-def excute(command: str, inputs=None):
+def execute(command: str, inputs=None):
     if inputs:
         result = subprocess.run(
             command.split(" "), input="\n".join(inputs), text=True, capture_output=True
@@ -25,7 +25,7 @@ def excute(command: str, inputs=None):
 
 
 def init():
-    excute("excore init --force", predefined_inputs.values())
+    execute("excore init --force", predefined_inputs.values())
     cfg = toml.load("./.excore.toml")
     cfg["registries"] = [
         "*Model",
@@ -41,8 +41,8 @@ def init():
     ]
     with open("./.excore.toml", "w", encoding="UTF-8") as f:
         toml.dump(cfg, f)
-    excute("excore update")
-    excute("excore auto-register")
+    execute("excore update")
+    execute("excore auto-register")
     import excore
 
     assert os.path.exists(os.path.join(excore.workspace.cache_base_dir, "tests"))

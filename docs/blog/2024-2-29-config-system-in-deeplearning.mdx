@@ -84,7 +84,7 @@ TrainDataset:
     dataset_dir: dataset/coco
     data_fields: ['image', 'gt_bbox', 'gt_class', 'is_crowd']
 ```
-不同于前面两种配置系统使用type，PaddleDetection使用yaml的[representer](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.7/ppdet/core/config/yaml_helpers.py#L50)实现通过`!{}`来获取python对象。此外PaddleDectection在实现类时添加了类属性——`__shared__`和`__inject__`，如：
+不同于前面两种配置系统使用type，PaddleDetection使用yaml的[representer](https://github.com/PaddlePaddle/PaddleDetection/blob/release/2.7/ppdet/core/config/yaml_helpers.py#L50)实现通过`!{}`来获取python对象。此外PaddleDetection在实现类时添加了类属性——`__shared__`和`__inject__`，如：
 ```python
 from ppdet.core.workspace import register
 

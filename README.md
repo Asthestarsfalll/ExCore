@@ -22,7 +22,7 @@ Config System in `ExCore` is specifically designed for deeplearning training (ge
 2. `Intermediate` objects are those which are **indirectly** used in training, e.g. backbone of the model, parameters of model that will pass to optimizer. `ExCore` will instantiate them, and pass them to target `Primary` objects as arguments according some rules.
 3. `Isolated` objects refer to python built-in objects which will be parsed when loading toml, e.g. int, string, list and dict.
 
-`ExCore` extends the syntax of toml file, introducing some special prefix characters -- `!`, `@`, `$` and `&` to simplify the config defination.
+`ExCore` extends the syntax of toml file, introducing some special prefix characters -- `!`, `@`, `$` and `&` to simplify the config definition.
 
 The config system has following features.
 
@@ -74,7 +74,7 @@ mode = 'train'
 # use `!` to show this is a module, It's formal to use a quoted key "!transforms", but whatever
 !transforms = ["ResizeStepScale", "RandomPaddingCrop", "Normalize"]
 
-# `PrimaryFields` can be omitted in defination of `Intermediate` module
+# `PrimaryFields` can be omitted in definition of `Intermediate` module
 [ResizeStepScale]
 min_scale_factor = 0.5
 max_scale_factor = 2.0
@@ -94,7 +94,7 @@ crop_size = [1024, 512]
 <details>
   <summary> :sparkles:Auto-complement, type-hinting, docstring and code navigation for config files </summary>
 
-The old-style design of plain text configs has been criticized for being difficult to write (without auto-completion) and not allowing navigation to the corresponding class. However, Language Server Protocol can be leveraged to support various code editing features, such as auto-completion, type-hinting, and code navigation. By utilizing lsp and json schema, it's able to provide the ability of auto-completion, some weak type-hinting (If code is well annotated, such as standard type hint in python, it will acheive more) and docstring of corresponding class.
+The old-style design of plain text configs has been criticized for being difficult to write (without auto-completion) and not allowing navigation to the corresponding class. However, Language Server Protocol can be leveraged to support various code editing features, such as auto-completion, type-hinting, and code navigation. By utilizing lsp and json schema, it's able to provide the ability of auto-completion, some weak type-hinting (If code is well annotated, such as standard type hint in python, it will achieve more) and docstring of corresponding class.
 
 ![](https://user-images.githubusercontent.com/72954905/267884541-56e75031-48a2-4768-8a6c-fc7b83ed977e.gif)
 
@@ -169,7 +169,7 @@ from xxx import ResNet, BasicBlock
 ResNet(block=BasicBlock, layers=50, in_channel=3)
 ```
 
-In order to refer module accross files, `$` can be used before `PrimaryFields`. For example:
+In order to refer module across files, `$` can be used before `PrimaryFields`. For example:
 
 File A:
 
@@ -294,7 +294,7 @@ It also can be chained invoke.
 !channel = "$Block.last_conv.out_channels"
 ```
 
-This way requsts you to define such methods or attributes in target class and can not pass arguments. So `ExCore` provides `ConfigArgumentHook`.
+This way requests you to define such methods or attributes in target class and can not pass arguments. So `ExCore` provides `ConfigArgumentHook`.
 
 ```python
 class ConfigArgumentHook(node, enabled)
@@ -362,9 +362,9 @@ The core conception of LazyConfig is 'Lazy', which represents a status of delay.
 
 It's also used to address the defects of plain text configs through python lsp which is able to provide code navigation, auto-completion and more.
 
-`ExCore` implements some nodes - `MoudleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
+`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
 
-`ExCore` provides only 2 simple API to build moduels -- 'load' and `build_all`.
+`ExCore` provides only 2 simple API to build modules -- 'load' and `build_all`.
 
 Typically, we follow the following procedure.
 
@@ -574,7 +574,7 @@ results:
 
 ```
 ╒════════════╤════════════════════════════════════╕
-│ NAEM       │ DIR                                │
+│ NAME       │ DIR                                │
 ╞════════════╪════════════════════════════════════╡
 │ Adadelta   │ torch.optim.adadelta.Adadelta      │
 ├────────────┼────────────────────────────────────┤

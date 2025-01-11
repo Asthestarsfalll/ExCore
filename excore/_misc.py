@@ -24,7 +24,7 @@ def _create_table(
     header: str | list[str] | tuple[str, ...] | None,
     contents: Sequence[str] | Sequence[Sequence[str]],
     prefix: str = "\n",
-    **tabel_kwargs: Any,
+    **table_kwargs: Any,
 ) -> str:
     if len(contents) > 0 and isinstance(contents[0], str):
         contents = [(i,) for i in contents]  # type: ignore
@@ -36,6 +36,6 @@ def _create_table(
         contents,
         headers=header,
         tablefmt="fancy_grid",
-        **tabel_kwargs,
+        **table_kwargs,
     )
     return prefix + table

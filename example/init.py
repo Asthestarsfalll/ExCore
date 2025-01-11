@@ -8,7 +8,7 @@ predefined_inputs = {
 }
 
 
-def excute(command: str, inputs=None):
+def execute(command: str, inputs=None):
     if inputs:
         result = subprocess.run(
             command.split(" "), input="\n".join(inputs), text=True, capture_output=True
@@ -22,8 +22,8 @@ def excute(command: str, inputs=None):
 
 
 def init():
-    excute("excore --install-completion")
-    excute("excore init --force", predefined_inputs.values())
+    execute("excore --install-completion")
+    execute("excore init --force", predefined_inputs.values())
     cfg = toml.load("./.excore.toml")
     cfg["registries"] = [
         "*Model: Model, Backbone",
@@ -39,10 +39,10 @@ def init():
     ]
     with open("./.excore.toml", "w", encoding="UTF-8") as f:
         toml.dump(cfg, f)
-    excute("excore update")
-    excute("excore auto-register")
-    excute("excore config-extention")
-    excute("excore generate-typehints temp_typing --config ./configs/run.toml")
+    execute("excore update")
+    execute("excore auto-register")
+    execute("excore config-extension")
+    execute("excore generate-typehints temp_typing --config ./configs/run.toml")
 
 
 if __name__ == "__main__":

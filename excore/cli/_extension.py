@@ -15,7 +15,7 @@ from ._app import app
 
 
 @app.command()
-def config_extention() -> None:
+def config_extension() -> None:
     """
     Generate json_schema for onfig completion and class_mapping for class navigation.
     """

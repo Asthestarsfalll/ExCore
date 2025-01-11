@@ -107,7 +107,7 @@ class TestConfig:
         modules, _ = self._load("./configs/launch/test_module.toml", False)
         assert modules.Model.cls == torch.nn.ReLU
 
-    def test_regitered_error(self):
+    def test_registered_error(self):
         with pytest.raises(ModuleBuildError):
             self._load("./configs/launch/test_regitered_error.toml", False)
 
@@ -148,9 +148,9 @@ class TestConfig:
         assert id(modules.Backbone.x) == id(modules.Model)
 
     def test_dict_action(self):
-        from init import excute
+        from init import execute
 
-        excute(
+        execute(
             "python ./source_code/dict_action.py "
             "--config ./configs/launch/data.toml "
             "--cfg-options Test.1.data=[0,3] "

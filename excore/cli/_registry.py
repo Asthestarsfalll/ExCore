@@ -84,7 +84,7 @@ def _detect_assign(node: ast.AST, definition: list) -> None:
         definition.append(node.value.args[0].value)  # type: ignore
 
 
-def _detect_registy_difinition() -> bool:
+def _detect_registry_definition() -> bool:
     target_file = osp.join(workspace.src_dir, "__init__.py")
     logger.info("Detect Registry definition in {}", target_file)
     definition: list[Any] = []
@@ -136,7 +136,7 @@ def _update(is_init: bool = True, entry: str = "__init__") -> None:
     os.makedirs(workspace.cache_dir, exist_ok=True)
     logger.success("Generate `.taplo.toml`")
     if is_init:
-        if not _detect_registy_difinition():
+        if not _detect_registry_definition():
             if typer.confirm("Do you want to define `Registry` and `fields`?"):
                 regs = []
                 while True:

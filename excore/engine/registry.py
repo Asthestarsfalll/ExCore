@@ -197,7 +197,7 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
 
     def __repr__(self) -> str:
         return _create_table(
-            ["NAEM", "DIR"],
+            ["NAME", "DIR"],
             [(k, v) for k, v in self.items()],
         )
 

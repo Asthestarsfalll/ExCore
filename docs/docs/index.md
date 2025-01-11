@@ -28,9 +28,9 @@ LSP:
 
 The configuration and registry system is a great design. One of it's biggest challenges is that there is a gap between plain text config files(e.g. yaml and json) and python. The loudest complains are about editing features -- config auto-completion and code navigation. It's a awful experience when your program break down just because the name in config is misspelled.
 
-The second challenge is that the codebase is becoming more and more complicted and nesting. Learner must pay more efforts on it. But this is not the topic here, just to mention that to solve this I am starting another project -- [CodeSlim](https://github.com/Asthestarsfalll/CodeSlim)(Just started).
+The second challenge is that the codebase is becoming more and more complicated and nesting. Learner must pay more efforts on it. But this is not the topic here, just to mention that to solve this I am starting another project -- [CodeSlim](https://github.com/Asthestarsfalll/CodeSlim)(Just started).
 
-Back to the config system itself, since community has beed suffering from the plain text config files for a long time, some are turn to using Python as config. `MMEngine` introduced a pure Python style configuration just for class code navigation.
+Back to the config system itself, since community has been suffering from the plain text config files for a long time, some are turn to using Python as config. `MMEngine` introduced a pure Python style configuration just for class code navigation.
 
 ```python
 from torch.optim import SGD
@@ -55,7 +55,7 @@ However, both of them only provide auto-completion and navigation for the class 
 
 The [blog](https://ppwwyyxx.com/blog/2023/Registration-Does-Not-Scale-Well/) of ppwwyyxx inspired me a lot. To reduce the unnecessary imports, `ExCore` provides `LazyRegistry`, which store the mappings of class/function name to its `qualname` and dump the mappings to local. When config parsing, the necessary modules will be imported.
 
-Rather than calling it a registry, it's more like providing a tagging feature. With the feature, `ExCore` can find all class/function and statically analysis them, then dump the results in local to support some editing features to config files, see [config extention](./config/config_extention).
+Rather than calling it a registry, it's more like providing a tagging feature. With the feature, `ExCore` can find all class/function and statically analysis them, then dump the results in local to support some editing features to config files, see [config extension](./config/config_extention).
 
 ### Plain Text Configuration
 
@@ -64,13 +64,13 @@ To be honest, I don't like the Python style config at all. The readability of Py
 ```python
 # a.py
 model = xxx(a=1,b=2)
-optimier = xx(model.parameters())
+optimizer = xx(model.parameters())
 ...
 
 # usage
 from configs import a
 model = a.model
-optimier = a.optimier
+optimizer = a.optimizer
 ...
 ```
 

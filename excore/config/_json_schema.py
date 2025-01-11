@@ -56,7 +56,7 @@ TYPE_MAPPER: dict[type, str] = {
 def _init_json_schema(settings: dict | None) -> dict[str, Any]:
     default_schema = {
         "title": "ExCore",
-        "description": "Uesd for ExCore config file completion",
+        "description": "Used for ExCore config file completion",
         "type": "object",
         "properties": {},
     }
