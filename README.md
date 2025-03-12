@@ -205,8 +205,6 @@ __base__ = ["B.toml", "C.toml"]
 
 `ExCore` use `&` to refer a variable from the top-level of config.
 
-**Note: The value may be overwritten when inheriting, so the call it variable.**
-
 ```toml
 size = 224
 
@@ -245,7 +243,9 @@ Then you can use torch in config file:
 [Model.ResNet]
 $activation = "torch.nn.ReLU"
 # or
-!activation = "torch.nn.ReLU"
+$activation = "torch.nn.ReLU()"
+# or, note: implement with eval
+$activation = "torch.nn.ReLU(inplace)"
 ```
 
 ```python
@@ -254,11 +254,10 @@ from xxx import ResNet
 
 ResNet(torch.nn.ReLU)
 # or
-
 ResNet(torch.nn.ReLU())
+# or
+ResNet(torch.nn.ReLU(inplace=True))
 ```
-
-**Note: You shouldn't define arguments of a module.**
 
 </details>
 
@@ -362,7 +361,7 @@ The core conception of LazyConfig is 'Lazy', which represents a status of delay.
 
 It's also used to address the defects of plain text configs through python lsp which is able to provide code navigation, auto-completion and more.
 
-`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
+`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `GetAttr` and `VariableReference` and a `LazyConfig` to manage all nodes.
 
 `ExCore` provides only 2 simple API to build modules -- 'load' and `build_all`.
 

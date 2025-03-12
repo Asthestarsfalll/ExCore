@@ -1,5 +1,11 @@
 [Model.FCN]
-@backbone = 'ResNet'
+# Normal
+# @backbone = 'ResNet'
+# Use field to index backbone
+# @backbone = '$Backbone'
+# If more than one node in the filed, use `::` to specify
+@backbone = '$Backbone::ResNet'
+
 # It's formal to use quoted keys instead of a bare key, but whatever.
 # "@head" = 'SimpleHead'
 @head = 'SimpleHead'

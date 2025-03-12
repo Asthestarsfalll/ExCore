@@ -12,7 +12,7 @@ from .parse import ConfigDict
 
 
 class LazyConfig:
-    hook_key: str = "ConfigHook"
+    hook_key: str = "ExcoreHook"
     modules_dict: dict[str, ModuleWrapper]
     isolated_dict: dict[str, Any]
 

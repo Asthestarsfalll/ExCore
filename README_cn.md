@@ -242,7 +242,9 @@ MODULE.register_module(torch)
 [Model.ResNet]
 $activation = "torch.nn.ReLU"
 # 或者
-!activation = "torch.nn.ReLU"
+$activation = "torch.nn.ReLU()"
+# 或者, 注意，这里直接使用eval
+$activation = "torch.nn.ReLU(inplace=True)"
 ```
 
 ```python
@@ -251,11 +253,10 @@ from xxx import ResNet
 
 ResNet(torch.nn.ReLU)
 # 或者
-
 ResNet(torch.nn.ReLU())
+# 或者
+ResNet(torch.nn.ReLU(inplace=True))
 ```
-
-**注意：你不应定义模块的参数.**
 
 </details>
 
@@ -359,7 +360,7 @@ LazyConfig 的核心概念是 `Lazy`，它代表一种延迟的状态。在实�
 
 它还用于通过Python语言服务（LSP）解决纯文本配置的缺陷，Python LSP能够提供代码导航、自动补全等功能。
 
-`ExCore` 实现了一些节点—— `ModuleNode`、`InternNode`、`ReusedNode`、`ClassNode`、`ConfigHookNode`、`ChainedInvocationWrapper` 和 `VariableReference`，以及一个 `LazyConfig` 来管理所有节点。
+`ExCore` 实现了一些节点—— `ModuleNode`、`InternNode`、`ReusedNode`、`ClassNode`、`ConfigHookNode`、`GetAttr` 和 `VariableReference`，以及一个 `LazyConfig` 来管理所有节点。
 
 `ExCore` 只提供了两个简单的 API 来构建模块—— `load` 和 `build_all` 。
 

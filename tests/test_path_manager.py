@@ -102,13 +102,14 @@ def test_config_first_and_remove_all():
 
 @teardown
 def test_context_manager():
-    with pytest.raises(RuntimeError), PathManager(
-        base_path=BASE_PATH,
-        sub_folders=SUB_FOLDERS,
-        config_name=CONFIG_NAME,
-        instance_name=INSTANCE_NAME,
-    ):
-        raise RuntimeError
+    with pytest.raises(RuntimeError):
+        with PathManager(
+            base_path=BASE_PATH,
+            sub_folders=SUB_FOLDERS,
+            config_name=CONFIG_NAME,
+            instance_name=INSTANCE_NAME,
+        ):
+            raise RuntimeError
 
     for sub_folder in SUB_FOLDERS:
         full_path = Path(BASE_PATH) / Path(CONFIG_NAME) / Path(sub_folder) / Path(INSTANCE_NAME)

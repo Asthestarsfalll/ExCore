@@ -6,8 +6,9 @@ import inspect
 import os
 import re
 import sys
+from collections.abc import Sequence
 from types import FunctionType, ModuleType
-from typing import Any, Callable, Literal, Sequence, Type, overload
+from typing import Any, Callable, Literal, Type, overload
 
 from filelock import FileLock
 
@@ -74,7 +75,7 @@ class RegistryMeta(type):
     def __call__(cls, name: str, **kwargs: Any) -> Registry:
         r"""Assert only call `__init__` once"""
         _is_pure_ascii(name)
-        extra_field = kwargs.get("extra_field", None)
+        extra_field = kwargs.get("extra_field")
         if name in cls._registry_pool:
             extra_field = [extra_field] if isinstance(extra_field, str) else extra_field
             target = cls._registry_pool[name]
@@ -261,7 +262,7 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
                     raise ValueError(
                         f"Registry `{self.name}`: 'extra_info' does not has expected key {k}."
                     )
-            self.extra_info[name] = [extra_info.get(k, None) for k in self.extra_field]
+            self.extra_info[name] = [extra_info.get(k) for k in self.extra_field]
         elif hasattr(self, "extra_field"):
             self.extra_info[name] = [None] * len(self.extra_field)
         if not _is_str:

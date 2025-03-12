@@ -48,15 +48,15 @@ class InterNode(ModuleNode):
 `ClassNode` will return the class instead of its instance.
 
 
-## ChainedInvocationWrapper
+## GetAttr
 
 Wrap the chained invocation of a node, for example:
 
-If we want to implement `ResNet().blocks.conv()`, we can use `ChainedInvocationWrapper`
+If we want to implement `ResNet().blocks.conv()`, we can use `GetAttr`
 ```python
-from excore.config.models import ModuleNode, ChainedInvocationWrapper
+from excore.config.models import ModuleNode, GetAttr
 from xxx import ResNet
 
-ChainedInvocationWrapper(ModuleNode(ResNet), ["blocks", "conv()"])
+GetAttr.from_list(ModuleNode(ResNet), ["blocks", "conv()"])
 
 ```

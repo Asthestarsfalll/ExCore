@@ -10,20 +10,35 @@ repos:
       - id: detect-private-key
       - id: trailing-whitespace
   - repo: https://github.com/psf/black.git
-    rev: 23.3.0
+    rev: 24.8.0
     hooks:
       - id: black
         args: [--line-length=100]
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.5.0
+    rev: v0.9.10
     hooks:
       - id: ruff
         types_or: [python, pyi, jupyter]
-        args: [--fix, --exit-non-zero-on-fix, --no-cache]
+        args: [--exit-non-zero-on-fix, --no-cache, --ignore=UP035, --ignore=UP006, --ignore=SIM117]
       - id: ruff-format
         types_or: [python, pyi, jupyter]
-  - repo: https://github.com/PFCCLab/typos-pre-commit-mirror.git
-    rev: v1.27.3
+  - repo: https://github.com/crate-ci/typos
+    rev: v1.30.2
     hooks:
-    -   id: typos
-        args: [--force-exclude]
+      - id: typos
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.14.1
+    hooks:
+      - id: mypy
+        entry: mypy ./excore/
+        pass_filenames: false
+        args: [--install-types, --ignore-missing-imports]
+        additional_dependencies:
+          - types-docutils
+          - types-Pygments
+          - types-requests
+          - types-setuptools
+          - types-tabulate
+          - types-toml
+          - types-tqdm
+          - types-urllib3

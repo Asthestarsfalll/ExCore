@@ -395,7 +395,7 @@ The core conception of LazyConfig is 'Lazy', which represents a status of delay.
 
 It's also used to address the defects of plain text configs through python lsp which is able to provide code navigation, auto-completion and more.
 
-`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `ChainedInvocationWrapper` and `VariableReference` and a `LazyConfig` to manage all nodes.
+`ExCore` implements some nodes - `ModuleNode`, `InternNode`, `ReusedNode`, `ClassNode`, `ConfigHookNode`, `GetAttr` and `VariableReference` and a `LazyConfig` to manage all nodes.
 
 Typically, we follow the following procedure.
 

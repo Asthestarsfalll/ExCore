@@ -10,6 +10,13 @@ class ParamsArgHook(ConfigArgumentHook):
 
 
 @HOOK.register()
+class DoSomething(ConfigArgumentHook):
+    def hook(self):
+        logger.debug("do something")
+        return self.node()
+
+
+@HOOK.register()
 class AddModelParams:
     __HookType__ = "every_build"
     __LifeSpan__ = 1
