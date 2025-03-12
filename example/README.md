@@ -9,7 +9,7 @@
 
 ## Automatically setup
 ```bash
-python init_excore.py
+python init.py
 ```
 
 Then you can run `python run.py`
