@@ -14,12 +14,13 @@ import sys
 import types
 from contextlib import contextmanager
 from tempfile import NamedTemporaryFile
-from typing import Any, Iterator, List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 from urllib.parse import urlparse
 from zipfile import ZipFile
 
 import requests
 from tqdm import tqdm
+from typing_extensions import Iterator
 
 from .._constants import __version__, workspace
 from .._exceptions import (

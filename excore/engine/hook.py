@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any, Callable, Protocol, Sequence, final
+from collections.abc import Sequence
+from typing import Any, Callable, Protocol, final
 
 from excore._exceptions import CoreConfigSupportError, HookBuildError, HookManagerBuildError
 
@@ -232,7 +233,7 @@ class ConfigArgumentHook:
     def __call__(self, **kwargs: Any) -> Any:
         if not getattr(self, "_is_initialized", False):
             raise CoreConfigSupportError(
-                f"Call super().__init__() in class `{self.__class__.__name__}`"
+                f"Call super().__init__(node) in class `{self.__class__.__name__}`"
             )
         if self.enabled:
             return self.hook(**kwargs)

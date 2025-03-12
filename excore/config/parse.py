@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from .._exceptions import CoreConfigParseError
@@ -8,7 +9,8 @@ from ..engine import Registry, logger
 from .models import (
     OTHER_FLAG,
     REFER_FLAG,
-    ChainedInvocationWrapper,
+    ConfigHookNode,
+    GetAttr,
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
@@ -18,11 +20,11 @@ from .models import (
 )
 
 if TYPE_CHECKING:
-    from typing import Generator, Sequence
+    from collections.abc import Generator, Sequence
 
     from typing_extensions import Self
 
-    from .models import ConfigNode, NodeType, SpecialFlag
+    from .models import ConfigNode, NodeParams, NodeType, SpecialFlag
 
 
 def _dict2node(module_type: SpecialFlag, base: str, _dict: dict) -> dict[str, ModuleNode]:
@@ -30,12 +32,9 @@ def _dict2node(module_type: SpecialFlag, base: str, _dict: dict) -> dict[str, Mo
     return {name: ModuleType.from_base_name(base, name, v) for name, v in _dict.items()}
 
 
-def _parse_param_name(name) -> tuple[str, list[str], list[str]]:
-    names = name.split("@")
-    attrs = names.pop(0).split(".")
-    attrs = [i for i in attrs if i]
-    hooks = [i for i in names if i]
-    return attrs.pop(0), attrs, hooks
+def _parse_param_name(name: str) -> tuple[str, list[tuple[str, str]]]:
+    names = re.split(r"([.@])", name)
+    return names.pop(0), list(zip(names[::2], names[1::2]))
 
 
 def _flatten_list(
@@ -202,7 +201,8 @@ class ConfigDict(dict):
             raise CoreConfigParseError(f"Unregistered module `{name}`")
         logger.ex(f"\t\t\tFind base `{base}` with implicit module `{name}`.")
         node = module_type.from_base_name(base, name)
-        node.validate()
+        if module_type is not ConfigHookNode:
+            node.validate()
         if issubclass(module_type, ReusedNode):
             logger.ex("\t\t\tTarget type is `ReusedNode` or subclass of it, set node to top level.")
             self[name] = node
@@ -252,6 +252,8 @@ class ConfigDict(dict):
             if k not in self:
                 continue
             for node in self[k].values():
+                if not hasattr(node, "name"):
+                    continue
                 if node.name == name:
                     if not is_contain:
                         is_contain = True
@@ -265,56 +267,62 @@ class ConfigDict(dict):
         return is_contain
 
     def _get_name_and_field(
-        self, name: str, ori_name: str
+        self, name: str, ori_name: str | None = None
     ) -> tuple[str, str | None] | tuple[list[str], str]:
         if not name.startswith("$"):
             return name, None
-        names = name[1:].split("::")
-        if len(names) > 2:
+        if len(spec_name := name[1:].split("::")) > 2:
             raise CoreConfigParseError(f"Only support index one level with name `{name}`")
-        base = names[0]
-        spec_name = names[1:]
-        modules = self.get(base, False)
-        if not modules:
-            raise CoreConfigParseError(f"Cannot find field `{base}` with `{ori_name}`")
+        base = spec_name.pop(0)
+        if not (modules := self.get(base, False)):
+            raise CoreConfigParseError(f"Cannot find field `{base}` with `{ori_name or name}`")
         if len(spec_name) > 0:
             if spec_name[0] == "*":
                 logger.warning(
-                    f"`The results of {names} "
+                    f"`The results of {spec_name} "
                     "depend on their definition in config files when using `*`."
                 )
                 return [k.name for k in modules.values()], base
             if spec_name[0] not in modules:
                 raise CoreConfigParseError(
-                    f"Cannot get module `{spec_name[0]}` with param `{name}`."
+                    f"Cannot get module `{spec_name[0]}` with param `{ori_name or name}`."
                     f" Should be one of `{[k.name for k in modules.values()]}`."
                 )
             return spec_name[0], base
         elif len(modules) > 1:
             raise CoreConfigParseError(
                 f"More than one candidates are found: {[k.name for k in modules.values()]}"
-                f" with `{ori_name}`, please redefine the field `{base}` in config files, "
-                f"or get module with format `$field.name`."
+                f" with `{ori_name or name}`, please redefine the field `{base}` in config files, "
+                f"or get module with format `$field::name`."
             )
         return list(modules.keys())[0], base
 
-    def _apply_hooks(self, node: ModuleNode, hooks: list[str], attrs: list[str]) -> ConfigNode:
-        if attrs:
-            node = ChainedInvocationWrapper(node, attrs)  # type: ignore
+    def _apply_hooks(self, node: ConfigNode, hooks: list[tuple[str, str]]) -> ConfigNode:
         if not hooks:
             return node
-        for hook in hooks:
-            if hook not in self:
-                raise CoreConfigParseError(f"Unregistered hook `{hook}`")
-            node = self[hook](node=node)
+        for hook_flag, hook_info in hooks:
+            if hook_flag == ".":
+                node = GetAttr(node, hook_info)
+            elif hook_flag == "@":
+                hook_name, field = self._get_name_and_field(hook_info)
+                if not isinstance(hook_name, str):
+                    raise CoreConfigParseError(f"Unregistered hook `{hook_info}`")
+                hook_node = self._get_node_from_name_and_field(hook_name, field, ConfigHookNode)[0]
+                node = hook_node(node=node)  # type:ignore
         return node
 
     def _convert_node(
-        self, name: str, source: ConfigDict, target_type: NodeType
+        self,
+        name: str,
+        source: ConfigDict,
+        target_type: NodeType,
+        node_params: NodeParams | None = None,
     ) -> tuple[ModuleNode, NodeType]:
-        ori_type = source[name].__class__
+        ori_type: NodeType = source[name].__class__
         logger.ex(f"\t\t\tOriginal_type is `{ori_type}`, target_type is `{target_type}`.")
-        node = source[name]
+        node: ModuleNode = source[name]
+        if node_params:
+            node.add(**node_params)
         if target_type.priority != ori_type.priority or target_type.__excore_should_convert__(
             ori_type
         ):
@@ -325,33 +333,44 @@ class ConfigDict(dict):
                 source[name] = node
         return node, ori_type
 
+    def _get_node_from_name_and_field(
+        self,
+        name: str,
+        field: str | None,
+        target_type: NodeType,
+        node_params: NodeParams | None = None,
+    ) -> tuple[ModuleNode, NodeType | None]:
+        ori_type = None
+        cache_field = self.current_field
+        if not field and name in self:
+            logger.ex("\t\t\tFind module in top level.")
+            node, ori_type = self._convert_node(name, self, target_type, node_params)
+        elif field or self._contain_module(name):
+            self.current_field = field or self.current_field
+            logger.ex(
+                f"\t\t\tFind module in second level, current_field is `{self.current_field}`."
+            )
+            node, ori_type = self._convert_node(
+                name, self[self.current_field], target_type, node_params
+            )
+        else:
+            node = self._parse_implicit_module(name, target_type)
+        self.current_field = cache_field
+        return node, ori_type
+
     def _parse_single_param(
         self,
         name: str,
         ori_name: str,
         field: str | None,
         target_type: NodeType,
-        attrs: list[str],
-        hooks: list[str],
+        hooks: list[tuple[str, str]],
     ) -> ConfigNode:
         if name in self.all_fields:
             raise CoreConfigParseError(
                 f"Conflict name: `{name}`, the class name cannot be same with field name"
             )
-        ori_type = None
-        cache_field = self.current_field
-        if not field and name in self:
-            logger.ex("\t\t\tFind module in top level.")
-            node, ori_type = self._convert_node(name, self, target_type)
-        elif field or self._contain_module(name):
-            self.current_field = field or self.current_field
-            logger.ex(
-                f"\t\t\tFind module in second level, current_field is `{self.current_field}`."
-            )
-            node, ori_type = self._convert_node(name, self[self.current_field], target_type)
-        else:
-            node = self._parse_implicit_module(name, target_type)
-        self.current_field = cache_field
+        node, ori_type = self._get_node_from_name_and_field(name, field, target_type)
 
         # InterNode and ReusedNode
         if ori_type and ori_type.__excore_check_target_type__(target_type):
@@ -360,7 +379,7 @@ class ConfigDict(dict):
                 f"target_type is `{target_type}`, but got original_type `{ori_type}`. "
                 f"Please considering using `scratchpads` to avoid conflicts."
             )
-        node = self._apply_hooks(node, hooks, attrs)  # type: ignore
+        node = self._apply_hooks(node, hooks)  # type: ignore
         return node
 
     def _parse_param(
@@ -370,16 +389,13 @@ class ConfigDict(dict):
         if module_type == REFER_FLAG:
             return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
-        name, attrs, hooks = _parse_param_name(ori_name)
+        name, hooks = _parse_param_name(ori_name)
         names, field = self._get_name_and_field(name, ori_name)
-        logger.ex(f"\t\tGet name:{names}, field:{field}, attrs:{attrs}, hooks:{hooks}.")
+        logger.ex(f"\t\tGet name:{names}, field:{field}, hooks:{hooks}.")
         if isinstance(names, list):
             logger.ex(f"\t\tDetect output type list {ori_name}.")
-            return [
-                self._parse_single_param(n, ori_name, field, target_type, attrs, hooks)
-                for n in names
-            ]
-        return self._parse_single_param(names, ori_name, field, target_type, attrs, hooks)
+            return [self._parse_single_param(n, ori_name, field, target_type, hooks) for n in names]
+        return self._parse_single_param(names, ori_name, field, target_type, hooks)
 
     def _parse_module(self, node: ModuleNode) -> None:
         logger.ex(f"\t\tParse ModuleNode `{node}`.")

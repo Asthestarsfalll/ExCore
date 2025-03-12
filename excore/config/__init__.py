@@ -1,8 +1,8 @@
 from .action import DictAction
 from .config import build_all, load, load_config
 from .models import (
-    ChainedInvocationWrapper,
     ClassNode,
+    GetAttr,
     InterNode,
     ModuleNode,
     ReusedNode,
@@ -20,7 +20,7 @@ __all__ = [
     "silent",
     "set_primary_fields",
     "ConfigDict",
-    "ChainedInvocationWrapper",
+    "GetAttr",
     "ClassNode",
     "InterNode",
     "ModuleNode",

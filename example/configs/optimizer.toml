@@ -4,10 +4,13 @@
 # `$Model` represents get module from field `Model`
 # `.parameters()` represents invoke the method `parameters`
 # `@ParamsArgHook` represents a post-hook for the result of `$Model.parameters()`
-@params = "$Model.parameters()@ParamsArgHook"
+@params = "$Model.parameters()@$ConfigHook::ParamsArgHook@$Scratchpads::ParamsArgHook@DoSomething"
 weight_decay = 0.01
 
 [ConfigHook.ParamsArgHook]
+enabled = true
+
+[Scratchpads.ParamsArgHook]
 enabled = true
 
 [LRSche.CosDecay]

@@ -16,6 +16,7 @@ def execute(command: str, inputs=None):
     else:
         result = subprocess.run(
             command.split(" "),
+            text=True,
             capture_output=True,
         )
     assert result.returncode == 0, result.stderr

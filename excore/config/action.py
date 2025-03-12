@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import copy
 from argparse import Action, ArgumentParser, Namespace
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 __all__ = ["DictAction"]
 

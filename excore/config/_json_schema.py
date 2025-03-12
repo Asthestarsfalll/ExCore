@@ -3,9 +3,10 @@ from __future__ import annotations
 import inspect
 import json
 import sys
+from collections.abc import Sequence
 from inspect import Parameter, _empty, _ParameterKind, isclass
 from types import ModuleType
-from typing import TYPE_CHECKING, Any, Callable, Dict, Sequence, Union, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Callable, Dict, Union, get_args, get_origin
 
 import toml
 

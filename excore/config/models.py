@@ -6,7 +6,7 @@ import os
 import re
 from dataclasses import dataclass, field
 from inspect import Parameter, isclass
-from typing import TYPE_CHECKING, Type, Union
+from typing import TYPE_CHECKING, Type, Union, overload
 
 from .._constants import workspace
 from .._exceptions import EnvVarParseError, ModuleBuildError, ModuleValidateError, StrToClassError
@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     NodeInstance = object
 
     NoCallSkipFlag = Self
-    ConfigHookSkipFlag = Type[None]
 
     SpecialFlag = Literal["@", "!", "$", "&", ""]
 
@@ -117,11 +116,11 @@ class ModuleNode(dict):
             module = self.cls(**self)
         except Exception as exc:
             raise ModuleBuildError(
-                f"Instantiate Error with module {self.cls} and arguments {self}"
+                f"Instantiate Error with module {self.cls} and arguments {self.items()}"
             ) from exc
         if workspace.excore_log_build_message:
             logger.success(
-                f"Successfully instantiate module: {self.cls.__name__}, with arguments {self}"
+                f"Successfully instantiated: {self.cls.__name__} with arguments {self.items()}"
             )
         return module
 
@@ -223,6 +222,8 @@ class InterNode(ModuleNode):
 
 
 class ConfigHookNode(ModuleNode):
+    priority: int = 1
+
     def validate(self) -> None:
         if "node" in self:
             raise ModuleValidateError(
@@ -230,9 +231,13 @@ class ConfigHookNode(ModuleNode):
             )
         super().validate()
 
-    def __call__(self, **params: NodeParams) -> NodeInstance | ConfigHookSkipFlag | Hook:
-        if issubclass(self.cls, ConfigArgumentHook):
-            return None
+    @overload
+    def __call__(self, **params: NodeParams) -> NodeInstance | Hook | ConfigArgumentHook: ...
+
+    @overload
+    def __call__(self, **params: dict[str, ModuleNode]) -> ConfigHookNode: ...
+
+    def __call__(self, **params: NodeParams) -> NodeInstance | Hook | ConfigArgumentHook:
         self._update_params(**params)
         return self._instantiate()
 
@@ -260,22 +265,22 @@ class ClassNode(ModuleNode):
         return True
 
 
-class ChainedInvocationWrapper(ConfigArgumentHook):
-    def __init__(self, node: ModuleNode, attrs: list[str]) -> None:
+class GetAttr(ConfigArgumentHook):
+    def __init__(self, node: ConfigNode, attr: str) -> None:
         super().__init__(node)
-        self.attrs = attrs
+        self.attr = attr
 
     def hook(self, **params: NodeParams) -> Any:
         target = self.node(**params)
         if isinstance(target, ModuleNode):
             raise ModuleBuildError(f"Do not support `{DO_NOT_CALL_KEY}`")
-        if self.attrs:
-            for attr in self.attrs:
-                if attr[-2:] == "()":
-                    target = getattr(target, attr[:-2])()
-                else:
-                    target = getattr(target, attr)
-        return target
+        return eval("target." + self.attr)
+
+    @classmethod
+    def from_list(cls, node: ConfigNode, attrs: list[str]) -> ConfigNode:
+        for attr in attrs:
+            node = cls(node, attr)
+        return node
 
 
 @dataclass
