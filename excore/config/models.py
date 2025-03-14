@@ -4,23 +4,33 @@ import importlib
 import inspect
 import os
 import re
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from inspect import Parameter, isclass
-from typing import TYPE_CHECKING, Type, Union, overload
+from inspect import Parameter, isclass, ismodule
+from typing import TYPE_CHECKING, Type, Union, final, overload
 
 from .._constants import workspace
-from .._exceptions import EnvVarParseError, ModuleBuildError, ModuleValidateError, StrToClassError
+from .._exceptions import (
+    CoreConfigParseError,
+    CoreConfigSupportError,
+    EnvVarParseError,
+    ModuleBuildError,
+    ModuleValidateError,
+    StrToClassError,
+)
 from .._misc import CacheOut
-from ..engine.hook import ConfigArgumentHook, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
 from .action import DictAction
 
 if TYPE_CHECKING:
     from types import FunctionType, ModuleType
-    from typing import Any, Dict, Literal
+    from typing import Any, Callable, Dict, Literal
 
     from typing_extensions import Self
+
+    from ..engine.hook import Hook
+    from .parse import ConfigDict
 
     NodeClassType = Type[Any]
     NodeParams = Dict[str, Any]
@@ -42,6 +52,7 @@ OTHER_FLAG: Literal[""] = ""
 FLAG_PATTERN = re.compile(r"^([@!$&])(.*)$")
 DO_NOT_CALL_KEY = "__no_call__"
 SPECIAL_FLAGS = [OTHER_FLAG, INTER_FLAG, REUSE_FLAG, CLASS_FLAG, REFER_FLAG]
+HOOK_FLAGS = ["@", "."]
 
 
 def silent() -> None:
@@ -113,6 +124,8 @@ class ModuleNode(dict):
 
     def _instantiate(self) -> NodeInstance:
         try:
+            if ismodule(self.cls):
+                return self.cls
             module = self.cls(**self)
         except Exception as exc:
             raise ModuleBuildError(
@@ -179,14 +192,23 @@ class ModuleNode(dict):
         node._no_call = _other._no_call
         return node
 
+    @staticmethod
+    def _get_params(cls: type) -> list[inspect.Parameter]:
+        signature = inspect.signature(cls.__init__ if isclass(cls) else cls)
+        params = list(signature.parameters.values())
+        if isclass(cls):  # skip self
+            params = params[1:]
+        return params
+
     def validate(self) -> None:
         if not workspace.excore_validate:
             return
-        signature = inspect.signature(self.cls.__init__)
+        if ismodule(self.cls):
+            return
+
         missing = []
-        params = list(signature.parameters.values())
-        if isclass(self.cls):  # skip self
-            params = params[1:]
+        defaults = []
+        params = ModuleNode._get_params(self.cls)
 
         for param in params:
             if (
@@ -199,6 +221,9 @@ class ModuleNode(dict):
                 and param.name not in self
             ):
                 missing.append(param.name)
+            else:
+                defaults.append(param.name)
+
         message = (
             f"Validating `{self.cls.__name__}` , "
             f"finding missing parameters: `{missing}` without default values."
@@ -257,6 +282,9 @@ class ReusedNode(InterNode):
 class ClassNode(ModuleNode):
     priority: int = 1
 
+    def validate(self) -> None:
+        return  # Do nothing
+
     def __call__(self) -> NodeClassType | FunctionType:  # type: ignore
         return self.cls
 
@@ -265,7 +293,50 @@ class ClassNode(ModuleNode):
         return True
 
 
+class ConfigArgumentHook(ABC):
+    flag: str = "@"
+
+    def __init__(
+        self,
+        node: Callable,
+        enabled: bool = True,
+    ) -> None:
+        self.node = node
+        self.enabled = enabled
+        if not hasattr(node, "name"):
+            raise ValueError("The `node` must have name attribute.")
+        self.name = node.name
+        self._is_initialized = True
+
+    @abstractmethod
+    def hook(self, **kwargs: Any) -> Any:
+        raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
+
+    @final
+    def __call__(self, **kwargs: Any) -> Any:
+        if not getattr(self, "_is_initialized", False):
+            raise CoreConfigSupportError(
+                f"Call super().__init__(node) in class `{self.__class__.__name__}`"
+            )
+        if self.enabled:
+            return self.hook(**kwargs)
+        return self.node(**kwargs)
+
+    @classmethod
+    def __excore_prepare__(cls, node: ConfigNode, hook_info: str, config: ConfigDict) -> ConfigNode:
+        hook_name, field = config._get_name_and_field(hook_info)
+        if not isinstance(hook_name, str):
+            raise CoreConfigParseError(
+                f"More than one or none of hooks are found with `{hook_info}`."
+            )
+        hook_node = config._get_node_from_name_and_field(hook_name, field, ConfigHookNode)[0]
+        node = hook_node(node=node)  # type:ignore
+        return node
+
+
 class GetAttr(ConfigArgumentHook):
+    flag: str = "."
+
     def __init__(self, node: ConfigNode, attr: str) -> None:
         super().__init__(node)
         self.attr = attr
@@ -281,6 +352,10 @@ class GetAttr(ConfigArgumentHook):
         for attr in attrs:
             node = cls(node, attr)
         return node
+
+    @classmethod
+    def __excore_prepare__(cls, node: ConfigNode, hook_info: str, config: ConfigDict) -> ConfigNode:
+        return cls(node, hook_info)
 
 
 @dataclass
@@ -371,12 +446,27 @@ _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     CLASS_FLAG: ClassNode,
 }
 
+_dispatch_argument_hook: dict[str, Type[ConfigArgumentHook]] = {
+    "@": ConfigArgumentHook,  # type:ignore
+    ".": GetAttr,
+}
 
-def register_special_flag(flag: str, target_module: NodeType, force: bool = False) -> None:
+
+def register_special_flag(flag: str, node_type: NodeType, force: bool = False) -> None:
     if not force and flag in SPECIAL_FLAGS:
         raise ValueError(f"Special flag `{flag}` already exist.")
     SPECIAL_FLAGS.append(flag)
     global FLAG_PATTERN
     FLAG_PATTERN = re.compile(rf"^([{''.join(SPECIAL_FLAGS)}])(.*)$")
-    _dispatch_module_node[flag] = target_module  # type: ignore
-    logger.ex(f"Register new module node `{target_module}` with special flag `{flag}.`")
+    _dispatch_module_node[flag] = node_type  # type: ignore
+    logger.ex(f"Register new module node `{node_type}` with special flag `{flag}.`")
+
+
+def register_argument_hook(
+    flag: str, node_type: Type[ConfigArgumentHook], force: bool = False
+) -> None:
+    if not force and flag in HOOK_FLAGS:
+        raise ValueError(f"Special flag `{flag}` already exist.")
+    HOOK_FLAGS.append(flag)
+    _dispatch_argument_hook[flag] = node_type
+    logger.ex(f"Register new hook node `{node_type}` with special flag `{flag}.`")

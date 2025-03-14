@@ -13,10 +13,9 @@ import toml
 from excore import workspace
 
 from .._exceptions import AnnotationsFutureError
-from ..engine.hook import ConfigArgumentHook
 from ..engine.logging import logger
 from ..engine.registry import Registry, load_registries
-from .models import _str_to_target
+from .models import ConfigArgumentHook, _str_to_target
 
 if sys.version_info >= (3, 10, 0):
     from types import NoneType, UnionType  # type: ignore
@@ -138,6 +137,7 @@ def parse_registry(reg: Registry) -> tuple[Property, dict[str, list[str | int]]]
             try:
                 is_required, item = parse_single_param(param_obj)
             except Exception as e:
+                breakpoint()
                 from rich.console import Console
 
                 Console().print_exception()
@@ -202,12 +202,20 @@ def _parse_typehint(prop: Property, anno: type) -> str | None:
     return potential_type or "string"
 
 
+def _try_cast(anno) -> type | Any:
+    try:
+        return eval(anno)
+    except Exception:
+        return anno
+
+
 def parse_single_param(param: Parameter) -> tuple[bool, Property]:
     prop: Property = {}
     anno = param.annotation
     potential_type = None
 
     anno = _remove_optional(anno)
+    anno = _try_cast(anno)
 
     #  hardcore for torch.optim
     if param.default.__class__.__name__ == "_RequiredParameter":

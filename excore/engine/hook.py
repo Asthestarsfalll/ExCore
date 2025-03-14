@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Sequence
-from typing import Any, Callable, Protocol, final
+from typing import Any, Callable, Protocol
 
-from excore._exceptions import CoreConfigSupportError, HookBuildError, HookManagerBuildError
+from excore._exceptions import HookBuildError, HookManagerBuildError
 
 __all__ = ["HookManager", "ConfigHookManager", "Hook"]
 
@@ -211,30 +211,3 @@ class ConfigHookManager(HookManager):
             points in the build process where hooks can be executed. The stages are:
             "pre_build", "every_build", and "after_build".
     """
-
-
-class ConfigArgumentHook:
-    def __init__(
-        self,
-        node: Callable,
-        enabled: bool = True,
-    ) -> None:
-        self.node = node
-        self.enabled = enabled
-        if not hasattr(node, "name"):
-            raise ValueError("The `node` must have name attribute.")
-        self.name = node.name
-        self._is_initialized = True
-
-    def hook(self, **kwargs: Any) -> Any:
-        raise NotImplementedError(f"`{self.__class__.__name__}` do not implement `hook` method.")
-
-    @final
-    def __call__(self, **kwargs: Any) -> Any:
-        if not getattr(self, "_is_initialized", False):
-            raise CoreConfigSupportError(
-                f"Call super().__init__(node) in class `{self.__class__.__name__}`"
-            )
-        if self.enabled:
-            return self.hook(**kwargs)
-        return self.node(**kwargs)

@@ -7,14 +7,15 @@ from .._exceptions import CoreConfigParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
 from .models import (
+    HOOK_FLAGS,
     OTHER_FLAG,
     REFER_FLAG,
     ConfigHookNode,
-    GetAttr,
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
     VariableReference,
+    _dispatch_argument_hook,
     _dispatch_module_node,
     _is_special,
 )
@@ -33,7 +34,7 @@ def _dict2node(module_type: SpecialFlag, base: str, _dict: dict) -> dict[str, Mo
 
 
 def _parse_param_name(name: str) -> tuple[str, list[tuple[str, str]]]:
-    names = re.split(r"([.@])", name)
+    names = re.split(rf"([{''.join(HOOK_FLAGS)}])", name)
     return names.pop(0), list(zip(names[::2], names[1::2]))
 
 
@@ -261,7 +262,7 @@ class ConfigDict(dict):
                         raise CoreConfigParseError(
                             f"Parameter `{name}` conflicts with "
                             f"field `{self.current_field}` and `{k}`, "
-                            f"considering using format `$field` to get module."
+                            f"considering using format `$field::module_name` to get module."
                         )
                     self.current_field = k
         return is_contain
@@ -298,17 +299,8 @@ class ConfigDict(dict):
         return list(modules.keys())[0], base
 
     def _apply_hooks(self, node: ConfigNode, hooks: list[tuple[str, str]]) -> ConfigNode:
-        if not hooks:
-            return node
         for hook_flag, hook_info in hooks:
-            if hook_flag == ".":
-                node = GetAttr(node, hook_info)
-            elif hook_flag == "@":
-                hook_name, field = self._get_name_and_field(hook_info)
-                if not isinstance(hook_name, str):
-                    raise CoreConfigParseError(f"Unregistered hook `{hook_info}`")
-                hook_node = self._get_node_from_name_and_field(hook_name, field, ConfigHookNode)[0]
-                node = hook_node(node=node)  # type:ignore
+            node = _dispatch_argument_hook[hook_flag].__excore_prepare__(node, hook_info, self)
         return node
 
     def _convert_node(
@@ -405,6 +397,12 @@ class ConfigDict(dict):
                 logger.ex(f"\t\tSkip parameter `{param_name}`.")
                 continue
             value = node.pop(param_name)
+            if (
+                isinstance(value, str)
+                and value[0] == "&"
+                and not (value := self.get(value[1:], None))
+            ):
+                raise CoreConfigParseError(f"Cannot find `{value[1:]}` with `&`.")
             is_dict = False
             if isinstance(value, list):
                 logger.ex(f"\t\t{param_name}: List parameter {value}.")
