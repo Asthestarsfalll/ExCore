@@ -157,7 +157,7 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
         cls._prevent_register = False
 
     @classmethod
-    def get_registry(cls, name: str, default: Any = None) -> Any:
+    def get_registry(cls, name: str, default: Any = None) -> Registry:
         """
         Returns the `Registry` instance with the given name, or `default` if no such
         registry exists.
@@ -308,6 +308,13 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
         _info = extra_info if extra_info else [{}] * len(modules)
         for module, info in zip(modules, _info):
             self.register_module(module, force=force, _is_str=_is_str, **info)
+
+    def get_extra_info(self, key: str, name: str) -> Any:
+        if name not in self.extra_field:
+            raise ValueError(f"Expected name to be one of `{self.extra_field}`, but got `{name}`.")
+        for target_name, info in zip(self.extra_field, self.extra_info[key]):
+            if name == target_name:
+                return info
 
     def merge(
         self,

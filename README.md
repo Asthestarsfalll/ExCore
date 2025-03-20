@@ -222,6 +222,8 @@ data_path = 'xxx'
 data_path = 'xxx'
 ```
 
+`&` can use in the parameters as well. It's always used with the argument hooks. Refer to `finegrained_config`.
+
 </details>
 
 <details>
@@ -725,6 +727,83 @@ with PathManager(
     folder2_path:str = sub_path.folder2
     do_sth(folder1_path, folder2_path)
     train()
+```
+
+</details>
+
+<details>
+  <summary>:sparkles:Fine-Grained Config</summary>
+
+Refer to YOLO-style configuration to enable fine-grained control over model architecture."
+
+Firstly, we need to add more some information to the registered class that we want to configure fine-grainedly.
+
+```python
+from excore import Registry
+
+MODEL = Registry("Model", extra_field=["receive", "send"])
+MODEL.register_module(nn.Conv2d, receive="in_channels", send="out_channels")
+MODEL.register_module(nn.BatchNorm2d, receive="num_features", send="num_features")
+```
+
+`receive` should be a str or a list of str, which contains the parameter names during the passing procedures. So is `send`.
+
+Secondly, enable the `fine-grained config` by
+
+```python
+from excore.plugins.finegrained_config import enable_finegrained_config
+
+enable_finegrained_config()
+```
+
+Thirdly, use `*` to define the finegrained_config. There are 3 required parameters:
+
+- `$class_mapping`: List of class names to be used
+- `info`: List of [repeat_times, module_index] for each layer
+- `args`: Arguments list for each layer's initialization
+
+```toml
+class_mapping = ['Conv2d', 'BatchNorm2d']
+[Backbone.FinegrainedModel]
+$backbone = "torch.nn.Sequential*FinegrainedConfig"
+
+[FinegrainedConfig]
+$class_mapping = "&class_mapping"
+# [from, number, module idx]
+info = [
+  [1, 0],
+  [3, 0],
+  [1, 1],
+  [2, 0],
+  [1, 1],
+]
+args = [
+  [3],
+  [32, 3],
+  [64, 3],
+  [128],
+  [224, 1],
+  [224],
+]
+
+```
+`$backbone = "torch.nn.Sequential*$ConfigInfo::backbone"` where `torch.nn.Sequential` is the wrapper of the results of `FinegrainedConfig`. `*FinegrainedConfig` means apply the `finegrained_config` hook and get its initialize parameters from dict `FinegrainedConfig`.
+
+The finegrained_config will pass the parameters according to `receive` and `send` names of each class.
+
+Finally the `backbone` will be:
+
+```bash
+Sequential(
+  (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(1, 1))
+  (1): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (2): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (3): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (4): BatchNorm2d(64, eps=128, momentum=0.1, affine=True, track_running_stats=True)
+  (5): Conv2d(64, 224, kernel_size=(1, 1), stride=(1, 1))
+  (6): Conv2d(64, 224, kernel_size=(1, 1), stride=(1, 1))
+  (7): BatchNorm2d(224, eps=224, momentum=0.1, affine=True, track_running_stats=True)
+)
 ```
 
 </details>

@@ -265,3 +265,17 @@ class TestConfig:
         modules, _ = self._load("./configs/launch/test_missing_param.toml", False)
         assert modules.DataModule.train.x == [1, 2, 3, [1, 2]]
         builtins.input = ori_input
+
+    def test_finegrained_config(self):
+        from excore.plugins.finegrained_config import enable_finegrained_config
+
+        enable_finegrained_config()
+        modules, _ = self._load("./configs/launch/test_finegrained.toml", False)
+
+        backbone = modules.Backbone.block
+        assert isinstance(backbone, torch.nn.Sequential)
+        assert len(backbone) == 8
+        assert backbone[0].out_channels == backbone[1].in_channels
+        assert backbone[4].num_features == backbone[3].out_channels
+        assert backbone[4].num_features == backbone[5].in_channels
+        assert backbone[6].out_channels == backbone[7].num_features

@@ -1,3 +1,4 @@
+import torch
 from torchvision import models
 from torchvision.models import segmentation
 
@@ -38,3 +39,7 @@ class MockModel:
 @BLOCK.register()
 class TestBlock:
     pass
+
+
+BLOCK.register_module(torch.nn.Conv2d, receive="in_channels", send="out_channels")
+BLOCK.register_module(torch.nn.BatchNorm2d, receive="num_features", send="num_features")

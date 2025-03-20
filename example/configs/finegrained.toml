@@ -1,0 +1,44 @@
+class_mapping = ['Conv2d', 'BatchNorm2d']
+
+[Backbone.FinegrainedModel]
+$backbone = "torch.nn.Sequential*$ConfigInfo::backbone"
+$head = 'torch.nn.ModuleList*head'
+
+[ConfigInfo.backbone]
+$class_mapping = "&class_mapping"
+# [number, module idx]
+info = [
+  [1, 0],
+  [3, 0],
+  [1, 1],
+  [2, 0],
+  [1, 1],
+]
+args = [
+  [3],
+  [32, 3],
+  [64, 3],
+  [128],
+  [224, 1],
+  [224],
+]
+unpack = true
+
+[head]
+$class_mapping = "&class_mapping"
+# [number, module idx]
+info = [
+  [1, 0],
+  [3, 0],
+  [1, 1],
+  [2, 0],
+  [1, 1],
+]
+args = [
+  [3],
+  [32, 3],
+  [64, 3],
+  [128],
+  [224, 1],
+  [224],
+]

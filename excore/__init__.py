@@ -6,9 +6,10 @@ from . import config, plugins
 from ._constants import __author__, __version__, workspace
 from .config.action import DictAction
 from .config.config import build_all, load
+from .config.models import ConfigArgumentHook
 from .config.parse import set_primary_fields
 from .engine import hook, logging, registry
-from .engine.hook import ConfigArgumentHook, Hook, HookManager
+from .engine.hook import Hook, HookManager
 from .engine.logging import (
     _enable_excore_debug,
     add_logger,
