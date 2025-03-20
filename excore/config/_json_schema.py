@@ -137,7 +137,6 @@ def parse_registry(reg: Registry) -> tuple[Property, dict[str, list[str | int]]]
             try:
                 is_required, item = parse_single_param(param_obj)
             except Exception as e:
-                breakpoint()
                 from rich.console import Console
 
                 Console().print_exception()

@@ -200,7 +200,7 @@ __base__ = ["B.toml", "C.toml"]
 </details>
 
 <details>
-  <summary>&变量引用</summary>
+  <summary>& 变量引用</summary>
 
 `ExCore` 使用 `&` 来引用配置文件最顶层的变量。
 
@@ -220,6 +220,8 @@ data_path = 'xxx'
 &test_size = "size"
 data_path = 'xxx'
 ```
+
+`&` 也可以用于参数之中。通常配合参数钩子使用，请参考 `finegrained_config`。
 
 </details>
 
@@ -655,6 +657,150 @@ from xxx import ResNet
 ResNet(torch.nn.ReLU)
 # 或者
 ResNet(torch.nn.ReLU())
+```
+
+</details>
+
+### 插件
+<details>
+  <summary>路径管理器</summary>
+
+通过结构化方式管理目录创建，当作用域内的操作失败时自动清理已创建目录。
+
+```python
+from excore.plugins.path_manager import PathManager
+
+with PathManager(
+    base_path = "./exp",
+    sub_folders=["folder1", "folder2"],
+    config_name="config_dir",
+    instance_name="test1",
+    remove_if_fail=True,
+    sub_folder_exist_ok=False,
+    config_name_first=False,
+    return_str=True,
+) as pm:
+    folder1_path:str = pm.get("folder1")  # 获取文件夹路径
+    folder2_path:str = pm.get("folder2")
+    do_sth(folder1_path, folder2_path)
+    train()
+```
+
+生成的目录结构：
+
+```
+exp
+├── folder1
+│   └── config_dir
+│       └── test1
+└── folder2
+    └── config_dir
+        └── test1
+```
+
+可通过数据类优化使用体验：
+
+```python
+from dataclasses import dataclass
+from excore.plugins.path_manager import PathManager
+
+@dataclass
+class SubPath:
+    folder1: str = "folder1"
+    folder2: str = "folder2"
+
+sub_path = SubPath()
+
+with PathManager(
+    base_path = "./exp",
+    sub_folders=sub_path,
+    config_name="config_dir",
+    instance_name="test1",
+    remove_if_fail=True,
+    sub_folder_exist_ok=False,
+    config_name_first=False,
+    return_str=True,
+) as pm:
+    folder1_path:str = sub_path.folder1
+    folder2_path:str = sub_path.folder2
+    do_sth(folder1_path, folder2_path)
+    train()
+```
+
+</details>
+
+<details>
+  <summary>:sparkles:细粒度配置</summary>
+
+参考YOLO风格的配置方式，实现细粒度模型架构配置能力。
+
+首先需要为注册的模块类添加参数传递关系声明：
+
+```python
+from excore import Registry
+
+MODEL = Registry("Model", extra_field=["receive", "send"])
+MODEL.register_module(nn.Conv2d, receive="in_channels", send="out_channels")
+MODEL.register_module(nn.BatchNorm2d, receive="num_features", send="num_features")
+```
+
+`receive` 应为字符串或字符串列表，表示参数传递中需要接收的参数名称。`send` 同理。
+
+第二步启用细粒度配置功能：
+
+```python
+from excore.plugins.finegrained_config import enable_finegrained_config
+
+enable_finegrained_config()
+```
+
+第三步使用 `*` 符号定义细粒度配置，需要三个必须参数：
+
+- `$class_mapping`: 使用的模块类名列表
+- `info`: 层级配置列表，格式为[重复次数, 模块索引]
+- `args`: 各层初始化参数列表
+
+```toml
+[Backbone.FinegrainedModel]
+$backbone = "torch.nn.Sequential*FinegrainedConfig"
+
+[FinegrainedConfig]
+$class_mapping = ['Conv2d', 'BatchNorm2d']
+# [参数来源层, 重复次数, 模块索引]
+info = [
+  [1, 0],
+  [3, 0],
+  [1, 1],
+  [2, 0],
+  [1, 1],
+]
+args = [
+  [3],
+  [32, 3],
+  [64, 3],
+  [128],
+  [224, 1],
+  [224],
+]
+```
+
+`$backbone = "torch.nn.Sequential*$ConfigInfo::backbone"` 表示使用 `torch.nn.Sequential` 作为容器包装 `FinegrainedConfig` 生成的模块。`*FinegrainedConfig` 表示应用细粒度配置解析器，并从 `FinegrainedConfig` 字典获取初始化参数。
+
+系统会根据模块类声明的 `receive` 和 `send` 参数自动传递关键参数。
+
+最终生成的骨干网络结构如下：
+
+```bash
+Sequential(
+  (0): Conv2d(3, 32, kernel_size=(3, 3), stride=(1, 1))
+  (1): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (2): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (3): Conv2d(32, 64, kernel_size=(3, 3), stride=(1, 1))
+  (4): BatchNorm2d(64, eps=128, momentum=0.1, affine=True, track_running_stats=True)
+  (5): Conv2d(64, 224, kernel_size=(1, 1), stride=(1, 1))
+  (6): Conv2d(64, 224, kernel_size=(1, 1), stride=(1, 1))
+  (7): BatchNorm2d(224, eps=224, momentum=0.1, affine=True, track_running_stats=True)
+)
 ```
 
 </details>

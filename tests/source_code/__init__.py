@@ -5,7 +5,7 @@ import torch
 from excore import Registry
 
 MODEL = Registry("Model")
-BLOCK = Registry("Block")
+BLOCK = Registry("Block", extra_field=["receive", "send"])
 HEAD = Registry("Head")
 BACKBONE = Registry("Backbone")
 DATA = Registry("Data")

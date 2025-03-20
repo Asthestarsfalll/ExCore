@@ -4,7 +4,7 @@
 2. Edit `registries` in `.excore.toml` to `registries = [ "*Model: Model, Backbone", "*Data: TrainData, TestData", "Hook", "*Loss", "*LRSche", "*Optimizer", "Transform", "module"]`
 3. Run `excore update`, you can see some config items are updated in `.excore.toml`
 4. Run `excore auto-register`
-5ft Run `excore config-extension`
+5. Run `excore config-extension`
 
 ## Automatically setup
 ```bash
