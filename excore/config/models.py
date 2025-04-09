@@ -102,7 +102,6 @@ class ModuleNode(dict):
     cls: Any
     _no_call: bool = field(default=False, repr=False)
     priority: int = field(default=0, repr=False)
-    _is_shared: bool = field(default=False, repr=False)
 
     def _update_params(self, **params: NodeParams) -> None:
         return_params = {}
@@ -268,7 +267,6 @@ class ConfigHookNode(ModuleNode):
 
 class ReusedNode(InterNode):
     priority: int = 3
-    _is_shared: bool = False
 
     @CacheOut()
     def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:  # type: ignore
