@@ -10,6 +10,7 @@ from typing import Any
 import astor  # type: ignore
 import typer
 from typer import Argument as CArg
+from typing_extensions import Annotated
 
 from .._constants import _workspace_config_file, workspace
 from .._misc import _create_table
@@ -168,42 +169,58 @@ def _update(is_init: bool = True, entry: str = "__init__") -> None:
         logger.success("Update primary_fields")
 
 
-def _get_default_module_name(target_dir: str) -> str:
-    assert os.path.isdir(target_dir)
-    full_path = os.path.abspath(target_dir)
-    return full_path.split(os.sep)[-1]
+def _get_default_module_name(base: str, target: str) -> str:
+    if osp.isfile(target):
+        target = osp.dirname(target)
+    full_path = osp.abspath(target)
+    paths = full_path.split(os.sep)
+    modules = []
+    for p in paths[::-1]:
+        if p == base:
+            break
+        modules.append(p)
+    return ".".join([base, *modules[::-1]])
 
 
-def _auto_register(target_dir: str, module_name: str) -> None:
-    for file_name in os.listdir(target_dir):
-        full_path = os.path.join(target_dir, file_name)
-        if os.path.isdir(full_path):
-            _auto_register(full_path, module_name + "." + file_name)
-        elif file_name.endswith(".py") and file_name != "__init__.py":
-            import_name = module_name + "." + file_name[:-3]
-            try:
-                importlib.import_module(import_name)
-            except Exception:
-                from rich.console import Console
+def _auto_register(target: str, module_name: str) -> None:
+    if osp.isfile(target) and target.endswith(".py") and not target.endswith("__init__.py"):
+        file_name = osp.split(target)[-1]
+        import_name = module_name + "." + file_name[:-3]
+        try:
+            importlib.import_module(import_name)
+        except Exception:
+            from rich.console import Console
 
-                logger.critical("Fail to register file {}", import_name)
-                Console().print_exception()
-                continue
-            logger.success("Register file {}", import_name)
+            logger.critical("Fail to register file {}", import_name)
+            Console().print_exception()
+        logger.success("Register file {}", import_name)
+    elif osp.isdir(target):
+        for file_name in os.listdir(target):
+            full_path = osp.join(target, file_name)
+            if osp.isdir(full_path):
+                _auto_register(full_path, module_name + "." + file_name)
+            else:
+                _auto_register(full_path, module_name)
+    else:
+        logger.ex(f"Invalid target `{target}`.")
 
 
 @app.command()
-def auto_register() -> None:
+def auto_register(
+    target: Annotated[str, CArg(help="What to be registered")] = "",
+) -> None:
     """
-    Automatically import all modules in `src_dir` and register all modules, then dump to files.
+    Automatically import all modules in `src_dir` by default or `target`
+        and register all modules, then dump to files.
     """
-    if not os.path.exists(_workspace_config_file):
+    if not osp.exists(_workspace_config_file):
         logger.critical("Please run `excore init` in your command line first!")
         sys.exit(0)
-    target_dir = osp.abspath(workspace.src_dir)
-    module_name = _get_default_module_name(target_dir)
-    _auto_register(target_dir, module_name)
-    Registry.dump()
+    update = target == ""
+    target = target or osp.abspath(workspace.src_dir)
+    module_name = _get_default_module_name(workspace.src_dir.split(os.sep)[-1], target)
+    _auto_register(target, module_name)
+    Registry.dump(update)
 
 
 @app.command()

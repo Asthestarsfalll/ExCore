@@ -121,12 +121,22 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
         self.extra_info = {}
 
     @classmethod
-    def dump(cls) -> None:
-        file_path = workspace.registry_cache_file
+    def dump(cls, update: bool = False) -> None:
         import pickle  # pylint: disable=import-outside-toplevel
 
+        file_path = workspace.registry_cache_file
+
+        if update and os.path.exists(file_path):
+            with open(file_path, "rb") as f:
+                cache_to_dump = pickle.load(f)
+
+            cache_to_dump.update(cls._registry_pool)
+        else:
+            cache_to_dump = cls._registry_pool
+
         with FileLock(file_path + ".lock", timeout=5), open(file_path, "wb") as f:
-            pickle.dump(cls._registry_pool, f)
+            pickle.dump(cache_to_dump, f)
+
         logger.success(f"Dump registry cache to {workspace.registry_cache_file}!")
 
     @classmethod
@@ -441,16 +451,13 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
 
 
 def load_registries() -> None:
+    message = "Please run `excore auto-register` in your command line first!"
     if not os.path.exists(workspace.registry_cache_file):
-        logger.warning("Please run `excore auto-register` in your command line first!")
+        logger.warning(message)
         return
     Registry.load()
-    # We'd better to lock register to prevent
-    # the inconsistency between the twice registration.
+    # We'd better to lock register to prevent the inconsistency between the twice registration.
     Registry.lock_register()
     if not Registry._registry_pool:
-        logger.critical(
-            "No module has been registered, \
-                           you may need to call `excore.registry.auto_register` first"
-        )
+        logger.critical(f"No module has been registered. {message}")
         sys.exit(1)
