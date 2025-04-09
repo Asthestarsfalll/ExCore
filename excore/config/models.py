@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import inspect
-import os
 import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
@@ -13,7 +12,6 @@ from .._constants import workspace
 from .._exceptions import (
     CoreConfigParseError,
     CoreConfigSupportError,
-    EnvVarParseError,
     ModuleBuildError,
     ModuleValidateError,
     StrToClassError,
@@ -104,6 +102,7 @@ class ModuleNode(dict):
     cls: Any
     _no_call: bool = field(default=False, repr=False)
     priority: int = field(default=0, repr=False)
+    _is_shared: bool = field(default=False, repr=False)
 
     def _update_params(self, **params: NodeParams) -> None:
         return_params = {}
@@ -162,8 +161,8 @@ class ModuleNode(dict):
         return False
 
     @classmethod
-    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
-        return False
+    def __excore_parse__(cls, config: ConfigDict, **locals) -> None | ModuleNode:
+        return None
 
     @classmethod
     def from_str(cls, str_target: str, params: NodeParams | None = None) -> ModuleNode:
@@ -269,6 +268,7 @@ class ConfigHookNode(ModuleNode):
 
 class ReusedNode(InterNode):
     priority: int = 3
+    _is_shared: bool = False
 
     @CacheOut()
     def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:  # type: ignore
@@ -287,10 +287,6 @@ class ClassNode(ModuleNode):
 
     def __call__(self) -> NodeClassType | FunctionType:  # type: ignore
         return self.cls
-
-    @classmethod
-    def __excore_should_convert__(cls, target_type: type[ModuleNode]) -> bool:
-        return True
 
 
 class ConfigArgumentHook(ABC):
@@ -358,19 +354,26 @@ class GetAttr(ConfigArgumentHook):
         return cls(node, hook_info)
 
 
-@dataclass
-class VariableReference:
-    def __init__(self, value: str) -> None:
-        env_names = re.findall(r"\$\{([^}]+)\}", value)
-        self.has_env = len(env_names) > 0
-        for env in env_names:
-            if not (env_value := os.environ.get(env, None)):
-                raise EnvVarParseError(f"Can not get environment variable {env}.")
-            value = re.sub(r"\$\{" + re.escape(env) + r"\}", env_value, value)
-        self.value = value
+class VariableReference(ClassNode):
+    _name: str
 
-    def __call__(self) -> str:
-        return self.value
+    @classmethod
+    def __excore_parse__(cls, config: ConfigDict, **locals) -> VariableReference:
+        name = locals["name"]
+        logger.ex(f"Got `name` {name}.")
+        parsed_value = config._parse_env_var(name)
+        if parsed_value != name:
+            node = cls(parsed_value)
+        elif name not in config:
+            raise CoreConfigParseError(f"Can not find reference: {name}.")
+        else:
+            node = cls(config[name])
+        node._name = name
+        return node
+
+    @property
+    def name(self) -> str:
+        return self._name
 
 
 ConfigNode = Union[ModuleNode, ConfigArgumentHook]
@@ -380,9 +383,7 @@ NodeType = Type[ModuleNode]
 class ModuleWrapper(dict):
     def __init__(
         self,
-        modules: (
-            dict[str, ConfigNode] | list[ConfigNode] | ConfigNode | VariableReference | None
-        ) = None,
+        modules: dict[str, ConfigNode] | list[ConfigNode] | ConfigNode | None = None,
         is_dict: bool = False,
     ) -> None:
         super().__init__()
@@ -444,6 +445,7 @@ _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     REUSE_FLAG: ReusedNode,
     INTER_FLAG: InterNode,
     CLASS_FLAG: ClassNode,
+    REFER_FLAG: VariableReference,
 }
 
 _dispatch_argument_hook: dict[str, Type[ConfigArgumentHook]] = {

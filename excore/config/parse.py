@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 import re
 from typing import TYPE_CHECKING
 
-from .._exceptions import CoreConfigParseError
+from .._exceptions import CoreConfigParseError, EnvVarParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
 from .models import (
@@ -14,7 +15,6 @@ from .models import (
     ModuleNode,
     ModuleWrapper,
     ReusedNode,
-    VariableReference,
     _dispatch_argument_hook,
     _dispatch_module_node,
     _is_special,
@@ -39,8 +39,8 @@ def _parse_param_name(name: str) -> tuple[str, list[tuple[str, str]]]:
 
 
 def _flatten_list(
-    lis: Sequence[ConfigNode | VariableReference | list[ConfigNode]],
-) -> Sequence[ConfigNode | VariableReference]:
+    lis: Sequence[ConfigNode | list[ConfigNode]],
+) -> Sequence[ConfigNode]:
     new_lis = []
     for i in lis:
         if isinstance(i, list):
@@ -267,9 +267,20 @@ class ConfigDict(dict):
                     self.current_field = k
         return is_contain
 
+    def _parse_env_var(self, value: str) -> str:
+        env_names = re.findall(r"\$\{([^}]+)\}", value)
+        for env in env_names:
+            if not (env_value := os.environ.get(env, None)):
+                raise EnvVarParseError(f"Can not get environment variable {env}.")
+            value = re.sub(r"\$\{" + re.escape(env) + r"\}", env_value, value)
+        return value
+
     def _get_name_and_field(
         self, name: str, ori_name: str | None = None
     ) -> tuple[str, str | None] | tuple[list[str], str]:
+        parsed_value = self._parse_env_var(name)
+        if parsed_value != name:
+            return name, None
         if not name.startswith("$"):
             return name, None
         if len(spec_name := name[1:].split("::")) > 2:
@@ -280,7 +291,7 @@ class ConfigDict(dict):
         if len(spec_name) > 0:
             if spec_name[0] == "*":
                 logger.warning(
-                    f"`The results of {spec_name} "
+                    f"`The results of {ori_name or name} "
                     "depend on their definition in config files when using `*`."
                 )
                 return [k.name for k in modules.values()], base
@@ -315,9 +326,7 @@ class ConfigDict(dict):
         node: ModuleNode = source[name]
         if node_params:
             node.add(**node_params)
-        if target_type.priority != ori_type.priority or target_type.__excore_should_convert__(
-            ori_type
-        ):
+        if target_type.priority != ori_type.priority:
             node = target_type.from_node(source[name])
             self._parse_module(node)
             if target_type.priority > ori_type.priority:
@@ -334,6 +343,9 @@ class ConfigDict(dict):
     ) -> tuple[ModuleNode, NodeType | None]:
         ori_type = None
         cache_field = self.current_field
+        if (node := target_type.__excore_parse__(self, **locals())) is not None:
+            logger.ex(f"\t\t\t `__excore_parse__` from `{target_type}`, got node {node}.")
+            return node, None
         if not field and name in self:
             logger.ex("\t\t\tFind module in top level.")
             node, ori_type = self._convert_node(name, self, target_type, node_params)
@@ -374,12 +386,10 @@ class ConfigDict(dict):
         node = self._apply_hooks(node, hooks)  # type: ignore
         return node
 
-    def _parse_param(
+    def _parse_params(
         self, ori_name: str, module_type: SpecialFlag
-    ) -> ConfigNode | list[ConfigNode] | VariableReference:
+    ) -> ConfigNode | list[ConfigNode]:
         logger.ex(f"\t\tParse with `{ori_name}` and `{module_type}`.")
-        if module_type == REFER_FLAG:
-            return VariableReference(ori_name)
         target_type = _dispatch_module_node[module_type]
         name, hooks = _parse_param_name(ori_name)
         names, field = self._get_name_and_field(name, ori_name)
@@ -399,36 +409,25 @@ class ConfigDict(dict):
             value = node.pop(param_name)
             if (
                 isinstance(value, str)
-                and value[0] == "&"
+                and value[0] == REFER_FLAG
                 and not (value := self.get(value[1:], None))
             ):
                 raise CoreConfigParseError(f"Cannot find `{value[1:]}` with `&`.")
             is_dict = False
             if isinstance(value, list):
                 logger.ex(f"\t\t{param_name}: List parameter {value}.")
-                value = [self._parse_param(v, module_type) for v in value]
+                value = [self._parse_params(v, module_type) for v in value]
                 value = _flatten_list(value)
             elif isinstance(value, str):
                 logger.ex(f"\t\t{param_name}: Single parameter {value}.")
-                value = self._parse_param(value, module_type)
+                value = self._parse_params(value, module_type)
             elif isinstance(value, dict):
                 logger.ex(f"\t\t{param_name}: Dict parameter {value}.")
-                value = {k: self._parse_param(v, module_type) for k, v in value.items()}
+                value = {k: self._parse_params(v, module_type) for k, v in value.items()}
                 is_dict = True
             else:
                 raise CoreConfigParseError(f"Wrong type: {param_name, value}")
-            if isinstance(value, VariableReference):
-                ref_name = value()
-                logger.ex(f"\t\tDetect VariableReference, value is parsed to `{ref_name}`.")
-                if not value.has_env:
-                    if ref_name not in self:
-                        raise CoreConfigParseError(f"Can not find reference: {ref_name}.")
-                    node[true_name] = self[ref_name]
-                else:
-                    node[true_name] = ref_name
-            else:
-                # FIXME: Parsing inner VariableReference
-                node[true_name] = ModuleWrapper(value, is_dict)
+            node[true_name] = ModuleWrapper(value, is_dict)
 
     def _parse_inter_modules(self) -> None:
         logger.ex("Parse inter modules.")
