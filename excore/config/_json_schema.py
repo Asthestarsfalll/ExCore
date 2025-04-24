@@ -54,6 +54,20 @@ TYPE_MAPPER: dict[type, str] = {
 
 
 def _init_json_schema(settings: dict | None) -> dict[str, Any]:
+    """
+    Initialize JSON schema for ExCore configuration.
+
+    This function creates a default JSON schema dictionary with title,
+    description, type, and properties. It then updates this schema with
+    any provided settings. Finally, it asserts that the schema contains
+    exactly four keys and returns the schema.
+
+    Args:
+        settings (dict | None): Optional settings to update the default schema.
+
+    Returns:
+        dict[str, Any]: The initialized JSON schema with default values.
+    """
     default_schema = {
         "title": "ExCore",
         "description": "Used for ExCore config file completion",
@@ -71,6 +85,23 @@ def _generate_json_schema_and_class_mapping(
     class_mapping_save_path: str | None = None,
     schema_settings: dict | None = None,
 ) -> None:
+    """
+    Generate JSON schema and class mapping for ExCore configuration.
+
+    This function loads the registries, initializes the JSON schema, and iterates
+    through the registry items to parse and populate the schema and class mapping.
+    It then writes the schema and class mapping to the specified paths and logs
+    success messages.
+
+    Args:
+        fields (dict): A dictionary containing fields and their corresponding
+                    primary fields or names.
+        save_path (str | None): Optional path to save the generated JSON schema.
+                                Defaults to workspace.json_schema_file.
+        class_mapping_save_path (str | None): Optional path to save the class mapping.
+                                            Defaults to workspace.class_mapping_file.
+        schema_settings (dict | None): Optional settings to update the JSON schema.
+    """
     load_registries()
     schema = _init_json_schema(schema_settings)
     class_mapping = {}
@@ -110,6 +141,21 @@ def _check(bases) -> bool:
 
 
 def parse_registry(reg: Registry) -> tuple[Property, dict[str, list[str | int]]]:
+    """
+    Parse registry items to generate JSON schema properties and class mapping.
+
+    This function iterates through the registry items, extracts relevant information
+    such as function signatures, docstrings, and source file locations, and constructs
+    a JSON schema property dictionary and a class mapping dictionary. It handles
+    exceptions and logs errors appropriately.
+
+    Args:
+        reg (Registry): The registry containing items to be parsed.
+
+    Returns:
+        tuple[Property, dict[str, list[str | int]]]: A tuple containing the generated
+            JSON schema properties and class mapping.
+    """
     props: Property = {
         "type": "object",
         "properties": {},
@@ -209,6 +255,22 @@ def _try_cast(anno) -> type | Any:
 
 
 def parse_single_param(param: Parameter) -> tuple[bool, Property]:
+    """
+    Parse a single parameter to generate JSON schema property.
+
+    This function handles various cases such as optional types, default values, and
+    variable positional/keyword arguments. It determines the type of the parameter
+    and constructs a corresponding JSON schema property dictionary. If the parameter
+    is required or has a specific type, it updates the property dictionary
+    accordingly.
+
+    Args:
+        param (Parameter): The parameter to be parsed.
+
+    Returns:
+        tuple[bool, Property]: A tuple containing a boolean indicating if the parameter
+            is required and a dictionary representing the JSON schema property.
+    """
     prop: Property = {}
     anno = param.annotation
     potential_type = None

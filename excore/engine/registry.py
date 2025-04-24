@@ -93,12 +93,6 @@ class RegistryMeta(type):
 
 # Maybe someday we can get rid of Registry?
 class Registry(dict, metaclass=RegistryMeta):  # type: ignore
-    _globals: Registry | None = None
-    # just a workaround for twice registry
-    _prevent_register: bool = False
-
-    extra_info: dict[str, str]
-
     """A registry that stores functions and classes by name.
 
     Attributes:
@@ -112,6 +106,11 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
             containing all functions and classes registered using Registry.
 
     """
+
+    _globals: Registry | None = None
+    # just a workaround for twice registry
+    _prevent_register: bool = False
+    extra_info: dict[str, str]
 
     def __init__(self, /, name: str, *, extra_field: str | Sequence[str] | None = None) -> None:
         super().__init__()

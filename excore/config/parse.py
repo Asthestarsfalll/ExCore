@@ -51,6 +51,22 @@ def _flatten_list(
 
 
 class ConfigDict(dict):
+    """A specialized dictionary used for parsing and managing configuration data.
+        It extends the functionality of the standard Python dictionary to
+        include methods for parsing configuration nodes,
+        handling special parameters, and managing primary and registered fields.
+
+    Attributes
+        primary_fields: A list of primary field names.
+        primary_to_registry: A dictionary mapping primary field names to
+            their corresponding registries.
+        registered_fields: A list of registered field names.
+        all_fields: A set containing all field names.
+        scratchpads_fields: A set containing scratchpad field names.
+        current_field: The current field being processed (can be None).
+        reused_caches: A dictionary for caching reused nodes.
+    """
+
     primary_fields: list
     primary_to_registry: dict[str, str]
     registered_fields: list
