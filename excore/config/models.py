@@ -51,6 +51,7 @@ OTHER_FLAG: Literal[""] = ""  # default flag.
 
 FLAG_PATTERN = re.compile(r"^([@!$&])(.*)$")
 DO_NOT_CALL_KEY = "__no_call__"  # flag for no call, which will be skipped.
+IS_PARSING = True  # flag for parsing
 SPECIAL_FLAGS = [OTHER_FLAG, INTER_FLAG, REUSE_FLAG, CLASS_FLAG, REFER_FLAG]
 HOOK_FLAGS = ["@", "."]  # hook flags.
 
@@ -230,8 +231,8 @@ class ModuleNode(dict):
             NoCallSkipFlag | NodeInstance: The instantiated module or the node itself
                 if _no_call is True.
         """
-        if self._no_call:
-            self._no_call = False
+        print(IS_PARSING)
+        if IS_PARSING and self._no_call:
             return self
         self._update_params(**params)
         self.validate()

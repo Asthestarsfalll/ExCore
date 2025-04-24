@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from .._exceptions import CoreConfigParseError, EnvVarParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
+from . import models
 from .models import (
     HOOK_FLAGS,
     OTHER_FLAG,
@@ -157,6 +158,7 @@ class ConfigDict(dict):
         NOTE: use `export EXCORE_DEBUG=1` to enable excore debug to
             get more information when parsing.
         """
+        models.IS_PARSING = True
         self._parse_primary_modules()
         self._parse_isolated_obj()
         self._parse_inter_modules()
