@@ -62,6 +62,9 @@ workspace = _WorkspaceConfig()
 
 ## 🅰 LOGO
 
+<details>
+
+<summary>LOGO</summary>
 ```python
 LOGO = """
 ▓█████ ▒██   ██▒ ▄████▄   ▒█████   ██▀███  ▓█████
@@ -77,19 +80,40 @@ LOGO = """
 """
 ```
 
+</details>
+
+
 
 ## Classes
 
 ## 🅲 \_WorkspaceConfig
 
 ```python
+@dataclass
 class _WorkspaceConfig:
+    name: str = field(default="")
+    src_dir: str = field(default="")
+    base_dir: str = field(default="")
+    cache_base_dir: str = field(default=osp.expanduser("~/.cache/excore/"))
+    cache_dir: str = field(default="")
+    registry_cache_file: str = field(default="")
+    json_schema_file: str = field(default="")
+    class_mapping_file: str = field(default="")
+    registries: list[str] = field(default_factory=list)
+    primary_fields: list[str] = field(default_factory=list)
+    primary_to_registry: dict[str, str] = field(default_factory=dict)
+    json_schema_fields: dict[str, str | list[str]] = field(default_factory=dict)
+    props: dict[Any, Any] = field(default_factory=dict)
+    excore_validate: bool = field(default=True)
+    excore_manual_set: bool = field(default=True)
+    excore_log_build_message: bool = field(default=False)
 ```
 
 
 ### 🅼 base\_name
 
 ```python
+@property
 def base_name(self):
 ```
 ### 🅼 \_\_post\_init\_\_

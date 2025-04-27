@@ -83,8 +83,9 @@ def _auto_register(target: str, module_name: str) -> None:
 ## 🅵 auto\_register
 
 ```python
+@app.command()
 def auto_register(
-    target: Annotated[str, CArg(help="What to be registered")] = "",
+    target: Annotated[str, CArg(help="What to be registered")] = ""
 ) -> None:
 ```
 
@@ -94,6 +95,7 @@ and register all modules, then dump to files.
 ## 🅵 primary\_fields
 
 ```python
+@app.command()
 def primary_fields() -> None:
 ```
 
@@ -101,6 +103,7 @@ Show primary\_fields.
 ## 🅵 registries
 
 ```python
+@app.command()
 def registries() -> None:
 ```
 
@@ -108,6 +111,7 @@ Show registries.
 ## 🅵 generate\_registries
 
 ```python
+@app.command()
 def generate_registries(
     entry: str = CArg(
         default="__init__",

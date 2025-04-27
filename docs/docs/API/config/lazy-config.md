@@ -13,6 +13,9 @@ title: lazy_config
 
 ```python
 class LazyConfig:
+    hook_key: str = "ExcoreHook"
+    modules_dict: dict[str, ModuleWrapper] = None
+    isolated_dict: dict[str, Any] = None
 ```
 
 
@@ -29,6 +32,7 @@ def parse(self) -> None:
 ### 🅼 config
 
 ```python
+@property
 def config(self) -> ConfigDict:
 ```
 ### 🅼 update

@@ -79,6 +79,7 @@ def load_registries() -> None:
 
 ```python
 class RegistryMeta(type):
+    _registry_pool: dict[str, Registry] = {}
 ```
 
 
@@ -93,6 +94,10 @@ Assert only call \`\_\_init\_\_\` once
 
 ```python
 class Registry(dict):
+    _globals: Registry | None = None
+    _prevent_register: bool = False
+    extra_info: dict[str, str] = None
+    __str__ = __repr__
 ```
 
 A registry that stores functions and classes by name.
@@ -117,26 +122,31 @@ def __init__(name: str, extra_field: str | Sequence[str] | None = None) -> None:
 ### 🅼 dump
 
 ```python
+@classmethod
 def dump(cls, update: bool = False) -> None:
 ```
 ### 🅼 load
 
 ```python
+@classmethod
 def load(cls) -> None:
 ```
 ### 🅼 lock\_register
 
 ```python
+@classmethod
 def lock_register(cls) -> None:
 ```
 ### 🅼 unlock\_register
 
 ```python
+@classmethod
 def unlock_register(cls) -> None:
 ```
 ### 🅼 get\_registry
 
 ```python
+@classmethod
 def get_registry(cls, name: str, default: Any = None) -> Registry:
 ```
 
@@ -146,6 +156,8 @@ registry exists.
 ### 🅼 find
 
 ```python
+@classmethod
+@functools.lru_cache(32)
 def find(cls, name: str) -> tuple[Any, str] | tuple[None, None]:
 ```
 
@@ -156,6 +168,7 @@ was found; otherwise, returns \`\(None, None\)\`.
 ### 🅼 make\_global
 
 ```python
+@classmethod
 def make_global(cls) -> Registry:
 ```
 
@@ -176,6 +189,7 @@ def __repr__(self) -> str:
 ### 🅼 register\_module
 
 ```python
+@overload
 def register_module(
     self,
     module: Callable[..., Any],
@@ -187,6 +201,7 @@ def register_module(
 ### 🅼 register\_module
 
 ```python
+@overload
 def register_module(
     self,
     module: ModuleType,
@@ -198,6 +213,7 @@ def register_module(
 ### 🅼 register\_module
 
 ```python
+@overload
 def register_module(
     self,
     module: str,
@@ -302,6 +318,7 @@ specifies which modules to include \(by default, includes all modules\).
 ### 🅼 registry\_table
 
 ```python
+@classmethod
 def registry_table(cls, **table_kwargs) -> str:
 ```
 

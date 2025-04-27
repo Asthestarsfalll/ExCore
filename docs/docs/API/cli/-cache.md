@@ -21,6 +21,7 @@ def _clear_cache(cache_dir: str) -> None:
 ## 🅵 clear\_cache
 
 ```python
+@app.command()
 def clear_cache() -> None:
 ```
 
@@ -28,6 +29,7 @@ Remove the cache folder which belongs to current workspace.
 ## 🅵 clear\_all\_cache
 
 ```python
+@app.command()
 def clear_all_cache() -> None:
 ```
 
@@ -35,6 +37,7 @@ Remove the whole cache folder.
 ## 🅵 cache\_list
 
 ```python
+@app.command()
 def cache_list() -> None:
 ```
 
@@ -42,5 +45,6 @@ Show cache folders.
 ## 🅵 cache\_dir
 
 ```python
+@app.command()
 def cache_dir() -> None:
 ```

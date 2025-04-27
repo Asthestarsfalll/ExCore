@@ -45,6 +45,7 @@ def __init__(
 ### 🅼 \_parse\_int\_float\_bool
 
 ```python
+@staticmethod
 def _parse_int_float_bool(val: str) -> int | float | bool | Any:
 ```
 
@@ -52,6 +53,7 @@ parse int/float/bool value in the string.
 ### 🅼 \_parse\_iterable
 
 ```python
+@staticmethod
 def _parse_iterable(val: str) -> list | tuple | Any:
 ```
 

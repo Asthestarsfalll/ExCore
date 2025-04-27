@@ -47,7 +47,7 @@ from the configuration dictionary.
 
 **Returns:**
 
-- **[dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | None**: The retrieved configuration dictionary or None if not found.
+- **[dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | [None](https://docs.python.org/3/library/constants.html#None)**: The retrieved configuration dictionary or None if not found.
 
 **Raises:**
 
@@ -129,7 +129,8 @@ Construct keyword arguments for module initialization.
 
 **Raises:**
 
-- **[RuntimeError](https://docs.python.org/3/library/exceptions.html#RuntimeError)**: If the length of \`args\` exceeds the length of \`param\_names\` that are not in \`receive\`.
+- **[RuntimeError](https://docs.python.org/3/library/exceptions.html#RuntimeError)**: If the length of \`args\` exceeds the length of
+\`param\_names\` that are not in \`receive\`.
 ## 🅵 enable\_finegrained\_config
 
 ```python
@@ -172,6 +173,8 @@ This function registers `FinegrainedConfig` as a global argument hook.
 
 ```python
 class FinegrainedConfig(ConfigArgumentHook):
+    rcv_key: str = "receive"
+    snd_key: str = "send"
 ```
 
 Fine-grained configuration hook for handling parameter passing and hierarchical config.
@@ -248,6 +251,7 @@ module instances, and returns the built module container.
 ### 🅼 \_\_excore\_prepare\_\_
 
 ```python
+@classmethod
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:

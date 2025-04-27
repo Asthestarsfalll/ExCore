@@ -10,7 +10,7 @@ title: parse
   - 🅵 [\_flatten\_list](#🅵-_flatten_list)
   - 🅵 [set\_primary\_fields](#🅵-set_primary_fields)
 - **Classes:**
-  - 🅲 [ConfigDict](#🅲-configdict) - The ConfigDict class is a specialized dictionary used for parsing and managing configuration data.
+  - 🅲 [ConfigDict](#🅲-configdict) - A specialized dictionary used for parsing and managing configuration data.
 
 ## Functions
 
@@ -45,28 +45,30 @@ def set_primary_fields(cfg) -> None:
 
 ```python
 class ConfigDict(dict):
+    primary_fields: list = None
+    primary_to_registry: dict[str, str] = None
+    registered_fields: list = None
+    all_fields: set[str] = None
+    scratchpads_fields: set[str] = set()
+    current_field: str | None = None
+    reused_caches: dict[str, ReusedNode] = None
 ```
 
-The ConfigDict class is a specialized dictionary used for parsing and managing configuration data.
+A specialized dictionary used for parsing and managing configuration data.
 
 It extends the functionality of the standard Python dictionary to
     include methods for parsing configuration nodes,
     handling special parameters, and managing primary and registered fields.
 
 Attributes
-primary\_fields: A list of primary field names.
-
-primary\_to\_registry: A dictionary mapping primary field names to their corresponding registries.
-
-registered\_fields: A list of registered field names.
-
-all\_fields: A set containing all field names.
-
-scratchpads\_fields: A set containing scratchpad field names.
-
-current\_field: The current field being processed \(can be None\).
-
-reused\_caches: A dictionary for caching reused nodes.
+    primary\_fields: A list of primary field names.
+    primary\_to\_registry: A dictionary mapping primary field names to
+        their corresponding registries.
+    registered\_fields: A list of registered field names.
+    all\_fields: A set containing all field names.
+    scratchpads\_fields: A set containing scratchpad field names.
+    current\_field: The current field being processed \(can be None\).
+    reused\_caches: A dictionary for caching reused nodes.
 
 
 ### 🅼 \_\_new\_\_
@@ -77,6 +79,7 @@ def __new__(cls) -> Self:
 ### 🅼 set\_primary\_fields
 
 ```python
+@classmethod
 def set_primary_fields(
     cls, primary_fields: Sequence[str], primary_to_registry: dict[str, str]
 ) -> None:

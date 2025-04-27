@@ -97,6 +97,7 @@ PROTOCOLS = {"HTTPS": GitHTTPSFetcher, "SSH": GitSSHFetcher}
 ## 🅵 cd
 
 ```python
+@contextmanager
 def cd(target: str) -> Iterator[None]:
 ```
 ## 🅵 download\_from\_url
@@ -140,6 +141,7 @@ def _init_hub(
 ## 🅵 import\_module
 
 ```python
+@functools.wraps(_init_hub)
 def import_module(*args, **kwargs):
 ```
 ## 🅵 list
@@ -189,12 +191,16 @@ def help(
 
 ```python
 class RepoFetcherBase:
+    pattern = re.compile(
+        "^(?:[a-z0-9](?:[a-z0-9-_]{0,61}[a-z0-9])?\\.)+[a-z0-9][a-z0-9-_]{0,61}[a-z]$"
+    )
 ```
 
 
 ### 🅼 fetch
 
 ```python
+@classmethod
 def fetch(
     cls,
     git_host: str,
@@ -207,26 +213,31 @@ def fetch(
 ### 🅼 \_parse\_repo\_info
 
 ```python
+@classmethod
 def _parse_repo_info(cls, repo_info: str) -> Tuple[str, str, str]:
 ```
 ### 🅼 \_check\_git\_host
 
 ```python
+@classmethod
 def _check_git_host(cls, git_host):
 ```
 ### 🅼 \_is\_valid\_domain
 
 ```python
+@classmethod
 def _is_valid_domain(cls, s):
 ```
 ### 🅼 \_is\_valid\_host
 
 ```python
+@classmethod
 def _is_valid_host(cls, s):
 ```
 ### 🅼 \_gen\_repo\_dir
 
 ```python
+@classmethod
 def _gen_repo_dir(cls, repo_dir: str) -> str:
 ```
 ## 🅲 GitSSHFetcher
@@ -239,6 +250,7 @@ class GitSSHFetcher(RepoFetcherBase):
 ### 🅼 fetch
 
 ```python
+@classmethod
 def fetch(
     cls,
     git_host: str,
@@ -251,18 +263,21 @@ def fetch(
 ### 🅼 \_check\_clone\_pipe
 
 ```python
+@classmethod
 def _check_clone_pipe(cls, p):
 ```
 ## 🅲 GitHTTPSFetcher
 
 ```python
 class GitHTTPSFetcher(RepoFetcherBase):
+    HTTP_TIMEOUT = (HTTP_CONNECTION_TIMEOUT, HTTP_READ_TIMEOUT)
 ```
 
 
 ### 🅼 fetch
 
 ```python
+@classmethod
 def fetch(
     cls,
     git_host: str,
@@ -275,6 +290,7 @@ def fetch(
 ### 🅼 \_download\_zip\_and\_extract
 
 ```python
+@classmethod
 def _download_zip_and_extract(cls, url, target_dir):
 ```
 ## 🅲 pretrained

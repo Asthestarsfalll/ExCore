@@ -14,6 +14,9 @@ title: path_manager
 
 ```python
 class DataclassProtocol(Protocol):
+    __dataclass_fields__: dict = None
+    __dataclass_params__: dict = None
+    __post_init__: Callable | None = None
 ```
 ## 🅲 PathManager
 

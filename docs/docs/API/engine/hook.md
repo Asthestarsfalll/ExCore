@@ -16,6 +16,10 @@ title: hook
 
 ```python
 class Hook(Protocol):
+    __HookType__: Sequence[Any] = None
+    __LifeSpan__: float = None
+    __CallInter__: int = None
+    __call__: Callable = None
 ```
 
 Represents a hook that can be used to register callback functions for specific events.
@@ -36,6 +40,7 @@ Note: This class cannot be instantiated directly, but it can be used to define o
 
 ```python
 class MetaHookManager(type):
+    stages: tuple[str, ...] = ()
 ```
 
 
@@ -59,6 +64,7 @@ a valid \`stages\` attribute.
 
 ```python
 class HookManager:
+    stages: tuple[str, ...] = tuple()
 ```
 
 
@@ -70,6 +76,7 @@ def __init__(self, hooks: Sequence[Hook]) -> None:
 ### 🅼 check\_life\_span
 
 ```python
+@staticmethod
 def check_life_span(hook: Hook) -> bool:
 ```
 
@@ -135,4 +142,5 @@ Convenience method for calling all hooks at a given event stage.
 
 ```python
 class ConfigHookManager(HookManager):
+    stages: tuple[str, ...] = ("pre_build", "every_build", "after_build")
 ```

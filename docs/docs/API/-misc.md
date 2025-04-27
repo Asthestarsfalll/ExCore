@@ -30,7 +30,7 @@ tabulate library and prepends the specified prefix.
 
 **Parameters:**
 
-- **header** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | list[str] | tuple[str, ...] | None): The header for the table.
+- **header** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | list[str] | tuple[str, ...] | [None](https://docs.python.org/3/library/constants.html#None)): The header for the table.
 Can be a string, list of strings, tuple of strings, or None.
 - **contents** (Sequence[str] | Sequence[Sequence[str]]): The contents of the table.
 Can be a sequence of strings or a sequence of sequences of strings.

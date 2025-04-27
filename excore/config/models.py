@@ -458,7 +458,7 @@ class InterNode(ModuleNode):
         """
         Checks if the target type is ReusedNode.
 
-        Critical:
+        Danger:
             Same `ModuleName` referring to both `ReusedNode` and `InterNode` are not allowed.
 
         Args:

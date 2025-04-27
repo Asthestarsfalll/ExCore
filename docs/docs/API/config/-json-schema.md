@@ -53,7 +53,7 @@ exactly four keys and returns the schema.
 
 **Parameters:**
 
-- **settings** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | None): Optional settings to update the default schema.
+- **settings** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | [None](https://docs.python.org/3/library/constants.html#None)): Optional settings to update the default schema.
 
 **Returns:**
 
@@ -80,11 +80,11 @@ success messages.
 
 - **fields** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict)): A dictionary containing fields and their corresponding
 primary fields or names.
-- **save_path** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | None): Optional path to save the generated JSON schema.
+- **save_path** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | [None](https://docs.python.org/3/library/constants.html#None)): Optional path to save the generated JSON schema.
 Defaults to workspace.json\_schema\_file.
-- **class_mapping_save_path** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | None): Optional path to save the class mapping.
+- **class_mapping_save_path** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | [None](https://docs.python.org/3/library/constants.html#None)): Optional path to save the class mapping.
 Defaults to workspace.class\_mapping\_file.
-- **schema_settings** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | None): Optional settings to update the JSON schema.
+- **schema_settings** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict) | [None](https://docs.python.org/3/library/constants.html#None)): Optional settings to update the JSON schema.
 ## 🅵 \_check
 
 ```python

@@ -19,6 +19,7 @@ def _dump_workspace_config() -> None:
 ## 🅵 update
 
 ```python
+@app.command()
 def update() -> None:
 ```
 
@@ -26,6 +27,7 @@ Update workspace config file.
 ## 🅵 init
 
 ```python
+@app.command()
 def init(
     force: Annotated[
         bool, COp(help="Whether forcibly initialize workspace")

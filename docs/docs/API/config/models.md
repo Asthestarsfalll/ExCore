@@ -17,6 +17,7 @@ title: models
   - 🅰 [OTHER\_FLAG](#🅰-other_flag) - default flag.
   - 🅰 [FLAG\_PATTERN](#🅰-flag_pattern) - flag for no call, which will be skipped.
   - 🅰 [DO\_NOT\_CALL\_KEY](#🅰-do_not_call_key) - flag for no call, which will be skipped.
+  - 🅰 [IS\_PARSING](#🅰-is_parsing) - flag for parsing
   - 🅰 [SPECIAL\_FLAGS](#🅰-special_flags) - hook flags.
   - 🅰 [HOOK\_FLAGS](#🅰-hook_flags) - hook flags.
   - 🅰 [ConfigNode](#🅰-confignode) - ConfigNode type in parsing phase
@@ -26,7 +27,7 @@ title: models
 - **Functions:**
   - 🅵 [silent](#🅵-silent) - Disables logging of build messages.
   - 🅵 [\_is\_special](#🅵-_is_special) - Determine if the given string begin with target special flag.
-  - 🅵 [\_str\_to\_target](#🅵-_str_to_target) - Imports a module or retrieves a class/function from a module based on the provided module name.
+  - 🅵 [\_str\_to\_target](#🅵-_str_to_target) - Imports a module or retrieves a class/function from a module
   - 🅵 [register\_special\_flag](#🅵-register_special_flag) - Register a new special flag for module nodes.
   - 🅵 [register\_argument\_hook](#🅵-register_argument_hook) - Register a new argument hook.
 - **Classes:**
@@ -114,6 +115,12 @@ FLAG_PATTERN = re.compile("^([@!$&])(.*)$") #flag for no call, which will be ski
 DO_NOT_CALL_KEY = """__no_call__""" #flag for no call, which will be skipped.
 ```
 
+## 🅰 IS\_PARSING
+
+```python
+IS_PARSING = True #flag for parsing
+```
+
 ## 🅰 SPECIAL\_FLAGS
 
 ```python
@@ -199,7 +206,9 @@ def _str_to_target(
 ) -> ModuleType | NodeClassType | FunctionType:
 ```
 
-Imports a module or retrieves a class/function from a module based on the provided module name.
+Imports a module or retrieves a class/function from a module
+
+based on the provided module name.
 
 **Parameters:**
 
@@ -207,7 +216,7 @@ Imports a module or retrieves a class/function from a module based on the provid
 
 **Returns:**
 
-- **ModuleType | [NodeClassType](models#🅰-nodeclasstype) | FunctionType**: The imported module, class or function.
+- **[ModuleType](https://docs.python.org/3/library/types.html#types.ModuleType) | [NodeClassType](models#🅰-nodeclasstype) | [FunctionType](https://docs.python.org/3/library/types.html#types.FunctionType)**: The imported module, class or function.
 
 **Raises:**
 
@@ -258,7 +267,11 @@ Defaults to False.
 ## 🅲 ModuleNode
 
 ```python
+@dataclass
 class ModuleNode(dict):
+    target: Any = None
+    _no_call: bool = field(default=False, repr=False)
+    priority: int = field(default=0, repr=False)
 ```
 
 A base class representing \`LazyConfig\` which is similar to \`detectron2.config.lazy.LazyCall\`.
@@ -308,6 +321,7 @@ it will be called first.
 ### 🅼 name
 
 ```python
+@property
 def name(self) -> str:
 ```
 
@@ -380,7 +394,7 @@ Updates the node with new parameters.
 
 **Raises:**
 
-- **TypeError**: If the provided parameters are not a dictionary.
+- **[TypeError](https://docs.python.org/3/library/exceptions.html#TypeError)**: If the provided parameters are not a dictionary.
 
 **Examples:**
 
@@ -405,7 +419,7 @@ Merges another node into the current node.
 
 **Raises:**
 
-- **TypeError**: If the provided other node is not a ModuleNode.
+- **[TypeError](https://docs.python.org/3/library/exceptions.html#TypeError)**: If the provided other node is not a ModuleNode.
 
 **Examples:**
 
@@ -415,6 +429,7 @@ node >> other
 ### 🅼 \_\_excore\_check\_target\_type\_\_
 
 ```python
+@classmethod
 def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
 ```
 
@@ -432,6 +447,7 @@ Used in config parsing phase.
 ### 🅼 \_\_excore\_parse\_\_
 
 ```python
+@classmethod
 def __excore_parse__(
     cls, config: ConfigDict, **locals: dict[str, Any]
 ) -> ModuleNode | None:
@@ -446,10 +462,11 @@ User defined parsing logic. Disabled by default.
 
 **Returns:**
 
-- **None | [ModuleNode](models#🅲-modulenode)**: The parsed node or None.
+- **[None](https://docs.python.org/3/library/constants.html#None) | [ModuleNode](models#🅲-modulenode)**: The parsed node or None.
 ### 🅼 from\_str
 
 ```python
+@classmethod
 def from_str(
     cls, str_target: str, params: NodeParams | None = None
 ) -> ModuleNode:
@@ -479,6 +496,7 @@ The `str_target` must be registered in the registry. More details see `Registry`
 ### 🅼 from\_base\_name
 
 ```python
+@classmethod
 def from_base_name(
     cls, base: str, name: str, params: NodeParams | None = None
 ) -> ModuleNode:
@@ -503,11 +521,12 @@ Creates a node from a base registry and name.
 **Examples:**
 
 ```python
-node = ModuleNode.from_base_name("registry_name", "registered_name", dict(param1=value1))
+>>> node = ModuleNode.from_base_name("Module", "ClassName", dict(param1=value1))
 ```
 ### 🅼 from\_node
 
 ```python
+@classmethod
 def from_node(cls, _other: ModuleNode) -> ModuleNode:
 ```
 
@@ -529,6 +548,7 @@ node = ModuleNode.from_node(other_node)
 ### 🅼 \_inspect\_params
 
 ```python
+@staticmethod
 def _inspect_params(cls: type) -> list[inspect.Parameter]:
 ```
 
@@ -563,6 +583,7 @@ If missing parameters are found and manual setting is allowed,
 
 ```python
 class InterNode(ModuleNode):
+    priority: int = 2
 ```
 
 Intermediate module node. More details see \`config.overview\`.
@@ -575,13 +596,11 @@ Intermediate module node. More details see \`config.overview\`.
 ### 🅼 \_\_excore\_check\_target\_type\_\_
 
 ```python
+@classmethod
 def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
 ```
 
 Checks if the target type is ReusedNode.
-
-Critical:
-    Same \`ModuleName\` referring to both \`ReusedNode\` and \`InterNode\` are not allowed.
 
 **Parameters:**
 
@@ -590,10 +609,16 @@ Critical:
 **Returns:**
 
 - **[bool](https://docs.python.org/3/library/stdtypes.html#boolean-values)**: True if the target type is ReusedNode, otherwise False.
+
+:::danger
+Same `ModuleName` referring to both `ReusedNode` and `InterNode` are not allowed.
+
+:::
 ## 🅲 ConfigHookNode
 
 ```python
 class ConfigHookNode(ModuleNode):
+    priority: int = 1
 ```
 
 Wrapper for \`Hook\` or \`ConfigArgumentHook\`.
@@ -620,6 +645,7 @@ Because the \`node\` should be passed in config parsing phase
 ### 🅼 \_\_call\_\_
 
 ```python
+@overload
 def __call__(
     self, **params: NodeParams
 ) -> NodeInstance | Hook | ConfigArgumentHook:
@@ -627,6 +653,7 @@ def __call__(
 ### 🅼 \_\_call\_\_
 
 ```python
+@overload
 def __call__(self, **params: dict[str, ModuleNode]) -> ConfigHookNode:
 ```
 ### 🅼 \_\_call\_\_
@@ -650,6 +677,7 @@ Calls the node to instantiate the module.
 
 ```python
 class ReusedNode(InterNode):
+    priority: int = 3
 ```
 
 A subclass of InterNode representing a reused module node.
@@ -662,6 +690,7 @@ A subclass of InterNode representing a reused module node.
 ### 🅼 \_\_call\_\_
 
 ```python
+@CacheOut()
 def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:
 ```
 
@@ -678,6 +707,7 @@ if \_no\_call is True.
 ### 🅼 \_\_excore\_check\_target\_type\_\_
 
 ```python
+@classmethod
 def __excore_check_target_type__(cls, target_type: NodeType) -> bool:
 ```
 
@@ -696,6 +726,7 @@ Same \`ModuleName\` referring to both \`ReusedNode\` and \`InterNode\` are not a
 
 ```python
 class ClassNode(ModuleNode):
+    priority: int = 1
 ```
 
 \`ClassNode\` returns the wrapped class, function or module itself instead of calling them.
@@ -722,11 +753,12 @@ Returns the class, function or module itself.
 
 **Returns:**
 
-- **[NodeClassType](models#🅰-nodeclasstype) | FunctionType | ModuleType**: The class or function.
+- **[NodeClassType](models#🅰-nodeclasstype) | [FunctionType](https://docs.python.org/3/library/types.html#types.FunctionType) | [ModuleType](https://docs.python.org/3/library/types.html#types.ModuleType)**: The class or function.
 ## 🅲 ConfigArgumentHook
 
 ```python
 class ConfigArgumentHook(ABC):
+    flag: str = "@"
 ```
 
 An abstract base class for configuration argument hooks.
@@ -759,6 +791,7 @@ Initializes the hook with a node and enabled status.
 ### 🅼 hook
 
 ```python
+@abstractmethod
 def hook(self, **kwargs: Any) -> Any:
 ```
 
@@ -778,6 +811,7 @@ Abstract method to implement the hook logic.
 ### 🅼 \_\_call\_\_
 
 ```python
+@final
 def __call__(self, **kwargs: Any) -> Any:
 ```
 
@@ -797,6 +831,7 @@ Calls the hook or the node based on the enabled status.
 ### 🅼 \_\_excore\_prepare\_\_
 
 ```python
+@classmethod
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:
@@ -821,6 +856,7 @@ Prepares the hook with configuration.
 
 ```python
 class GetAttr(ConfigArgumentHook):
+    flag: str = "."
 ```
 
 A subclass of ConfigArgumentHook for getting attributes.
@@ -865,6 +901,7 @@ Implements the hook logic to get the attribute.
 ### 🅼 from\_list
 
 ```python
+@classmethod
 def from_list(cls, node: ConfigNode, attrs: list[str]) -> ConfigNode:
 ```
 
@@ -881,6 +918,7 @@ Creates a chain of GetAttr hooks.
 ### 🅼 \_\_excore\_prepare\_\_
 
 ```python
+@classmethod
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:
@@ -901,6 +939,7 @@ Prepares the hook with configuration.
 
 ```python
 class VariableReference(ClassNode):
+    _name: str = None
 ```
 
 A subclass of ClassNode for variable references.
@@ -911,6 +950,7 @@ Inherited from \`ClassNode\` is just for convenience.
 ### 🅼 \_\_excore\_parse\_\_
 
 ```python
+@classmethod
 def __excore_parse__(cls, config: ConfigDict, **locals) -> VariableReference:
 ```
 
@@ -931,6 +971,7 @@ Find the reference and build the node.
 ### 🅼 name
 
 ```python
+@property
 def name(self) -> str:
 ```
 ## 🅲 ModuleWrapper

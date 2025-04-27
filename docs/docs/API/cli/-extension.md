@@ -16,6 +16,7 @@ title: _extension
 ## 🅵 config\_extension
 
 ```python
+@app.command()
 def config_extension() -> None:
 ```
 
@@ -30,6 +31,7 @@ def _generate_typehints(
 ## 🅵 generate\_typehints
 
 ```python
+@app.command()
 def generate_typehints(
     entry: str = CArg(default="module_types", help="The file to generate."),
     class_name: Annotated[
@@ -53,6 +55,7 @@ def _quote(config: str, override: bool) -> None:
 ## 🅵 quote
 
 ```python
+@app.command()
 def quote(
     config: Annotated[str, CArg(help="Target config file or folder.")],
     override: Annotated[bool, COp(help="Whether to override configs.")] = False,
