@@ -1,5 +1,6 @@
 ---
 title: models
+sidebar_position: 3
 ---
 
 ## TOC
@@ -147,6 +148,9 @@ NodeType = Type[ModuleNode] #Type of ModuleNode
 
 ## 🅰 \_dispatch\_module\_node
 
+<details>
+
+<summary>\_dispatch\_module\_node</summary>
 ```python
 _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     OTHER_FLAG: ModuleNode,
@@ -156,6 +160,9 @@ _dispatch_module_node: dict[SpecialFlag, NodeType] = {
     REFER_FLAG: VariableReference,
 } #type:ignore
 ```
+
+</details>
+
 
 ## 🅰 \_dispatch\_argument\_hook
 
@@ -173,14 +180,27 @@ _dispatch_argument_hook: dict[str, Type[ConfigArgumentHook]] = {
 
 ```python
 def silent() -> None:
+    workspace.excore_log_build_message = False
 ```
 
 Disables logging of build messages.
 ## 🅵 \_is\_special
 
+<details>
+
+<summary>\_is\_special</summary>
 ```python
 def _is_special(k: str) -> tuple[str, SpecialFlag]:
+    match = FLAG_PATTERN.match(k)
+    if match:
+        logger.ex(f"Find match `{match}`.")
+        return match.group(2), match.group(1)
+    logger.ex("No Match.")
+    return k, ""
 ```
+
+</details>
+
 
 Determine if the given string begin with target special flag.
 
@@ -197,14 +217,37 @@ Determine if the given string begin with target special flag.
 
 **Returns:**
 
-- **tuple[str, str]**: A tuple containing the modified string and the special flag.
+- **[tuple](https://docs.python.org/3/library/stdtypes.html#tuples)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str), [str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]**: A tuple containing the modified string and the special flag.
 ## 🅵 \_str\_to\_target
 
+<details>
+
+<summary>\_str\_to\_target</summary>
 ```python
 def _str_to_target(
     module_name: str,
 ) -> ModuleType | NodeClassType | FunctionType:
+    module_names = module_name.split(".")
+    if len(module_names) == 1:
+        return importlib.import_module(module_names[0])
+    target_name = module_names.pop(-1)
+    try:
+        module = importlib.import_module(".".join(module_names))
+    except ModuleNotFoundError as exc:
+        raise StrToClassError(
+            f"Cannot import such module: `{'.'.join(module_names)}`"
+        ) from exc
+    try:
+        module = getattr(module, target_name)
+    except AttributeError as exc:
+        raise StrToClassError(
+            f"Cannot find such module `{target_name}` form `{'.'.join(module_names)}`"
+        ) from exc
+    return module
 ```
+
+</details>
+
 
 Imports a module or retrieves a class/function from a module
 
@@ -223,11 +266,26 @@ based on the provided module name.
 - **[StrToClassError](../-exceptions#🅲-strtoclasserror)**: If the module or target cannot be imported or found.
 ## 🅵 register\_special\_flag
 
+<details>
+
+<summary>register\_special\_flag</summary>
 ```python
 def register_special_flag(
     flag: str, node_type: NodeType, force: bool = False
 ) -> None:
+    if not force and flag in SPECIAL_FLAGS:
+        raise ValueError(f"Special flag `{flag}` already exist.")
+    SPECIAL_FLAGS.append(flag)
+    global FLAG_PATTERN
+    FLAG_PATTERN = re.compile(f"^([{''.join(SPECIAL_FLAGS)}])(.*)$")
+    _dispatch_module_node[flag] = node_type
+    logger.ex(
+        f"Register new module node `{node_type}` with special flag `{flag}.`"
+    )
 ```
+
+</details>
+
 
 Register a new special flag for module nodes.
 
@@ -243,18 +301,31 @@ Defaults to False.
 - **[ValueError](https://docs.python.org/3/library/exceptions.html#ValueError)**: If the flag already exists and force is False.
 ## 🅵 register\_argument\_hook
 
+<details>
+
+<summary>register\_argument\_hook</summary>
 ```python
 def register_argument_hook(
     flag: str, node_type: Type[ConfigArgumentHook], force: bool = False
 ) -> None:
+    if not force and flag in HOOK_FLAGS:
+        raise ValueError(f"Special flag `{flag}` already exist.")
+    HOOK_FLAGS.append(flag)
+    _dispatch_argument_hook[flag] = node_type
+    logger.ex(
+        f"Register new hook node `{node_type}` with special flag `{flag}.`"
+    )
 ```
+
+</details>
+
 
 Register a new argument hook.
 
 **Parameters:**
 
 - **flag** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)): The flag associated with the hook.
-- **node_type** (Type[ConfigArgumentHook]): The type of hook to register.
+- **node_type** (Type[[ConfigArgumentHook](models#🅲-configargumenthook)]): The type of hook to register.
 - **force** ([bool](https://docs.python.org/3/library/stdtypes.html#boolean-values)): Whether to force registration if the flag already exists.
 Defaults to False.
 
@@ -307,9 +378,22 @@ result = node() # module itself
 
 ### 🅼 \_update\_params
 
+<details>
+
+<summary>\_update\_params</summary>
 ```python
 def _update_params(self, **params: NodeParams) -> None:
+    return_params = {}
+    for k, v in self.items():
+        if isinstance(v, (ModuleWrapper, ModuleNode)):
+            v = v()
+        return_params[k] = v
+    self.update(params)
+    self.update(return_params)
 ```
+
+</details>
+
 
 Updates the parameters of the node, if any parameter is instance of \`ModuleNode\`,
 
@@ -323,6 +407,7 @@ it will be called first.
 ```python
 @property
 def name(self) -> str:
+    return self.target.__name__
 ```
 
 Property to get the name of the associated class or module.
@@ -334,6 +419,8 @@ Property to get the name of the associated class or module.
 
 ```python
 def add(self, **params: NodeParams) -> Self:
+    self.update(params)
+    return self
 ```
 
 Adds parameters to the node.
@@ -347,9 +434,28 @@ Adds parameters to the node.
 - **[Self](https://docs.python.org/3/library/typing.html#typing.Self)**: The updated node.
 ### 🅼 \_instantiate
 
+<details>
+
+<summary>\_instantiate</summary>
 ```python
 def _instantiate(self) -> NodeInstance:
+    try:
+        if ismodule(self.target):
+            return self.target
+        module = self.target(**self)
+    except Exception as exc:
+        raise ModuleBuildError(
+            f"Instantiate Error with module {self.target} and arguments {self.items()}"
+        ) from exc
+    if workspace.excore_log_build_message:
+        logger.success(
+            f"Successfully instantiated: {self.target.__name__} with arguments {self.items()}"
+        )
+    return module
 ```
+
+</details>
+
 
 Instantiates the module, handling errors.
 
@@ -362,9 +468,22 @@ Instantiates the module, handling errors.
 - **[ModuleBuildError](../-exceptions#🅲-modulebuilderror)**: If instantiation fails.
 ### 🅼 \_\_call\_\_
 
+<details>
+
+<summary>\_\_call\_\_</summary>
 ```python
 def __call__(self, **params: NodeParams) -> NoCallSkipFlag | NodeInstance:
+    print(IS_PARSING)
+    if IS_PARSING and self._no_call:
+        return self
+    self._update_params(**params)
+    self.validate()
+    module = self._instantiate()
+    return module
 ```
+
+</details>
+
 
 Call the node.
 
@@ -380,6 +499,10 @@ if \_no\_call is True.
 
 ```python
 def __lshift__(self, params: NodeParams) -> Self:
+    if not isinstance(params, dict):
+        raise TypeError(f"Expect type is dict, but got {type(params)}")
+    self.update(params)
+    return self
 ```
 
 Updates the node with new parameters.
@@ -405,6 +528,10 @@ node << dict()
 
 ```python
 def __rshift__(self, __other: ModuleNode) -> Self:
+    if not isinstance(__other, ModuleNode):
+        raise TypeError(f"Expect type is `ModuleNode`, but got {type(__other)}")
+    __other.update(self)
+    return self
 ```
 
 Merges another node into the current node.
@@ -431,6 +558,7 @@ node >> other
 ```python
 @classmethod
 def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+    return False
 ```
 
 Checks if the target type do not matches the expected type.
@@ -439,7 +567,7 @@ Used in config parsing phase.
 
 **Parameters:**
 
-- **target_type** (type[ModuleNode]): The target type to check.
+- **target_type** ([type](https://docs.python.org/3/library/functions.html#type)[[ModuleNode](models#🅲-modulenode)]): The target type to check.
 
 **Returns:**
 
@@ -451,6 +579,7 @@ Used in config parsing phase.
 def __excore_parse__(
     cls, config: ConfigDict, **locals: dict[str, Any]
 ) -> ModuleNode | None:
+    return None
 ```
 
 User defined parsing logic. Disabled by default.
@@ -458,19 +587,31 @@ User defined parsing logic. Disabled by default.
 **Parameters:**
 
 - **config** ([ConfigDict](parse#🅲-configdict)): The configuration to parse.
-- ****locals** (dict[str, Any]): Additional local variables for parsing.
+- ****locals** ([dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str), [Any](https://docs.python.org/3/library/typing.html#typing.Any)]): Additional local variables for parsing.
 
 **Returns:**
 
 - **[None](https://docs.python.org/3/library/constants.html#None) | [ModuleNode](models#🅲-modulenode)**: The parsed node or None.
 ### 🅼 from\_str
 
+<details>
+
+<summary>from\_str</summary>
 ```python
 @classmethod
 def from_str(
     cls, str_target: str, params: NodeParams | None = None
 ) -> ModuleNode:
+    node = cls(_str_to_target(str_target))
+    if params:
+        node.update(params)
+    if node.pop(DO_NOT_CALL_KEY, False):
+        node._no_call = True
+    return node
 ```
+
+</details>
+
 
 Creates a node from a string target.
 
@@ -495,12 +636,25 @@ The `str_target` must be registered in the registry. More details see `Registry`
 :::
 ### 🅼 from\_base\_name
 
+<details>
+
+<summary>from\_base\_name</summary>
 ```python
 @classmethod
 def from_base_name(
     cls, base: str, name: str, params: NodeParams | None = None
 ) -> ModuleNode:
+    try:
+        cls_name = Registry.get_registry(base)[name]
+    except KeyError as exc:
+        raise ModuleBuildError(
+            f"Failed to find the registered module `{name}` with base registry `{base}`"
+        ) from exc
+    return cls.from_str(cls_name, params)
 ```
+
+</details>
+
 
 Creates a node from a base registry and name.
 
@@ -525,10 +679,21 @@ Creates a node from a base registry and name.
 ```
 ### 🅼 from\_node
 
+<details>
+
+<summary>from\_node</summary>
 ```python
 @classmethod
 def from_node(cls, _other: ModuleNode) -> ModuleNode:
+    if _other.__class__.__name__ == cls.__name__:
+        return _other
+    node = cls(_other.target) << _other
+    node._no_call = _other._no_call
+    return node
 ```
+
+</details>
+
 
 Creates a new ModuleNode instance from another ModuleNode instance.
 
@@ -547,10 +712,21 @@ node = ModuleNode.from_node(other_node)
 ```
 ### 🅼 \_inspect\_params
 
+<details>
+
+<summary>\_inspect\_params</summary>
 ```python
 @staticmethod
 def _inspect_params(cls: type) -> list[inspect.Parameter]:
+    signature = inspect.signature(cls.__init__ if isclass(cls) else cls)
+    params = list(signature.parameters.values())
+    if isclass(cls):
+        params = params[1:]
+    return params
 ```
+
+</details>
+
 
 Retrieves the inspect parameter objects of a class or function.
 
@@ -560,12 +736,44 @@ Retrieves the inspect parameter objects of a class or function.
 
 **Returns:**
 
-- **list[inspect.Parameter]**: A list of inspect.Parameter objects.
+- **[list](https://docs.python.org/3/library/stdtypes.html#lists)[[inspect.Parameter](https://docs.python.org/3/library/inspect.html#inspect.Parameter)]**: A list of inspect.Parameter objects.
 ### 🅼 validate
 
+<details>
+
+<summary>validate</summary>
 ```python
 def validate(self) -> None:
+    if not workspace.excore_validate:
+        return
+    if ismodule(self.target):
+        return
+    missing = []
+    defaults = []
+    params = ModuleNode._inspect_params(self.target)
+    for param in params:
+        if (
+            param.default == param.empty
+            and param.kind
+            not in [Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD]
+            and param.name not in self
+        ):
+            missing.append(param.name)
+        else:
+            defaults.append(param.name)
+    message = f"Validating `{self.target.__name__}` , finding missing parameters: `{missing}` without default values."
+    if not workspace.excore_manual_set and missing:
+        raise ModuleValidateError(message)
+    if missing:
+        logger.info(message)
+    for param_name in missing:
+        logger.info(f"Input value of parameter `{param_name}`:")
+        value = input()
+        self[param_name] = DictAction._parse_iterable(value)
 ```
+
+</details>
+
 
 Validate the parameters of the ModuleNode instance.
 
@@ -598,13 +806,14 @@ Intermediate module node. More details see \`config.overview\`.
 ```python
 @classmethod
 def __excore_check_target_type__(cls, target_type: type[ModuleNode]) -> bool:
+    return target_type is ReusedNode
 ```
 
 Checks if the target type is ReusedNode.
 
 **Parameters:**
 
-- **target_type** (type[ModuleNode]): The target type to check.
+- **target_type** ([type](https://docs.python.org/3/library/functions.html#type)[[ModuleNode](models#🅲-modulenode)]): The target type to check.
 
 **Returns:**
 
@@ -630,9 +839,20 @@ Wrapper for \`Hook\` or \`ConfigArgumentHook\`.
 
 ### 🅼 validate
 
+<details>
+
+<summary>validate</summary>
 ```python
 def validate(self) -> None:
+    if "node" in self:
+        raise ModuleValidateError(
+            f"Parameter `node:{self['node']}` should not exist in `ConfigHookNode`."
+        )
+    super().validate()
 ```
+
+</details>
+
 
 Validates the node, ensuring 'node' parameter is not present.
 
@@ -662,6 +882,8 @@ def __call__(self, **params: dict[str, ModuleNode]) -> ConfigHookNode:
 def __call__(
     self, **params: NodeParams
 ) -> NodeInstance | Hook | ConfigArgumentHook:
+    self._update_params(**params)
+    return self._instantiate()
 ```
 
 Calls the node to instantiate the module.
@@ -692,6 +914,7 @@ A subclass of InterNode representing a reused module node.
 ```python
 @CacheOut()
 def __call__(self, **params: NodeParams) -> NodeInstance | NoCallSkipFlag:
+    return super().__call__(**params)
 ```
 
 Calls the node to instantiate the module, with caching, see \`CacheOut\`.
@@ -709,6 +932,7 @@ if \_no\_call is True.
 ```python
 @classmethod
 def __excore_check_target_type__(cls, target_type: NodeType) -> bool:
+    return target_type is InterNode
 ```
 
 Checks if the target type is InterNode.
@@ -740,6 +964,7 @@ class ClassNode(ModuleNode):
 
 ```python
 def validate(self) -> None:
+    return
 ```
 
 Does nothing for class nodes for it should not have any parameters.
@@ -747,6 +972,7 @@ Does nothing for class nodes for it should not have any parameters.
 
 ```python
 def __call__(self) -> NodeClassType | FunctionType | ModuleType:
+    return self.target
 ```
 
 Returns the class, function or module itself.
@@ -774,9 +1000,21 @@ An abstract base class for configuration argument hooks.
 
 ### 🅼 \_\_init\_\_
 
+<details>
+
+<summary>\_\_init\_\_</summary>
 ```python
 def __init__(self, node: Callable, enabled: bool = True) -> None:
+    self.node = node
+    self.enabled = enabled
+    if not hasattr(node, "name"):
+        raise ValueError("The `node` must have name attribute.")
+    self.name = node.name
+    self._is_initialized = True
 ```
+
+</details>
+
 
 Initializes the hook with a node and enabled status.
 
@@ -793,6 +1031,9 @@ Initializes the hook with a node and enabled status.
 ```python
 @abstractmethod
 def hook(self, **kwargs: Any) -> Any:
+    raise NotImplementedError(
+        f"`{self.__class__.__name__}` do not implement `hook` method."
+    )
 ```
 
 Abstract method to implement the hook logic.
@@ -810,10 +1051,23 @@ Abstract method to implement the hook logic.
 - **[NotImplementedError](https://docs.python.org/3/library/exceptions.html#NotImplementedError)**: If the method is not implemented by a subclass.
 ### 🅼 \_\_call\_\_
 
+<details>
+
+<summary>\_\_call\_\_</summary>
 ```python
 @final
 def __call__(self, **kwargs: Any) -> Any:
+    if not getattr(self, "_is_initialized", False):
+        raise CoreConfigSupportError(
+            f"Call super().__init__(node) in class `{self.__class__.__name__}`"
+        )
+    if self.enabled:
+        return self.hook(**kwargs)
+    return self.node(**kwargs)
 ```
+
+</details>
+
 
 Calls the hook or the node based on the enabled status.
 
@@ -830,12 +1084,28 @@ Calls the hook or the node based on the enabled status.
 - **[CoreConfigSupportError](../-exceptions#🅲-coreconfigsupporterror)**: If the hook is not properly initialized.
 ### 🅼 \_\_excore\_prepare\_\_
 
+<details>
+
+<summary>\_\_excore\_prepare\_\_</summary>
 ```python
 @classmethod
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:
+    hook_name, field = config._get_name_and_field(hook_info)
+    if not isinstance(hook_name, str):
+        raise CoreConfigParseError(
+            f"More than one or none of hooks are found with `{hook_info}`."
+        )
+    hook_node = config._get_node_from_name_and_field(
+        hook_name, field, ConfigHookNode
+    )[0]
+    node = hook_node(node=node)
+    return node
 ```
+
+</details>
+
 
 Prepares the hook with configuration.
 
@@ -871,6 +1141,8 @@ A subclass of ConfigArgumentHook for getting attributes.
 
 ```python
 def __init__(self, node: ConfigNode, attr: str) -> None:
+    super().__init__(node)
+    self.attr = attr
 ```
 
 Initializes the hook with a node and attribute.
@@ -883,6 +1155,10 @@ Initializes the hook with a node and attribute.
 
 ```python
 def hook(self, **params: NodeParams) -> Any:
+    target = self.node(**params)
+    if isinstance(target, ModuleNode):
+        raise ModuleBuildError(f"Do not support `{DO_NOT_CALL_KEY}`")
+    return eval("target." + self.attr)
 ```
 
 Implements the hook logic to get the attribute.
@@ -903,6 +1179,9 @@ Implements the hook logic to get the attribute.
 ```python
 @classmethod
 def from_list(cls, node: ConfigNode, attrs: list[str]) -> ConfigNode:
+    for attr in attrs:
+        node = cls(node, attr)
+    return node
 ```
 
 Creates a chain of GetAttr hooks.
@@ -910,7 +1189,7 @@ Creates a chain of GetAttr hooks.
 **Parameters:**
 
 - **node** ([ConfigNode](models#🅰-confignode)): The initial node.
-- **attrs** (list[str]): The list of attributes to get.
+- **attrs** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]): The list of attributes to get.
 
 **Returns:**
 
@@ -922,6 +1201,7 @@ Creates a chain of GetAttr hooks.
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:
+    return cls(node, hook_info)
 ```
 
 Prepares the hook with configuration.
@@ -949,10 +1229,27 @@ Inherited from \`ClassNode\` is just for convenience.
 
 ### 🅼 \_\_excore\_parse\_\_
 
+<details>
+
+<summary>\_\_excore\_parse\_\_</summary>
 ```python
 @classmethod
 def __excore_parse__(cls, config: ConfigDict, **locals) -> VariableReference:
+    name = locals["name"]
+    logger.ex(f"Got `name` {name}.")
+    parsed_value = config._parse_env_var(name)
+    if parsed_value != name:
+        node = cls(parsed_value)
+    elif name not in config:
+        raise CoreConfigParseError(f"Can not find reference: {name}.")
+    else:
+        node = cls(config[name])
+    node._name = name
+    return node
 ```
+
+</details>
+
 
 Find the reference and build the node.
 
@@ -973,6 +1270,7 @@ Find the reference and build the node.
 ```python
 @property
 def name(self) -> str:
+    return self._name
 ```
 ## 🅲 ModuleWrapper
 
@@ -983,6 +1281,9 @@ class ModuleWrapper(dict):
 
 ### 🅼 \_\_init\_\_
 
+<details>
+
+<summary>\_\_init\_\_</summary>
 ```python
 def __init__(
     self,
@@ -991,34 +1292,82 @@ def __init__(
     ) = None,
     is_dict: bool = False,
 ) -> None:
+    if modules is None:
+        return
+    self.is_dict = is_dict
+    if isinstance(modules, (ModuleNode, ConfigArgumentHook)):
+        self[modules.name] = modules
+    elif isinstance(modules, dict):
+        for k, m in modules.items():
+            if isinstance(m, list):
+                m = ModuleWrapper(m)
+            self[k] = m
+    elif isinstance(modules, list):
+        for m in modules:
+            self[self._get_name(m)] = m
+        if len(self) != len(modules):
+            raise ValueError("Currently not support for the same class name")
+    else:
+        raise TypeError(
+            f"Expect modules to be `list`, `dict` or `ModuleNode`, but got {type(modules)}"
+        )
 ```
+
+</details>
+
 ### 🅼 \_get\_name
 
 ```python
 def _get_name(self, m) -> Any:
+    if hasattr(m, "name"):
+        return m.name
+    return m.__class__.__name__
 ```
 ### 🅼 \_\_lshift\_\_
 
 ```python
 def __lshift__(self, params: NodeParams) -> None:
+    if len(self) == 1:
+        self[next(iter(self.keys()))] << params
+    else:
+        raise RuntimeError("Wrapped more than 1 ModuleNode, index first")
 ```
 ### 🅼 first
 
 ```python
 def first(self) -> NodeInstance | Self:
+    if len(self) == 1:
+        return next(iter(self.values()))
+    return self
 ```
 ### 🅼 \_\_getattr\_\_
 
+<details>
+
+<summary>\_\_getattr\_\_</summary>
 ```python
 def __getattr__(self, __name: str) -> Any:
+    if __name in self.keys():
+        return self[__name]
+    raise KeyError(
+        f"Invalid key `{__name}`, must be one of `{list(self.keys())}`"
+    )
 ```
+
+</details>
+
 ### 🅼 \_\_call\_\_
 
 ```python
 def __call__(self):
+    if self.is_dict:
+        return {k: v() for k, v in self.items()}
+    res = [m() for m in self.values()]
+    return res[0] if len(res) == 1 else res
 ```
 ### 🅼 \_\_repr\_\_
 
 ```python
 def __repr__(self) -> str:
+    return f"ModuleWrapper{list(self.values())}"
 ```

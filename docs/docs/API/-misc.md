@@ -1,5 +1,6 @@
 ---
 title: _misc
+sidebar_position: 3
 ---
 
 ## TOC
@@ -13,6 +14,9 @@ title: _misc
 
 ## 🅵 \_create\_table
 
+<details>
+
+<summary>\_create\_table</summary>
 ```python
 def _create_table(
     header: str | list[str] | tuple[str, ...] | None,
@@ -20,7 +24,20 @@ def _create_table(
     prefix: str = "\n",
     **table_kwargs: Any
 ) -> str:
+    if len(contents) > 0 and isinstance(contents[0], str):
+        contents = [(i,) for i in contents]
+    if header is None:
+        header = ()
+    if not isinstance(header, (list, tuple)):
+        header = [header]
+    table = tabulate(
+        contents, headers=header, tablefmt="fancy_grid", **table_kwargs
+    )
+    return prefix + table
 ```
+
+</details>
+
 
 Create a formatted table from the given header and contents.
 
@@ -30,9 +47,9 @@ tabulate library and prepends the specified prefix.
 
 **Parameters:**
 
-- **header** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str) | list[str] | tuple[str, ...] | [None](https://docs.python.org/3/library/constants.html#None)): The header for the table.
+- **header** (str | list[str] | tuple[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str), ...] | [None](https://docs.python.org/3/library/constants.html#None)]]): The header for the table.
 Can be a string, list of strings, tuple of strings, or None.
-- **contents** (Sequence[str] | Sequence[Sequence[str]]): The contents of the table.
+- **contents** ([Sequence](https://docs.python.org/3/library/typing.html#typing.Sequence)[str] | Sequence[[Sequence](https://docs.python.org/3/library/typing.html#typing.Sequence)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]]]): The contents of the table.
 Can be a sequence of strings or a sequence of sequences of strings.
 - **prefix** ([str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)): A prefix to prepend to the table. Default is a newline character.
 - ****table_kwargs** ([Any](https://docs.python.org/3/library/typing.html#typing.Any)): Additional keyword arguments to pass to the tabulate function.
@@ -62,16 +79,33 @@ Methods:
 
 ### 🅼 \_\_call\_\_
 
+<details>
+
+<summary>\_\_call\_\_</summary>
 ```python
 def __call__(self, func: Callable[..., Any]):
+
+    @functools.wraps(func)
+    def _cache(self) -> Any:
+        if not hasattr(self, "cached_elem"):
+            cached_elem = func(self)
+            if cached_elem != self:
+                self.cached_elem = cached_elem
+            return cached_elem
+        return self.cached_elem
+
+    return _cache
 ```
+
+</details>
+
 
 Decorates a method to cache its output.
 
 **Parameters:**
 
-- **func** (Callable[..., Any]): The method to be decorated.
+- **func** ([Callable](https://docs.python.org/3/library/typing.html#typing.Callable)[..., [Any](https://docs.python.org/3/library/typing.html#typing.Any)]): The method to be decorated.
 
 **Returns:**
 
-- **Callable[..., Any]**: The decorated method.
+- **[Callable](https://docs.python.org/3/library/typing.html#typing.Callable)[..., [Any](https://docs.python.org/3/library/typing.html#typing.Any)]**: The decorated method.

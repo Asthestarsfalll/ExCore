@@ -69,8 +69,6 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      // Replace with your project's social card
-      // image: "./img/docusaurus-social-card.jpg",
       navbar: {
         title: "ExCore",
         logo: {
@@ -85,7 +83,13 @@ const config = {
             type: "docSidebar",
             sidebarId: "tutorialSidebar",
             position: "left",
-            label: "Docs",
+            label: "Tuorial",
+          },
+          {
+            sidebarId: "Documentation",
+            position: "left",
+            label: "API Reference",
+            to: "docs/API/"
           },
           { to: "/blog", label: "Blog", position: "left" },
           {

@@ -1,5 +1,6 @@
 ---
 title: finegrained_config
+sidebar_position: 3
 ---
 
 ## TOC
@@ -29,9 +30,21 @@ ArgType = Union[int, float, bool, str, list, dict]
 
 ## 🅵 \_get\_info\_dict
 
+<details>
+
+<summary>\_get\_info\_dict</summary>
 ```python
 def _get_info_dict(index: str, config: ConfigDict) -> dict | None:
+    if not index.startswith("$"):
+        return config.pop(index, None)
+    for idx in index[1:].split("::"):
+        if not (config := config.pop(idx, None)):
+            raise CoreConfigParseError(f"{index}")
+    return config
 ```
+
+</details>
+
 
 Retrieve configuration dictionary based on index.
 
@@ -62,9 +75,21 @@ from the configuration dictionary.
 ```
 ## 🅵 \_check\_info
 
+<details>
+
+<summary>\_check\_info</summary>
 ```python
 def _check_info(info: dict) -> None:
+    excepted_keys = ["$class_mapping", "info", "args"]
+    for key in excepted_keys:
+        if key not in info:
+            raise CoreConfigParseError(
+                f"Excepted keys {excepted_keys}, but cannot found {key}."
+            )
 ```
+
+</details>
+
 
 Validate configuration info dictionary.
 
@@ -81,9 +106,26 @@ a CoreConfigParseError with an appropriate error message.
 - **[CoreConfigParseError](../-exceptions#🅲-coreconfigparseerror)**: If any of the expected keys are missing from the info dictionary.
 ## 🅵 \_get\_rcv\_snd
 
+<details>
+
+<summary>\_get\_rcv\_snd</summary>
 ```python
 def _get_rcv_snd(module: type) -> list[str | list[str]]:
+    module_name = module.__name__
+    registry_name = Registry.find(module_name)[1]
+    assert registry_name is not None
+    reg = Registry.get_registry(registry_name)
+    keys = [FinegrainedConfig.rcv_key, FinegrainedConfig.snd_key]
+    for k in keys:
+        if k not in reg.extra_field:
+            raise CoreConfigParseError(
+                f"`{k}` must in extra_field of Registry `{registry_name}`."
+            )
+    return [reg.get_extra_info(module_name, k) for k in keys]
 ```
+
+</details>
+
 
 Retrieve receive and send parameter configurations for a module.
 
@@ -93,7 +135,7 @@ Retrieve receive and send parameter configurations for a module.
 
 **Returns:**
 
-- **list[str | list[str]]**: A list containing receive and send parameters \[receive, send\].
+- **[list](https://docs.python.org/3/library/stdtypes.html#lists)[str | list[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]]**: A list containing receive and send parameters \[receive, send\].
 
 **Raises:**
 
@@ -102,9 +144,15 @@ Retrieve receive and send parameter configurations for a module.
 
 ```python
 def _to_list(item: str | list[str]) -> list[str]:
+    if isinstance(item, str):
+        return [item]
+    return item
 ```
 ## 🅵 \_construct\_kwargs
 
+<details>
+
+<summary>\_construct\_kwargs</summary>
 ```python
 def _construct_kwargs(
     by_args: list[ArgType],
@@ -112,20 +160,31 @@ def _construct_kwargs(
     param_names: list[str],
     receive: list[str],
 ) -> dict[str, ArgType]:
+    kwargs = {n: a for n, a in zip(receive, by_args)}
+    param_names = [i for i in param_names if i not in receive]
+    if len(args) > len(param_names):
+        raise RuntimeError(
+            f"Expected length of `{args}` to be less than f`{len(param_names)}.`"
+        )
+    kwargs.update({n: a for n, a in zip(param_names, args)})
+    return kwargs
 ```
+
+</details>
+
 
 Construct keyword arguments for module initialization.
 
 **Parameters:**
 
-- **passby_args** (list[ArgType]): List of arguments passed from the previous layer.
-- **args** (list[ArgType]): List of arguments for the current layer.
-- **param_names** (list[str]): List of parameter names.
-- **receive** (list[str]): List of parameter names to receive.
+- **passby_args** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[ArgType](finegrained-config#🅰-argtype)]): List of arguments passed from the previous layer.
+- **args** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[ArgType](finegrained-config#🅰-argtype)]): List of arguments for the current layer.
+- **param_names** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]): List of parameter names.
+- **receive** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str)]): List of parameter names to receive.
 
 **Returns:**
 
-- **dict[str, ArgType]**: Dictionary of constructed keyword arguments.
+- **[dict](https://docs.python.org/3/library/stdtypes.html#mapping-types-dict)[[str](https://docs.python.org/3/library/stdtypes.html#text-sequence-type-str), [ArgType](finegrained-config#🅰-argtype)]**: Dictionary of constructed keyword arguments.
 
 **Raises:**
 
@@ -133,6 +192,9 @@ Construct keyword arguments for module initialization.
 \`param\_names\` that are not in \`receive\`.
 ## 🅵 enable\_finegrained\_config
 
+<details>
+
+<summary>enable\_finegrained\_config</summary>
 ```python
 def enable_finegrained_config(
     hook_flag: str = "*",
@@ -140,7 +202,13 @@ def enable_finegrained_config(
     snd_key: str = "send",
     force: bool = False,
 ) -> None:
+    register_argument_hook(hook_flag, FinegrainedConfig, force)
+    FinegrainedConfig.rcv_key = rcv_key
+    FinegrainedConfig.snd_key = snd_key
 ```
+
+</details>
+
 
 Enable fine-grained configuration functionality.
 
@@ -187,10 +255,10 @@ More details can be found in the documentation of the \`ConfigArgumentHook\` cla
 **Parameters:**
 
 - **node** ([ModuleNode](../config/models#🅲-modulenode)): Module node object.
-- **class_mapping** (list[type]): List of class mappings.
-- **info** (list[list[int]]): List of module configuration information.
+- **class_mapping** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[type](https://docs.python.org/3/library/functions.html#type)]): List of class mappings.
+- **info** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[list](https://docs.python.org/3/library/stdtypes.html#lists)[[int](https://docs.python.org/3/library/stdtypes.html#numeric-types-int-float-complex)]]): List of module configuration information.
 Each element should contain the number and module index in class\_mapping.
-- **args** (list[list[ArgType]]): List of module arguments.
+- **args** ([list](https://docs.python.org/3/library/stdtypes.html#lists)[[list](https://docs.python.org/3/library/stdtypes.html#lists)[[ArgType](finegrained-config#🅰-argtype)]]): List of module arguments.
 - **unpack** ([bool](https://docs.python.org/3/library/stdtypes.html#boolean-values)): Whether to unpack the layers list when calling container.
 Defaults to False. If True, layers will be passed as \*layers, otherwise as a list.
 - **enabled** ([bool](https://docs.python.org/3/library/stdtypes.html#boolean-values)) (default to `True`): Whether to enable this hook. Defaults to True.
@@ -209,6 +277,9 @@ Defaults to False. If True, layers will be passed as \*layers, otherwise as a li
 
 ### 🅼 \_\_init\_\_
 
+<details>
+
+<summary>\_\_init\_\_</summary>
 ```python
 def __init__(
     self,
@@ -219,14 +290,60 @@ def __init__(
     unpack: bool = False,
     enabled: bool = True,
 ) -> None:
+    super().__init__(node, enabled)
+    self.class_mapping = class_mapping
+    self.param_names = [
+        [p.name for p in ModuleNode._inspect_params(c)] for c in class_mapping
+    ]
+    rcv_snd = [_get_rcv_snd(c) for c in class_mapping]
+    self.receive = [_to_list(i[0]) for i in rcv_snd]
+    self.send = [_to_list(i[1]) for i in rcv_snd]
+    self.info = info
+    self.args = args
+    self.unpacking = unpack
 ```
+
+</details>
+
 
 Initialize the fine-grained configuration hook.
 ### 🅼 hook
 
+<details>
+
+<summary>hook</summary>
 ```python
 def hook(self, **kwargs: Any) -> Any:
+    container = self.node()
+    layers = []
+    by = [self.args.pop(0)]
+    prev_module_idx = self.info[0][-1]
+    for (number, module_idx), args in zip(self.info, self.args):
+        if len((by_args := by[-1])) != len(self.receive[module_idx]):
+            raise RuntimeError(
+                f"Passby args {by_args} are not compatible with {self.receive[module_idx]}"
+            )
+        if len(self.receive[module_idx]) != len(self.send[prev_module_idx]):
+            raise RuntimeError(
+                f"Expected the `{self.receive[module_idx]}` and `{{self.send[prev_module_idx]}} to have same length.`"
+            )
+        kwargs = _construct_kwargs(
+            by_args,
+            args,
+            self.param_names[module_idx],
+            self.receive[module_idx],
+        )
+        for _ in range(number):
+            layers.append(self.class_mapping[module_idx](**kwargs))
+        by.append([kwargs[k] for k in self.send[module_idx]])
+        prev_module_idx = module_idx
+    if self.unpacking:
+        return container(*layers)
+    return container(layers)
 ```
+
+</details>
+
 
 Execute the configuration hook logic.
 
@@ -250,12 +367,24 @@ module instances, and returns the built module container.
 - **[RuntimeError](https://docs.python.org/3/library/exceptions.html#RuntimeError)**: When parameter passing is incompatible.
 ### 🅼 \_\_excore\_prepare\_\_
 
+<details>
+
+<summary>\_\_excore\_prepare\_\_</summary>
 ```python
 @classmethod
 def __excore_prepare__(
     cls, node: ConfigNode, hook_info: str, config: ConfigDict
 ) -> ConfigNode:
+    if not (info := _get_info_dict(hook_info, config)):
+        raise CoreConfigParseError()
+    _check_info(info)
+    info_node = ConfigHookNode(cls).add(**info)
+    config._parse_module(info_node)
+    return info_node.add(node=node)()
 ```
+
+</details>
+
 
 Prepare the configuration node.
 

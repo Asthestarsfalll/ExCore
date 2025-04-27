@@ -265,7 +265,7 @@ def parse_single_param(param: Parameter) -> tuple[bool, Property]:
     accordingly.
 
     Args:
-        param (Parameter): The parameter to be parsed.
+        param (inspect.Parameter): The parameter to be parsed.
 
     Returns:
         tuple[bool, Property]: A tuple containing a boolean indicating if the parameter
