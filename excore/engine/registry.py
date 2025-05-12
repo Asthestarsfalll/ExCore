@@ -105,6 +105,14 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
         _globals (Registry|None): A static variable that stores a global registry
             containing all functions and classes registered using Registry.
 
+    Examples:
+        >>> from excore import Registry
+
+        >>> MODEL = Registry('Model', extra_field=['is_backbone'])
+
+        >>> @MODEL.registry(force=False, is_backbone=True)
+        ... class ResNet:
+        ...     ...
     """
 
     _globals: Registry | None = None

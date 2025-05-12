@@ -10,7 +10,7 @@ sidebar_position: 3
   - 🅵 [clear\_cache](#🅵-clear_cache) - Remove the cache folder which belongs to current workspace.
   - 🅵 [clear\_all\_cache](#🅵-clear_all_cache) - Remove the whole cache folder.
   - 🅵 [cache\_list](#🅵-cache_list) - Show cache folders.
-  - 🅵 [cache\_dir](#🅵-cache_dir)
+  - 🅵 [cache\_dir](#🅵-cache_dir) - Show current cache folders.
 
 ## Functions
 
@@ -87,4 +87,7 @@ Show cache folders.
 ```python
 @app.command()
 def cache_dir() -> None:
+    print(workspace.cache_dir)
 ```
+
+Show current cache folders.

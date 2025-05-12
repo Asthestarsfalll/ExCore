@@ -173,6 +173,18 @@ to a list of extra values associated with that name \(if any\).
 - **_globals** ([Registry](registry#🅲-registry) | [None](https://docs.python.org/3/library/constants.html#None)): A static variable that stores a global registry
 containing all functions and classes registered using Registry.
 
+**Examples:**
+
+```python
+>>> from excore import Registry
+
+>>> MODEL = Registry('Model', extra_field=['is_backbone'])
+
+>>> @MODEL.registry(force=False, is_backbone=True)
+... class ResNet:
+...     ...
+```
+
 
 ### 🅼 \_\_init\_\_
 

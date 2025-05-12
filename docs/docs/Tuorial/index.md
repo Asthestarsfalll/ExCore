@@ -80,9 +80,4 @@ optimizer = a.optimizer
 
 ## Some defects
 
-1. Too static.
-2. Not fully tested.
-
-## Others
-
-`ExCore` is just a toy now. Dumping data into local is a rough workaround. Build an LSP server may be a more elegant way.
+1. Too static. Dumping data into local is a rough workaround. Building an LSP server may be a more elegant way.
