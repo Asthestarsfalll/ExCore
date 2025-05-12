@@ -59,4 +59,7 @@ def cache_list() -> None:
 
 @app.command()
 def cache_dir() -> None:
+    """
+    Show current cache folders.
+    """
     print(workspace.cache_dir)

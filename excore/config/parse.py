@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from .._exceptions import CoreConfigParseError, EnvVarParseError
 from .._misc import _create_table
 from ..engine import Registry, logger
+from . import models
 from .models import (
     HOOK_FLAGS,
     OTHER_FLAG,
@@ -51,6 +52,22 @@ def _flatten_list(
 
 
 class ConfigDict(dict):
+    """A specialized dictionary used for parsing and managing configuration data.
+        It extends the functionality of the standard Python dictionary to
+        include methods for parsing configuration nodes,
+        handling special parameters, and managing primary and registered fields.
+
+    Attributes
+        primary_fields: A list of primary field names.
+        primary_to_registry: A dictionary mapping primary field names to
+            their corresponding registries.
+        registered_fields: A list of registered field names.
+        all_fields: A set containing all field names.
+        scratchpads_fields: A set containing scratchpad field names.
+        current_field: The current field being processed (can be None).
+        reused_caches: A dictionary for caching reused nodes.
+    """
+
     primary_fields: list
     primary_to_registry: dict[str, str]
     registered_fields: list
@@ -141,6 +158,7 @@ class ConfigDict(dict):
         NOTE: use `export EXCORE_DEBUG=1` to enable excore debug to
             get more information when parsing.
         """
+        models.IS_PARSING = True
         self._parse_primary_modules()
         self._parse_isolated_obj()
         self._parse_inter_modules()

@@ -20,6 +20,20 @@ BASE_CONFIG_KEY = "__base__"
 
 
 def load_config(filename: str, base_key: str = "__base__") -> ConfigDict:
+    """
+    Load a configuration file and merge its base configurations.
+
+    Args:
+        filename (str): The path to the TOML configuration file.
+        base_key (str, optional): The key to identify base configurations.
+            Defaults to "__base__".
+
+    Returns:
+        ConfigDict: The merged configuration dictionary.
+
+    Raises:
+        CoreConfigSupportError: If the file extension is not ".toml".
+    """
     logger.info(f"load_config {filename}")
     ext = os.path.splitext(filename)[-1]
     path = os.path.dirname(filename)
@@ -59,9 +73,9 @@ def load(
 
     Args:
         filename (str): The path to the configuration file to load.
-        dump_path (Optional[str], optional): The path to dump the loaded configuration.
+        dump_path (str, optional): The path to dump the loaded configuration.
             Defaults to None.
-        update_dict (Optional[Dict], optional): A dictionary with values to update in
+        update_dict (dict, optional): A dictionary with values to update in
             the loaded configuration. Defaults to None.
         base_key (str, optional): The base key to use for loading the configuration.
             Defaults to `BASE_CONFIG_KEY`.
@@ -88,6 +102,15 @@ def load(
 
 
 def build_all(cfg: LazyConfig) -> tuple[ModuleWrapper, dict[str, Any]]:
+    """
+    Build all modules from the given LazyConfig object.
+
+    Args:
+        cfg (LazyConfig): The LazyConfig object containing the configuration.
+
+    Returns:
+        tuple: A tuple containing a ModuleWrapper and a dictionary of additional data.
+    """
     st = time.time()
     modules = cfg.build_all()
     logger.success("Modules building costs {:.4f}s!", time.time() - st)

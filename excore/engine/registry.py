@@ -93,12 +93,6 @@ class RegistryMeta(type):
 
 # Maybe someday we can get rid of Registry?
 class Registry(dict, metaclass=RegistryMeta):  # type: ignore
-    _globals: Registry | None = None
-    # just a workaround for twice registry
-    _prevent_register: bool = False
-
-    extra_info: dict[str, str]
-
     """A registry that stores functions and classes by name.
 
     Attributes:
@@ -111,7 +105,20 @@ class Registry(dict, metaclass=RegistryMeta):  # type: ignore
         _globals (Registry|None): A static variable that stores a global registry
             containing all functions and classes registered using Registry.
 
+    Examples:
+        >>> from excore import Registry
+
+        >>> MODEL = Registry('Model', extra_field=['is_backbone'])
+
+        >>> @MODEL.registry(force=False, is_backbone=True)
+        ... class ResNet:
+        ...     ...
     """
+
+    _globals: Registry | None = None
+    # just a workaround for twice registry
+    _prevent_register: bool = False
+    extra_info: dict[str, str]
 
     def __init__(self, /, name: str, *, extra_field: str | Sequence[str] | None = None) -> None:
         super().__init__()

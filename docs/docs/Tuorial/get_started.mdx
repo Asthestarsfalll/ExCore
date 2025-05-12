@@ -1,0 +1,213 @@
+---
+sidebar_position: 1
+title: Get Started
+---
+
+## Installation
+
+```bash
+pip install excore
+```
+or
+
+```bash
+git clone https://github.com/Asthestarsfalll/ExCore
+poetry install
+```
+
+## Terminology
+
+Config System in `ExCore` is designed specifically for deeplearning training (generally refers to all similar part, e.g. testing, evaluating) procedure. _The core premise is to categorize the objects to be created in the config into three classes - `Primary`, `Intermediate`, and `Isolated` objects_
+
+1. `Primary` objects are those which are **directly** used in training, e.g. model, optimizer. `ExCore` will instantiate and return them.
+2. `Intermediate` objects are those which are **indirectly** used in training, e.g. backbone of the model, parameters of model that will pass to optimizer. `ExCore` will instantiate them, and pass them to target `Primary` objects as arguments according some rules.
+3. `Isolated` objects refer to python built-in objects which will be parsed when loading toml, e.g. int, string, list and dict.
+
+So we introduce some terminologies in ExCore:
+1. `PrimaryField`: e.g. Model, TrainData, TestData and so on.
+2. `RegistryName`: The name of a Registry, e.g. Models, Datasets, Losses and so on. It can be the same as `PrimaryField`.
+3. `ModuleName`: All registered items (class, function, module) are called Module. So the name of it is `ModuleName`.
+
+## Use ExCore in your project
+
+To start a excore based project, you need to:
+1. Initialize the workspace.
+2. Register class/function/module used in configuration files.
+3. Define toml configurations.
+
+
+### Initialize workspace
+
+:::info Why we need workspace
+In order to cooperate with the config system, `LazyRegistry` and other generated caches, we need workspace to control the project.
+:::
+
+Assume you have a project with the structure:
+```sh
+├── test.py
+├── train.py
+├── configs/
+# Highlight
+├── src
+# Highlight
+│   ├── __init__.py
+│   ├── datasets/
+│   ├── hooks/
+│   ├── losses/
+│   ├── lr_schedulers/
+│   ├── metrics/
+│   └── models/
+├── pyproject.toml
+├── tests/
+├── tools/
+└── xxx.py
+```
+
+1. Use `excore init` in your command line to initialize your workspace.
+    1. Enter your workspace name(default to current folder name)
+    2. Enter your source code path(`src` in this case, need relative path)
+
+    If you already define `Registry` in your `src/__init__.py`, it will automatically set all the Registry names as `PrimaryField`.
+    Otherwise You can enter the `PrimaryField`, `ExCore` will automatically generate the definition in `src/__init__.py` according to your inputs. The input format see [workspace config fields](#workspace-config-fields).
+2. Edit registries field in `.excore.toml`. Then run `excore update` to generate some fields in config.
+3. Run `excore auto-register` to register all modules in `src`.
+4. **[Optional]** Run `exocre config-extension` to support editing features.
+
+#### Workspace config fields
+
+Workspace config format is like:
+```toml
+name = "xxx"
+src_dir = "xxx"
+registries = [
+  "*Model",
+  "*Data: TrainData, TestData",
+  "*Backbone",
+  "Head",
+  "Hook",
+  "*Loss",
+  "*LRSche",
+  "*Optimizer",
+  "Transform",
+  "module",
+]
+primary_fields = [
+  "Model",
+  "TrainData",
+  "TestData",
+  "Backbone",
+  "Loss",
+  "LRSche",
+  "Optimizer",
+]
+
+[primary_to_registry]
+TrainData = "Data"
+TestData = "Data"
+
+[json_schema_fields]
+Data = ["TrainData", "TestData"]
+isolated_fields = ["Model", "Backbone", "Loss", "LRSche", "Optimizer"]
+```
+
+`*` denotes the name is one of `PrimaryField`. `:` is used to generate `primary_fields`, `primary_to_registry` and `json_schema_fields`.
+
+:::tip
+For example, `*Data: TrainData, TestData` means `RegistryName` Data and two `PrimaryField` TrainData and TestData which are derive from `RegistryName`.
+
+So you Dataset registered in registry `Data` can be instantiated in multiply `PrimaryField`.
+:::
+
+`json_schema_fields` is used for generating json schema.
+
+1. Use `excore init` in your command line to initialize your workspace.
+    1. Enter your workspace name(default to current folder name)
+    2. Enter your source code path(`src` in this case, need relative path)
+
+    If you already define `Registry` in your `src/__init__.py`, it will automatically set all the Registry names as `PrimaryField`. Otherwise You can enter the `PrimaryField`, `ExCore` will automatically generate the definition in `src/__init__.py` according to your inputs.
+2. Edit registries field in `.excore.toml`. Then run `excore update` to generate some fields in config.
+3. Run `excore auto-register` to register all modules in `src`.
+4. **[Optional]** Run `exocre config-extension` to support editing features.
+
+### Register class/function/module
+
+```python
+from excore import Registry
+
+MODEL = Registry('Model', extra_field=['is_backbone'])
+
+@MODEL.registry(force=False, is_backbone=True)
+class ResNet:
+    ...
+```
+
+`RegistryName` is Model in above example.
+
+If you want to register a third-party class/function/module, use
+
+```python
+from excore import Registry
+
+from xxx import models  ## python module
+from xxx.models import ResNet ## python class
+
+MODEL = Registry('Model', extra_field=['is_backbone'])
+
+def match_func(m: str, base_module) -> bool: # optional
+    if not m.startswith("__"):
+        m = getattr(base_module, m)
+        if inspect.isfunction(m) or inspect.isclass(m):
+            return True
+    return False
+
+MODEL.match(modules, match_func)
+
+MODEL.register_module(ResNet, is_backbone=True)
+```
+
+:::tip You can even register a python module
+
+```python
+from excore import Registry
+import torch
+
+MODULE = Registry('Module')
+
+MODULE.register_module(torch)
+```
+Then you can use torch in configurations.
+
+```toml
+[Model.ResNet]
+# ...
+$activation = "torch.nn.ReLU"
+# ...
+```
+:::
+
+### Define Configurations
+
+The definition format is `[PrimaryField.ModuleName]`, for example
+```
+[Model.Resnet]
+in_channels = 3
+# ...
+```
+
+`PrimaryField` is `Model` and `ModuleName` is `Resnet`. After instantiating, you can get module:
+
+```python
+from excore import config
+cfg = config.load('xxxx.toml')
+
+modules, info = cfg.build_all()
+
+model = cfg.Model
+```
+
+For more information and features, see [config system](./config).
+
+
+## Example
+
+See [excore example](https://github.com/Asthestarsfalll/ExCore/tree/main/example).

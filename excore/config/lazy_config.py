@@ -7,6 +7,7 @@ from typing import Any
 from ..engine.hook import ConfigHookManager, Hook
 from ..engine.logging import logger
 from ..engine.registry import Registry
+from . import models
 from .models import ConfigHookNode, InterNode, ModuleWrapper
 from .parse import ConfigDict
 
@@ -80,6 +81,8 @@ class LazyConfig:
         for name in self._config.non_primary_keys():
             isolated_dict[name] = self._config[name]
         self.hooks.call_hooks("after_build", self, module_dict, isolated_dict)
+        models.IS_PARSING = False
+
         return module_dict, isolated_dict
 
     def dump(self, dump_path: str) -> None:

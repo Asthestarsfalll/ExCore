@@ -20,18 +20,27 @@ if TYPE_CHECKING:
 
 
 def _get_info_dict(index: str, config: ConfigDict) -> dict | None:
-    """Gets and removes configuration information from the config dictionary.
+    """Retrieve configuration dictionary based on index.
+
+    This function checks if the index starts with "$", indicating a hierarchical path.
+    If so, it splits the index and traverses the configuration dictionary accordingly.
+    If the index does not start with "$", it directly attempts to retrieve the value
+    from the configuration dictionary.
 
     Args:
-        index: Configuration index string, can be a simple key
-            or a compound key path starting with $.
-        config: Configuration dictionary object.
+        index (str): The index key to retrieve the configuration.
+        config (ConfigDict): The configuration dictionary to search within.
 
     Returns:
-        dict | None: Found configuration info dictionary, or None if not found.
+        dict | None: The retrieved configuration dictionary or None if not found.
 
     Raises:
-        CoreConfigParseError: When using $ syntax but corresponding config is not found.
+        CoreConfigParseError: If the indexed configuration path does not exist.
+
+    Example:
+        >>> config = {"a": {"b": {"c": 42}}}  # Loaded toml config
+        >>> _get_info_dict("$a::b::c", config)
+        42
     """
     if not index.startswith("$"):
         return config.pop(index, None)
@@ -42,13 +51,17 @@ def _get_info_dict(index: str, config: ConfigDict) -> dict | None:
 
 
 def _check_info(info: dict) -> None:
-    """Validates that the configuration info dictionary contains all required keys.
+    """Validate configuration info dictionary.
+
+    This function checks if the info dictionary contains all the expected keys:
+    "$class_mapping", "info", and "args". If any of these keys are missing, it raises
+    a CoreConfigParseError with an appropriate error message.
 
     Args:
-        info: Configuration info dictionary to validate.
+        info (dict): The configuration info dictionary to validate.
 
     Raises:
-        CoreConfigParseError: When required keys are missing.
+        CoreConfigParseError: If any of the expected keys are missing from the info dictionary.
     """
     excepted_keys = ["$class_mapping", "info", "args"]
     for key in excepted_keys:
@@ -57,16 +70,16 @@ def _check_info(info: dict) -> None:
 
 
 def _get_rcv_snd(module: type) -> list[str | list[str]]:
-    """Gets the receive and send parameter configurations for a module.
+    """Retrieve receive and send parameter configurations for a module.
 
     Args:
-        module: Module class to get configurations for.
+        module (type): The module class to get configurations for.
 
     Returns:
-        List containing receive and send parameters [receive, send].
+        list[str | list[str]]: A list containing receive and send parameters [receive, send].
 
     Raises:
-        CoreConfigParseError: When required configuration fields are missing in registry.
+        CoreConfigParseError: If required configuration fields are missing in the registry.
     """
     module_name = module.__name__
     registry_name = Registry.find(module_name)[1]
@@ -80,14 +93,6 @@ def _get_rcv_snd(module: type) -> list[str | list[str]]:
 
 
 def _to_list(item: str | list[str]) -> list[str]:
-    """Converts a string or list of strings to a list of strings.
-
-    Args:
-        item: Input string or list of strings.
-
-    Returns:
-        Converted list of strings.
-    """
     if isinstance(item, str):
         return [item]
     return item
@@ -96,19 +101,20 @@ def _to_list(item: str | list[str]) -> list[str]:
 def _construct_kwargs(
     passby_args: list[ArgType], args: list[ArgType], param_names: list[str], receive: list[str]
 ) -> dict[str, ArgType]:
-    """Constructs keyword arguments needed for module initialization.
+    """Construct keyword arguments for module initialization.
 
     Args:
-        passby_args: List of arguments passed from previous layer.
-        args: List of arguments for current layer.
-        param_names: List of parameter names.
-        receive: List of parameter names to receive.
+        passby_args (list[ArgType]): List of arguments passed from the previous layer.
+        args (list[ArgType]): List of arguments for the current layer.
+        param_names (list[str]): List of parameter names.
+        receive (list[str]): List of parameter names to receive.
 
     Returns:
-        Dictionary of constructed keyword arguments.
+        dict[str, ArgType]: Dictionary of constructed keyword arguments.
 
     Raises:
-        RuntimeError: When argument counts don't match.
+        RuntimeError: If the length of `args` exceeds the length of
+            `param_names` that are not in `receive`.
     """
     kwargs = {n: a for n, a in zip(receive, passby_args)}
     param_names = [i for i in param_names if i not in receive]
@@ -119,14 +125,29 @@ def _construct_kwargs(
 
 
 class FinegrainedConfig(ConfigArgumentHook):
-    """Fine-grained configuration hook for handling parameter passing and hierarchical configuration
+    """Fine-grained configuration hook for handling parameter passing and hierarchical config.
 
     This class implements a configuration system that allows parameter passing between modules
     and supports hierarchical module construction.
 
+    More details can be found in the documentation of the `ConfigArgumentHook` class.
+
+    Args:
+        node (ModuleNode): Module node object.
+        class_mapping (list[type]): List of class mappings.
+        info (list[list[int]]): List of module configuration information.
+            Each element should contain the number and module index in class_mapping.
+        args (list[list[ArgType]]): List of module arguments.
+        unpack (bool, optional): Whether to unpack the layers list when calling container.
+            Defaults to False. If True, layers will be passed as *layers, otherwise as a list.
+        enabled (bool, optional): Whether to enable this hook. Defaults to True.
+
     Attributes:
-        rcv_key: Key name for receiving parameters.
-        snd_key: Key name for sending parameters.
+        rcv_key (str): Key name for receiving parameters.
+        snd_key (str): Key name for sending parameters.
+
+    Examples:
+        >>> # Example can be found in `example/finegrained.py`.
     """
 
     rcv_key: str = "receive"
@@ -141,21 +162,10 @@ class FinegrainedConfig(ConfigArgumentHook):
         unpack: bool = False,
         enabled: bool = True,
     ) -> None:
-        """Initializes the fine-grained configuration hook.
-
-        Args:
-            node: Module node object.
-            class_mapping: List of class mappings.
-            info: List of module configuration information.
-                Each element should contain number and module index in class_mapping.
-            args: List of module arguments.
-            unpack: Whether to unpack the layers list when calling container.
-                If True, layers will be passed as *layers, otherwise as a single list.
-            enabled: Whether to enable this hook.
-        """
+        """Initialize the fine-grained configuration hook."""
         super().__init__(node, enabled)
         self.class_mapping = class_mapping
-        self.param_names = [[p.name for p in ModuleNode._get_params(c)] for c in class_mapping]
+        self.param_names = [[p.name for p in ModuleNode._inspect_params(c)] for c in class_mapping]
         rcv_snd = [_get_rcv_snd(c) for c in class_mapping]
         self.receive = [_to_list(i[0]) for i in rcv_snd]
         self.send = [_to_list(i[1]) for i in rcv_snd]
@@ -164,16 +174,20 @@ class FinegrainedConfig(ConfigArgumentHook):
         self.unpacking = unpack
 
     def hook(self, **kwargs: Any) -> Any:
-        """Executes the configuration hook logic.
+        """Execute the configuration hook logic.
 
-        Builds module hierarchy according to configuration info and handles parameter passing
-        between modules.
+        This method builds the module hierarchy according to the configuration info
+        and handles parameter passing between modules. It checks the compatibility
+        of passby arguments with receive parameters and ensures that the lengths
+        of receive and send parameters match between consecutive modules. It then
+        constructs the keyword arguments for module initialization, creates the
+        module instances, and returns the built module container.
 
         Args:
             **kwargs: Additional keyword arguments.
 
         Returns:
-            Built module container.
+            Any: Built module container.
 
         Raises:
             RuntimeError: When parameter passing is incompatible.
@@ -208,18 +222,18 @@ class FinegrainedConfig(ConfigArgumentHook):
 
     @classmethod
     def __excore_prepare__(cls, node: ConfigNode, hook_info: str, config: ConfigDict) -> ConfigNode:
-        """Prepares the configuration node.
+        """Prepare the configuration node.
 
         Args:
-            node: Configuration node.
-            hook_info: Hook information string.
-            config: Configuration dictionary.
+            node (ConfigNode): Configuration node.
+            hook_info (str): Hook information string.
+            config (ConfigDict): Configuration dictionary.
 
         Returns:
-            Processed configuration node.
+            ConfigNode: Processed configuration node.
 
         Raises:
-            CoreConfigParseError: When configuration parsing fails.
+            CoreConfigParseError: When no hook_info is found.
         """
         if not (info := _get_info_dict(hook_info, config)):
             raise CoreConfigParseError()
@@ -230,18 +244,30 @@ class FinegrainedConfig(ConfigArgumentHook):
 
 
 def enable_finegrained_config(
-    rcv_key: str = "receive", snd_key: str = "send", strict: bool = False
+    hook_flag: str = "*",
+    rcv_key: str = "receive",
+    snd_key: str = "send",
+    force: bool = False,
 ) -> None:
-    """Enables fine-grained configuration functionality.
+    """Enable fine-grained configuration functionality.
+
+    This function registers FinegrainedConfig as a global argument hook and sets the
+    receive and send key names for the configuration. It also allows for specifying
+    a hook flag and enabling force registration.
 
     Args:
-        rcv_key: Key name for receiving parameters.
-        snd_key: Key name for sending parameters.
-        strict: Whether to enable strict mode.
+        hook_flag (str, optional): The hook flag to use for registration. Defaults to '*'.
+        rcv_key (str, optional): Key name for receiving parameters. Defaults to "receive".
+        snd_key (str, optional): Key name for sending parameters. Defaults to "send".
+        force (bool, optional): Whether to force the registration of the hook. Defaults to False.
 
     Note:
-        This function registers FinegrainedConfig as a global argument hook.
+        This function registers `FinegrainedConfig` as a global argument hook.
+
+    Example:
+        >>> from excore.plugins.finegrained_config import enable_finegrained_config
+        >>> enable_finegrained_config()
     """
-    register_argument_hook("*", FinegrainedConfig)
+    register_argument_hook(hook_flag, FinegrainedConfig, force)
     FinegrainedConfig.rcv_key = rcv_key
     FinegrainedConfig.snd_key = snd_key

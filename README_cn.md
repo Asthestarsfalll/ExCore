@@ -8,6 +8,10 @@
 
 `ExCore` 仍在实验阶段。
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/Asthestarsfalll/ExCore)
+
+[文档](https://excore.onism.space/)
+
 [English](./README.md) | 中文
 
 ## 特性
@@ -22,6 +26,12 @@
 
 `ExCore` 扩展了 toml 文件的语法，引入了一些特殊的前缀字符 —— `!`, `@`, `$` 和 '&' 以简化配置文件的定义过程.
 
+我们在ExCore中引入了一些术语：
+
+1. `PrimaryField`（主字段）：例如 Model、TrainData、TestData 等核心字段。
+2. `RegistryName`（注册表名称）：注册表的名称，例如Models、Datasets、Losses等。它可以与`PrimaryField`相同。
+3. `ModuleName`（模块名称）：所有已注册项（类、函数、模块）都称为Module（模块），其名称即为`ModuleName`。
+
 本配置系统有以下特性
 
 <details>
@@ -34,7 +44,7 @@ Model:
   num_classes: 1
 ```
 
-为了摆脱`type`, `ExCore` 将所有注册的名称都视为 `保留字`. `主要` 模块需要定义为 `[PrimaryFields.ModuleName]`. `PrimaryFields` 是一些预先定义的字段, 如 `Model`, `Optimizer`. `ModuleName` 即为注册的名称。
+为了摆脱`type`, `ExCore` 将所有注册的名称都视为 `保留字`. `主要` 模块需要定义为 `[PrimaryField.ModuleName]`. `PrimaryField` 是一些预先定义的字段, 如 `Model`, `Optimizer`. `ModuleName` 即为注册的名称。
 
 ```toml
 [Model.FCN]
@@ -72,7 +82,7 @@ mode = 'train'
 # 使用 `!` 表示这是一个需要实例化的模块。规范来说应该使用引号包裹"!transforms"，但是无所谓
 !transforms = ["ResizeStepScale", "RandomPaddingCrop", "Normalize"]
 
-# 中间对象的`PrimaryFields` 可以被省略
+# 中间对象的`PrimaryField` 可以被省略
 [ResizeStepScale]
 min_scale_factor = 0.5
 max_scale_factor = 2.0
@@ -168,7 +178,7 @@ from xxx import ResNet, BasicBlock
 ResNet(block=BasicBlock, layers=50, in_channel=3)
 ```
 
-为了跨文件引用模块，`$` 可以用于 `PrimaryFields` 之前，例如：
+为了跨文件引用模块，`$` 可以用于 `PrimaryField` 之前，例如：
 
 文件 A:
 
@@ -381,7 +391,7 @@ module_dict, run_info = config.build_all(layz_cfg)
 ```python
 from excore import config
 layz_cfg = config.load('xxx.toml')
-model = layz_cfg.Model() # Model是`PrimaryFields`之一
+model = layz_cfg.Model() # Model是`PrimaryField`之一
 # 或者
 model = layz_cfg['Model']()
 ```

@@ -25,11 +25,17 @@ Config System in `ExCore` is designed specifically for deeplearning training (ge
 
 `ExCore` extends the syntax of toml file, introducing some special prefix characters -- `!`, `@`, `$` and '&' to simplify the config definition.
 
+So we introduce some terminologies in ExCore:
+
+1. `PrimaryField`: e.g. Model, TrainData, TestData and so on.
+2. `RegistryName`: The name of a Registry, e.g. Models, Datasets, Losses and so on. It can be the same as `PrimaryField`.
+3. `ModuleName`: All registered items (class, function, module) are called Module. So the name of it is `ModuleName`.
+
 ## Features
 
 ### Get rid of `type`
 
-In order to get rid of `type`, `ExCore` regards all registered names as `reserved words`. The `Primary` module need to be defined like `[PrimaryFields.ModuleName]`. `PrimaryFields` are some pre-defined fields, e.g. `Model`, `Optimizer`. `ModuleName` are registered names.
+In order to get rid of `type`, `ExCore` regards all registered names as `reserved words`. The `Primary` module need to be defined like `[PrimaryField.ModuleName]`. `PrimaryField` are some pre-defined fields, e.g. `Model`, `Optimizer`. `ModuleName` are registered names.
 
 <Tabs groupId="config">
 <TabItem value="toml" >
@@ -70,13 +76,13 @@ mode = 'train'
 # Error
 !transforms = ["ResizeStepScale", "RandomPaddingCrop", "Normalize"]
 
-# `PrimaryFields` can be omitted in definition of `Intermediate` module
+# `PrimaryField` can be omitted in definition of `Intermediate` module
 [ResizeStepScale]
 min_scale_factor = 0.5
 max_scale_factor = 2.0
 scale_step_size = 0.25
 
-# or explicitly specify ``PrimaryFields
+# or explicitly specify `PrimaryField`
 [Transforms.RandomPaddingCrop]
 crop_size = [1024, 512]
 
@@ -197,7 +203,7 @@ ResNet(block=BasicBlock, layers=50, in_channel=3)
 </TabItem>
 </Tabs>
 
-In order to refer module across files, `$` can be used before `PrimaryFields`. For example:
+In order to refer module across files, `$` can be used before `PrimaryField`. For example:
 
 File A:
 
@@ -412,7 +418,7 @@ If you only want to use a certain module.
 ```python
 from excore import config
 layz_cfg = config.load('xxx.toml')
-model = lazy_cfg.Model() # Model is one of `PrimaryFields`
+model = lazy_cfg.Model() # Model is one of `PrimaryField`
 # or
 model = layz_cfg['Model']()
 ```

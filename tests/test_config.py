@@ -15,6 +15,7 @@ from excore._exceptions import (
     ModuleBuildError,
     ModuleValidateError,
 )
+from excore.config import models
 from excore.config.models import ModuleNode, ReusedNode
 from excore.engine import logger
 
@@ -40,7 +41,7 @@ class TestConfig:
         shuffle_fields()
         cfg = config.load(path, parse_config=False)
         cfg._config = shuffle_dict(cfg._config)
-        logger.ex(cfg)
+        logger.ex(str(cfg))
         modules, info = config.build_all(cfg)
         if check:
             self.check_info(info)
@@ -144,8 +145,12 @@ class TestConfig:
 
     def test_no_call_with_reused_node(self):
         modules, _ = self._load("./configs/launch/test_no_call_reused.toml", False)
+        assert not models.IS_PARSING
+        from source_code.models.nets import TestClass
+
         assert isinstance(modules.Backbone.x, ReusedNode)
         assert id(modules.Backbone.x) == id(modules.Model)
+        assert isinstance(modules.Backbone.x(), TestClass)
 
     def test_dict_action(self):
         from init import execute

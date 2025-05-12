@@ -32,24 +32,30 @@ const config = {
   i18n: {
     defaultLocale: "en",
     locales: ["zh-Hans", "en"],
+    // localeConfigs: {
+    //   en: {
+    //     label: 'English',
+    //     direction: 'ltr',
+    //   },
+    //   'zh-Hans': {
+    //     label: '简体中文',
+    //     direction: 'ltr',
+    //   },
+    // },
   },
-
   presets: [
     [
-      "classic",
+      "@docusaurus/preset-classic",
+      // "classic"
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
-          sidebarPath: "./sidebars.js",
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
+          // routeBasePath: '/',
+          sidebarPath: require.resolve('./sidebars.js'),
+          path: 'docs',
         },
         blog: {
           showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
           editUrl:
             "https://github.com/facebook/docusaurus/tree/main/packages/create-docusaurus/templates/shared/",
         },
@@ -63,8 +69,6 @@ const config = {
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
     ({
-      // Replace with your project's social card
-      // image: "./img/docusaurus-social-card.jpg",
       navbar: {
         title: "ExCore",
         logo: {
@@ -79,9 +83,19 @@ const config = {
             type: "docSidebar",
             sidebarId: "tutorialSidebar",
             position: "left",
-            label: "Docs",
+            label: "Tuorial",
+          },
+          {
+            sidebarId: "Documentation",
+            position: "left",
+            label: "API Reference",
+            to: "docs/API/"
           },
           { to: "/blog", label: "Blog", position: "left" },
+          {
+            type: 'localeDropdown',
+            position: 'right',
+          },
           {
             href: "https://github.com/Asthestarsfalll/ExCore",
             label: "GitHub",
@@ -121,6 +135,8 @@ const config = {
         ],
       },
     }),
+
+
 };
 
 export default config;
