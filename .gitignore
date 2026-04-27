@@ -143,4 +143,5 @@ log
 __test_files__
 
 *.lock
+!uv.lock
 *.log

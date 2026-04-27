@@ -14,39 +14,36 @@ jobs:
         python-version: [3.8, 3.9, '3.10']
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 1
 
       - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Poetry
-        uses: snok/install-poetry@v1
-        with:
-          version: 1.6.1
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
 
       - name: Install Dependencies
-        run: poetry install --with dev
+        run: uv sync --dev
 
       - name: Initialize ExCore
         run: |
           cd ./tests
           export EXCORE_DEBUG=1
-          poetry run python init.py
+          uv run python init.py
 
       - name: Test with pytest
         run: |
           cd ./tests
-          poetry run pytest --cov=../excore
-          poetry run python init.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-          poetry run pytest test_config.py
-
+          uv run pytest --cov=../excore
+          uv run python init.py
+          uv run pytest test_config.py
+          uv run pytest test_config.py
+          uv run pytest test_config.py
+          uv run pytest test_config.py
 
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v3
+        uses: codecov/codecov-action@v4
